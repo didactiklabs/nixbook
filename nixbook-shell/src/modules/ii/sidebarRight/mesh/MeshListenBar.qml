@@ -56,6 +56,7 @@ ColumnLayout {
         case "starting": return Translation.tr("Starting %1…").arg(svc);
         case "matching": return Translation.tr("Looking for it on YouTube Music…");
         case "nomatch": return Translation.tr("Not found on YouTube Music: waiting for the next song");
+        case "unavailable": return Translation.tr("This song doesn't play in your %1 (not available to your account or country): waiting for the next one").arg(svc);
         case "search": return Translation.tr("Spotify can't open YouTube Music songs: pick it in Spotify's search");
         case "noapp": return root.video ? Translation.tr("Set up Jellyfin (Settings > Services > Jellyfin) to watch along")
             : Translation.tr("Install YouTube Music or Spotify to listen along");

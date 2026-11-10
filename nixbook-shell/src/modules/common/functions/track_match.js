@@ -54,7 +54,8 @@ function nearEnd(f) {
 // A new song to follow.
 function fresh() {
     return { openedFor: "", openedAt: 0, opens: 0, syncedTo: "", offSince: 0, endSince: 0, pausedSince: 0,
-        sawPlaying: false, cmdAt: 0, lastPos: 0, lastLen: 0, seekAt: 0, seekRecv: 0, seekedFor: "" }
+        sawPlaying: false, cmdAt: 0, lastPos: 0, lastLen: 0, seekAt: 0, seekRecv: 0, seekedFor: "",
+        tried: [], alt: "", altFor: "" }
 }
 
 // What to do this tick, about the song: { act: "sync" | "open" | "wait" |
@@ -62,7 +63,10 @@ function fresh() {
 // (ms), wantId (the id to open), want (the host's track), cur (the
 // listener's track, null for none) }.
 function followStep(f, x) {
-    if (x.cur && (x.cur.id === x.wantId || sameSong(x.cur, x.want))) {
+    // On it: the host's id, the other version opened in its place (alt:
+    // the host's one wasn't playable here), or the same song by its title.
+    if (x.cur && (x.cur.id === x.wantId || (f.altFor === x.wantId && f.alt && x.cur.id === f.alt)
+            || sameSong(x.cur, x.want))) {
         f.offSince = 0
         f.endSince = 0
         return { act: "sync" }
@@ -84,11 +88,15 @@ function followStep(f, x) {
     if (f.openedFor !== x.wantId) {
         f.openedFor = x.wantId
         f.opens = 0
+        f.tried = []
+        f.alt = ""
+        f.altFor = ""
     }
-    // Once per song; again after 12 s if it didn't take (a slow network, an
-    // app just started: Spotify's first open after it starts doesn't take),
-    // three times at most (never a song restarted every few seconds).
-    if (f.opens === 0 || (x.now - f.openedAt > 12000 && f.opens < 3)) {
+    // Once per song, at the host's position; a second time only if after
+    // 12 s it still isn't on it (YouTube Music: another version of the song,
+    // that one not playable here; Spotify: its first open after it starts
+    // doesn't take), and that's all: never a retry loop.
+    if (f.opens === 0 || (x.now - f.openedAt > 12000 && f.opens < 2)) {
         f.opens++
         f.openedAt = x.now
         f.sawPlaying = false

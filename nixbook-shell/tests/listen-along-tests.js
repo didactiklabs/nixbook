@@ -128,7 +128,7 @@ function tick(f, now, cur, wantId, want) {
   );
   check("opened once", acts.filter((a) => a === "open").length === 1, acts);
 }
-// Something that never takes: three opens at most, 8 s apart.
+// Something that never takes: two opens at most, 12 s apart.
 {
   const f = m.fresh();
   const acts = [];
@@ -136,8 +136,8 @@ function tick(f, now, cur, wantId, want) {
   const opens = acts
     .map((a, i) => (a === "open" ? i : -1))
     .filter((i) => i >= 0);
-  check("reopened three times at most", opens.length === 3, opens);
-  check("8 s apart", opens[1] - opens[0] > 8 && opens[2] - opens[1] > 8, opens);
+  check("opened twice at most: no retry loop", opens.length === 2, opens);
+  check("12 s apart", opens[1] - opens[0] > 12, opens);
 }
 // The song ends here before the host's next one arrives: waits, doesn't leave.
 {
@@ -368,6 +368,54 @@ function seekAt(f, now, pos, target, opts) {
   tick(f, 0, null);
   check("a slow load: not reopened at 9 s", tick(f, 9000, null) === "wait");
   check("reopened after 12 s", tick(f, 12500, null) === "open");
+}
+
+// -- A version not playable here: another one opened instead -----------------
+{
+  const f = m.fresh();
+  const want = {
+    id: "7wZ_bFmEN5Q",
+    title: "Người Lạ Ơi (Solo Version)",
+    artist: "Orange & Superbrothers",
+    length: 224,
+  };
+  const other = {
+    id: "zzzzzzzzzzz",
+    title: "Something Next In The Queue",
+    artist: "Someone",
+  };
+  const step = (now, cur) =>
+    m.followStep(f, { now, wantId: want.id, want, cur }).act;
+  check("opened", step(0, null) === "open");
+  check(
+    "YouTube Music went on with its queue: waits",
+    step(5000, other) === "wait",
+  );
+  check(
+    "then a reopen (the shell asks for another version)",
+    step(12500, other) === "open" && f.opens === 2,
+  );
+  f.alt = "aaaaaaaaaaa";
+  f.altFor = want.id;
+  check(
+    "the other version, whatever its title: synced",
+    step(14000, {
+      id: "aaaaaaaaaaa",
+      title: "NGUOI LA OI",
+      artist: "Orange",
+    }) === "sync",
+  );
+  check(
+    "a new song from the host: tried versions forgotten",
+    m.followStep(f, {
+      now: 20000,
+      wantId: "bbbbbbbbbbb",
+      want: { id: "bbbbbbbbbbb", title: "Next" },
+      cur: null,
+    }).act === "open" &&
+      f.alt === "" &&
+      f.tried.length === 0,
+  );
 }
 
 console.log(`${passed} passed, ${failed} failed`);

@@ -47,8 +47,9 @@ Commands (JSON on stdout; secrets only ever on stdin):
   profile SERVER                your picture for the others (stdin: {path,
                                 force}): see "Profile pictures"
   match                         a song on YouTube Music like a Spotify one
-                                (stdin: {title, artist, album, length}), for
-                                listening together: {videoId, title, …}
+                                (stdin: {title, artist, album, length,
+                                exclude: [videoId…]}), for listening
+                                together: {videoId, title, …}
   invite SERVER NAME            (the server's admin) an account for NAME with
                                 the mesh's topics, and their invite code
   members SERVER | remove SERVER NAME   (the admin) who is in / take one out
@@ -1465,9 +1466,11 @@ def yt_results(query):
     return out
 
 
-def best_match(want, results):
+def best_match(want, results, same_artist=False):
     """The result closest to `want` {title, artist, length}: title words,
-    then artist words, then length (a radio edit isn't the album version)."""
+    then artist words, then length (a radio edit isn't the album version).
+    `same_artist`: only a result sharing an artist word (another version of
+    the song, never someone's cover)."""
     title, artist = _fold(want.get("title")), _fold(want.get("artist"))
     length = float(want.get("length") or 0)
     best, best_score = None, 0.0
@@ -1481,6 +1484,8 @@ def best_match(want, results):
         if length and r["length"]:
             d = max(0.0, 1 - abs(r["length"] - length) / 30)
         score = 0.5 * t + 0.3 * a + 0.2 * d
+        if same_artist and artist and a == 0:
+            continue
         if t >= 0.5 and score > best_score:
             best, best_score = r, score
     return best, best_score
@@ -1493,12 +1498,24 @@ def cmd_match(_args):
         fail("the data isn't JSON")
     if not isinstance(want, dict) or not str(want.get("title") or "").strip():
         fail("no track to look for")
-    query = f"{want.get('artist') or ''} {want.get('title')}".strip()
+    # Another version than those already tried (a listener's YouTube Music
+    # that played something else for them: not available there): by the
+    # same artist, also searched without the title's "(… Version)".
+    exclude = {str(x) for x in want.get("exclude") or [] if isinstance(x, str)}
+    title = str(want.get("title") or "")
+    queries = [f"{want.get('artist') or ''} {title}".strip()]
+    core = re.sub(r"\s*[(\[][^)\]]*[)\]]", "", title).strip()
+    if exclude and core and core != title:
+        queries.append(f"{want.get('artist') or ''} {core}".strip())
+    results = []
     try:
-        results = yt_results(query[:200])
+        for q in queries:
+            results += [r for r in yt_results(q[:200]) if r["videoId"] not in exclude
+                        and r["videoId"] not in {x["videoId"] for x in results}]
     except (urllib.error.URLError, OSError, ValueError) as e:
-        fail(f"YouTube Music can't be searched ({getattr(e, 'reason', e)})")
-    best, score = best_match(want, results)
+        if not results:
+            fail(f"YouTube Music can't be searched ({getattr(e, 'reason', e)})")
+    best, score = best_match(dict(want, title=core) if exclude and core else want, results, same_artist=bool(exclude))
     if not best:
         fail(f"no song like \"{want.get('title')}\" on YouTube Music")
     out({"ok": True, "videoId": best["videoId"], "title": best["title"], "line": best["line"],
