@@ -186,6 +186,35 @@ Item {
                 color: Appearance.m3colors.m3error
             }
         }
+        // A private conversation: sealed for their key alone.
+        StyledText {
+            Layout.fillWidth: true
+            visible: root.conv !== "" && !Mesh.keyChanged(root.conv)
+            wrapMode: Text.Wrap
+            text: Mesh.keys[root.conv]
+                ? Translation.tr("🔒 Only %1 can read these · their key %2").arg(Mesh.nameOf(root.conv)).arg(Mesh.keys[root.conv].fingerprint)
+                : Translation.tr("🔒 Private messages are sealed for %1's key: it comes with their first message or status.").arg(Mesh.nameOf(root.conv))
+            font.pixelSize: Appearance.font.pixelSize.smallest
+            color: Appearance.colors.colSubtext
+        }
+        ColumnLayout {
+            Layout.fillWidth: true
+            visible: root.conv !== "" && Mesh.keyChanged(root.conv)
+            spacing: 4
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                text: Translation.tr("%1's key changed (a new computer, or someone posing as them): private messages from and to them are held back. New key: %2. If you're not sure, ask them.")
+                    .arg(Mesh.nameOf(root.conv)).arg(Mesh.keys[root.conv]?.changed ?? "")
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.m3colors.m3error
+            }
+            RippleButtonWithIcon {
+                materialIcon: "verified_user"
+                mainText: Translation.tr("Trust the new key")
+                onClicked: Mesh.trustKey(root.conv)
+            }
+        }
         StyledText {
             Layout.fillWidth: true
             visible: !Mesh.connected
@@ -253,7 +282,9 @@ Item {
                             text: {
                                 const when = Qt.locale().toString(new Date(row.modelData.time), Config.options?.time.format ?? "hh:mm");
                                 if (!row.mine) return when;
-                                if (row.modelData.status === "failed") return Translation.tr("%1 · not sent, click to retry").arg(when);
+                                if (row.modelData.status === "failed")
+                                    return row.modelData.error ? Translation.tr("%1 · not sent: %2 (click to retry)").arg(when).arg(row.modelData.error)
+                                        : Translation.tr("%1 · not sent, click to retry").arg(when);
                                 if (row.modelData.status === "sending") return Translation.tr("%1 · sending…").arg(when);
                                 const seen = row.modelData.to !== "" && (Mesh.members[row.modelData.to]?.readUpTo ?? 0) >= row.modelData.time;
                                 return seen ? Translation.tr("%1 · seen").arg(when) : when;

@@ -9,8 +9,8 @@ mesh's key, which every member holds and the server never sees: the server
 only relays ciphertext, on a topic whose name is derived from that key. One
 member creates the mesh (`mesh create`) and can show its code again at any
 time (`mesh code`); the others enter it (`mesh join`, the code on stdin).
-Every member holds the key, so a message to one person is hidden from the
-others' screens, not from their key.
+A message to one person is also sealed for that person's own key (see
+"Private messages" below): the other members can't read it.
 
 The server needs an access token per person (`tk_…`). The server's admin
 (an ntfy admin, whose token is set by hand) invites people from their
@@ -33,6 +33,8 @@ Commands (JSON on stdout; secrets only ever on stdin):
   invite SERVER NAME            (the server's admin) an account for NAME with
                                 the mesh's topics, and their invite code
   members SERVER | remove SERVER NAME   (the admin) who is in / take one out
+  keys | keys mine | keys trust MEMBER   the pinned keys / this desktop's /
+                                take a member's new key (private messages)
   accept                        join with an invite code (stdin): this
                                 desktop's own token, and the mesh key
   listen SERVER                 one JSON line per event, until killed:
@@ -44,6 +46,8 @@ Commands (JSON on stdout; secrets only ever on stdin):
 
 import base64
 import binascii
+import contextlib
+import fcntl
 import hashlib
 import json
 import os
@@ -58,7 +62,10 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 SERVICE = "nixbook-mesh"
 VERSION = "m1"
@@ -147,7 +154,7 @@ def file_write(kind, value):
     d = config_dir()
     d.mkdir(parents=True, exist_ok=True)
     os.chmod(d, 0o700)
-    tmp = d / f".{kind}.tmp"
+    tmp = d / f".{kind}.{os.getpid()}.tmp"
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as f:
         f.write(value + "\n")
@@ -246,6 +253,179 @@ def unseal(key, topic, text):
     except Exception:
         return None
     return payload if isinstance(payload, dict) else None
+
+
+# -- Private messages ---------------------------------------------------------------
+#
+# Every member holds the mesh key, so private messages and read receipts are
+# sealed again, for their recipient alone, in envelopes that show nothing of
+# who wrote to whom (see "Sealed envelopes" below). Each desktop has its own
+# X25519 key pair (its private half in the keyring, kind=identity); status
+# updates and messages to everyone carry the sender's public key ("pk"), and
+# each desktop pins the first key it sees for a member (state: keys.json). A
+# member whose key changes (a reinstall, or someone posing as them) is held
+# back until the user trusts the new key (`keys trust`).
+
+
+@contextlib.contextmanager
+def locked(name):
+    """One process at a time (the shell's listener, a send, `keys trust`)."""
+    d = state_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    with open(d / f"{name}.lock", "w") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+
+def load_identity():
+    """This desktop's key pair: (private key, public key bytes). Made on
+    first use, under a lock: the listener and a send starting together must
+    not make two."""
+    with locked("identity"):
+        return _load_identity()
+
+
+def _load_identity():
+    value, _ = secret("identity")
+    raw = None
+    if value:
+        try:
+            raw = base64.b64decode(value, validate=True)
+        except (ValueError, binascii.Error):
+            raw = None
+    if not raw or len(raw) != 32:
+        sk = X25519PrivateKey.generate()
+        raw = sk.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw,
+                               serialization.NoEncryption())
+        save_secret("identity", base64.b64encode(raw).decode(), "nixbook mesh: this desktop's private key")
+    sk = X25519PrivateKey.from_private_bytes(raw)
+    pk = sk.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    return sk, pk
+
+
+def b64(raw):
+    return base64.b64encode(raw).decode()
+
+
+def pk_of(text):
+    try:
+        raw = base64.b64decode(str(text or ""), validate=True)
+    except (ValueError, binascii.Error):
+        return None
+    return raw if len(raw) == 32 else None
+
+
+def fingerprint(pk):
+    h = hashlib.sha256(pk).hexdigest()[:20].upper()
+    return " ".join(h[i:i + 4] for i in range(0, 20, 4))
+
+
+def load_pins():
+    try:
+        pins = json.loads((state_dir() / "keys.json").read_text())
+    except (OSError, ValueError):
+        pins = {}
+    return pins if isinstance(pins, dict) else {}
+
+
+def save_pins(pins):
+    d = state_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    tmp = d / f".keys.{os.getpid()}.tmp"
+    tmp.write_text(json.dumps(pins))
+    os.replace(tmp, d / "keys.json")
+
+
+def pin(member, pk):
+    """Pins `member`'s key the first time; "same", "new" or "changed"."""
+    with locked("keys"):
+        return _pin(member, pk)
+
+
+def _pin(member, pk):
+    pins = load_pins()
+    entry = pins.get(member)
+    if not entry:
+        pins[member] = {"pk": b64(pk), "since": int(time.time())}
+        save_pins(pins)
+        return "new"
+    if entry.get("pk") == b64(pk):
+        return "same"
+    if entry.get("changed") != b64(pk):
+        entry["changed"] = b64(pk)
+        save_pins(pins)
+    return "changed"
+
+
+def pinned(member):
+    entry = load_pins().get(member) or {}
+    return pk_of(entry.get("pk")), bool(entry.get("changed"))
+
+
+def dm_key(sk, my_pk, their_pk):
+    shared = sk.exchange(X25519PublicKey.from_public_bytes(their_pk))
+    a, b = sorted([my_pk, their_pk])
+    return HKDF(algorithm=hashes.SHA256(), length=32, salt=None,
+                info=b"nixbook-mesh dm v1\0" + a + b).derive(shared)
+
+
+# Sealed envelopes. A private message (or read receipt) leaves with nothing
+# on the outside: no sender, no recipient, no time, its length padded. A
+# one-off key pair (`e`) seals one box per reader (the recipient and the
+# sender's own copy, in random order): the box's key comes from X25519(e,
+# reader), so only that reader opens it, and two envelopes can't be linked
+# to the same person. Inside each box: the sender's public key and the
+# message sealed with X25519(sender, reader), which proves who wrote it.
+PAD = 256
+
+
+def _sealed_key(shared, eph_pk, reader_pk):
+    return HKDF(algorithm=hashes.SHA256(), length=32, salt=None,
+                info=b"nixbook-mesh sealed v1\0" + eph_pk + reader_pk).derive(shared)
+
+
+def seal_private(sk, my_pk, readers, inner, topic):
+    eph = X25519PrivateKey.generate()
+    eph_pk = eph.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    aad = topic.encode() + eph_pk
+    plain = json.dumps(inner, ensure_ascii=False, separators=(",", ":")).encode()
+    plain += b" " * (-len(plain) % PAD)
+    boxes = []
+    for reader_pk in readers:
+        n1 = secrets.token_bytes(12)
+        inside = AESGCM(dm_key(sk, my_pk, reader_pk)).encrypt(n1, plain, aad)
+        wrapper = json.dumps({"s": b64(my_pk), "c": b64(n1 + inside)}).encode()
+        key = _sealed_key(eph.exchange(X25519PublicKey.from_public_bytes(reader_pk)), eph_pk, reader_pk)
+        n2 = secrets.token_bytes(12)
+        boxes.append(b64(n2 + AESGCM(key).encrypt(n2, wrapper, aad)))
+    secrets.SystemRandom().shuffle(boxes)
+    return {"kind": "sealed", "e": b64(eph_pk), "b": boxes}
+
+
+def open_private(sk, my_pk, outer, topic):
+    """(inner, sender's public key) if a box is for this desktop, else
+    (None, None)."""
+    eph_pk = pk_of(outer.get("e"))
+    boxes = outer.get("b")
+    if not eph_pk or not isinstance(boxes, list):
+        return None, None
+    aad = topic.encode() + eph_pk
+    key = _sealed_key(sk.exchange(X25519PublicKey.from_public_bytes(eph_pk)), eph_pk, my_pk)
+    for text in boxes[:4]:
+        try:
+            raw = base64.b64decode(str(text), validate=True)
+            wrapper = json.loads(AESGCM(key).decrypt(raw[:12], raw[12:], aad))
+            sender_pk = pk_of(wrapper.get("s"))
+            inside = base64.b64decode(str(wrapper.get("c")), validate=True)
+            inner = json.loads(AESGCM(dm_key(sk, my_pk, sender_pk)).decrypt(inside[:12], inside[12:], aad))
+        except Exception:
+            continue
+        if isinstance(inner, dict) and sender_pk:
+            return inner, sender_pk
+    return None, None
 
 
 # -- The server ----------------------------------------------------------------------
@@ -566,15 +746,30 @@ def cmd_send(args):
     topic = topic_of(key)
     mid = str(data.pop("mid", "") or secrets.token_hex(8))
     name = str(data.pop("name", "") or "")[:64]
-    payload = {"kind": kind, "from": me(), "name": name, "to": to, "time": int(time.time()),
-               "mid": mid, "data": data}
+    sk, my_pk = load_identity()
+    myself = me()
+    now = int(time.time())
+    if to and kind in ("message", "read"):
+        # Sealed: for the recipient's key alone (and the sender's own copy).
+        their_pk, changed = (my_pk, False) if to == myself else pinned(to)
+        if not their_pk:
+            fail(f"{to}'s desktop hasn't been seen yet, so there is no key to write to them privately: "
+                 "they need to come online once")
+        if changed:
+            fail(f"{to}'s key changed: check it in the Mesh tab (Trust the new key) before writing privately")
+        inner = {"kind": kind, "from": myself, "name": name, "to": to, "time": now, "mid": mid, "data": data}
+        readers = [their_pk] if to == myself else [their_pk, my_pk]
+        payload = seal_private(sk, my_pk, readers, inner, topic)
+    else:
+        payload = {"kind": kind, "from": myself, "name": name, "to": to, "time": now,
+                   "mid": mid, "pk": b64(my_pk), "data": data}
     body = seal(key, topic, payload).encode()
     try:
         with request(f"{server}/{topic}", token, data=body, method="POST") as r:
             answer = json.load(r)
     except (urllib.error.URLError, OSError, ValueError) as e:
         fail(http_error(e))
-    out({"ok": True, "id": answer.get("id"), "mid": mid, "time": payload["time"]})
+    out({"ok": True, "id": answer.get("id"), "mid": mid, "time": now})
 
 
 SEEN_KEEP = 300
@@ -594,9 +789,97 @@ def read_position():
 def write_position(cursor, seen):
     d = state_dir()
     d.mkdir(parents=True, exist_ok=True)
-    tmp = d / ".position.tmp"
+    tmp = d / f".position.{os.getpid()}.tmp"
     tmp.write_text(json.dumps({"cursor": cursor, "seen": seen[-SEEN_KEEP:]}))
     os.replace(tmp, d / "position.json")
+
+
+def note_key(member, pk, myself, told):
+    """Pins a member's key; True when it is the one known (or the first)."""
+    state = pin(member, pk)
+    if state == "changed" and (member, b64(pk)) not in told:
+        told.add((member, b64(pk)))
+        out({"event": "keychange", "member": member, "fingerprint": fingerprint(pk), "mine": member == myself})
+    return state in ("new", "same")
+
+
+def receive(payload, topic, sk, my_pk, myself, told):
+    """What one decrypted payload becomes for the shell (None: nothing).
+    Pins the sender's key, opens sealed envelopes meant for this desktop."""
+    if payload.get("kind") == "sealed":
+        inner, sender_pk = open_private(sk, my_pk, payload, topic)
+        if inner is None:
+            # Someone else's private message: not even who it's for.
+            return None
+        sender = str(inner.get("from") or "")
+        to = str(inner.get("to") or "")
+        if inner.get("kind") not in ("message", "read") or not MEMBER_RE.match(sender) \
+                or not MEMBER_RE.match(to) or myself not in (sender, to):
+            return None
+        if sender == myself:
+            # Our own copy: sealed with our own key, or someone posing as us.
+            if sender_pk != my_pk:
+                note_key(myself, sender_pk, myself, told)
+                return None
+        elif not note_key(sender, sender_pk, myself, told):
+            out({"event": "error", "error": f"a private message from {sender} was held back: its key isn't "
+                                             "the one known for them (Trust the new key in the Mesh tab)"})
+            return None
+        data = inner.get("data") if isinstance(inner.get("data"), dict) else {}
+        event = {"kind": inner["kind"], "from": sender, "name": str(inner.get("name") or "")[:64], "to": to,
+                 "time": inner.get("time"), "mid": str(inner.get("mid") or ""), "data": data,
+                 "private": True, "event": "message", "mine": sender == myself}
+        return event
+    sender = str(payload.get("from") or "")
+    kind = payload.get("kind")
+    if kind not in KINDS or not MEMBER_RE.match(sender):
+        return None
+    sender_pk = pk_of(payload.get("pk"))
+    if sender_pk:
+        note_key(sender, sender_pk, myself, told)
+    if kind == "presence" and time.time() - float(payload.get("time") or 0) > STALE_PRESENCE:
+        # Catching up: an old status says nothing about now (members count as
+        # offline after 25 min), and months of them would only flood the shell.
+        return None
+    if payload.get("to"):
+        # Private messages and receipts only travel sealed: an open one is a
+        # forgery or an old client.
+        return None
+    payload.pop("pk", None)
+    payload["event"] = "message"
+    payload["mine"] = sender == myself
+    return payload
+
+
+def cmd_keys(args):
+    """keys: the pinned keys; keys mine: this desktop's; keys trust MEMBER:
+    take a member's new key."""
+    what = args[0] if args else ""
+    if what == "mine":
+        _, pk = load_identity()
+        out({"ok": True, "fingerprint": fingerprint(pk)})
+        return
+    if what == "trust":
+        member = args[1] if len(args) > 1 else ""
+        with locked("keys"):
+            pins = load_pins()
+            entry = pins.get(member)
+            if not entry or not entry.get("changed"):
+                fail(f"no new key to trust for {member}")
+            entry["pk"] = entry.pop("changed")
+            entry["since"] = int(time.time())
+            save_pins(pins)
+        out({"ok": True, "member": member, "fingerprint": fingerprint(pk_of(entry["pk"]))})
+        return
+    members = {}
+    for member, entry in load_pins().items():
+        pk = pk_of(entry.get("pk"))
+        if not pk:
+            continue
+        changed = pk_of(entry.get("changed"))
+        members[member] = {"fingerprint": fingerprint(pk),
+                           "changed": fingerprint(changed) if changed else None}
+    out({"ok": True, "members": members})
 
 
 def cmd_listen(args):
@@ -605,6 +888,9 @@ def cmd_listen(args):
     key = key_or_fail()
     topic = topic_of(key)
     myself = me()
+    sk, my_pk = load_identity()
+    pin(myself, my_pk)
+    told = set()
     delay = 2
     warned = False
     cursor, seen = read_position()
@@ -634,21 +920,11 @@ def cmd_listen(args):
                             out({"event": "error",
                                  "error": "a message couldn't be read: was the mesh code changed?"})
                             warned = True
-                    elif payload.get("kind") == "presence" and time.time() - float(payload.get("time") or 0) > STALE_PRESENCE:
-                        # Catching up: an old status says nothing about now
-                        # (members count as offline after 25 min), and months
-                        # of them would only flood the shell.
-                        pass
-                    elif payload.get("kind") in KINDS and MEMBER_RE.match(str(payload.get("from") or "")):
-                        to = str(payload.get("to") or "")
-                        # Someone else's private message: not for this screen.
-                        if to and to != myself and payload["from"] != myself:
-                            pass
-                        else:
-                            payload["event"] = "message"
-                            payload["mine"] = payload["from"] == myself
-                            payload["id"] = msg.get("id")
-                            out(payload)
+                    else:
+                        event = receive(payload, topic, sk, my_pk, myself, told)
+                        if event:
+                            event["id"] = msg.get("id")
+                            out(event)
                     if mid:
                         cursor = mid
                         seen.append(mid)
@@ -681,10 +957,11 @@ def main():
         "members": cmd_members,
         "remove": cmd_remove,
         "accept": cmd_accept,
+        "keys": cmd_keys,
     }
     command = commands.get(args[0]) if args else None
     if not command:
-        fail("usage: nixbook-mesh status|token|mesh|test|send|listen|invite|members|remove|accept")
+        fail("usage: nixbook-mesh status|token|mesh|test|send|listen|invite|members|remove|accept|keys")
     try:
         command(args[1:])
     except KeyboardInterrupt:

@@ -991,6 +991,13 @@ ContentPage {
             }
             StyledText {
                 Layout.fillWidth: true
+                visible: Mesh.myFingerprint !== "" && !!Mesh.setup.joined
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("This desktop's key (private messages are sealed for it): %1. The others see it in your private conversation; compare it to be sure no one poses as you.").arg(Mesh.myFingerprint)
+            }
+            StyledText {
+                Layout.fillWidth: true
                 visible: meshSection.status !== ""
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext

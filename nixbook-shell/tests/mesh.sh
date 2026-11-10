@@ -134,9 +134,18 @@ if grep -q "403" <<<"$(field .error "$r")"; then pass "test: says it's the ACL (
 
 # -- Talking ---------------------------------------------------------------------
 
+declare -A listener
 listen() {
   mesh "$1" listen "$server" >>"$tmp/$1.events" 2>>"$tmp/$1.err" &
   pids+=($!)
+  listener[$1]=$!
+}
+# mesh_as DIR ME ARGS... : with DIR's files and keys, claiming to be ME.
+mesh_as() {
+  local d="$1" who="$2"
+  shift 2
+  XDG_CONFIG_HOME="$tmp/$d/config" XDG_STATE_HOME="$tmp/$d/state" NIXBOOK_MESH_STORE=file \
+    NIXBOOK_MESH_ME="$who" "$py" -P "$script" "$@"
 }
 listen bob
 listen carol
@@ -145,9 +154,24 @@ for _ in $(seq 50); do
   sleep 0.2
 done
 
+r=$(mesh alice send "$server" message <<<'{"text": "privately, before knowing carol", "to": "carol"}' || true)
+if grep -q "hasn't been seen" <<<"$(field .error "$r")"; then pass "no private message before the recipient's key is known"; else fail "no private message before the recipient's key is known" "$r"; fi
+# Alice's desktop listens (and so learns keys); carol comes online.
+listen alice
+for _ in $(seq 50); do
+  grep -q '"connected": true' "$tmp/alice.events" 2>/dev/null && break
+  sleep 0.2
+done
+mesh carol send "$server" presence <<<'{"state": "free", "name": "Carol"}' >/dev/null
+for _ in $(seq 50); do
+  [ "$(mesh alice keys | jq -r '.members.carol.fingerprint // empty')" != "" ] && break
+  sleep 0.2
+done
+
 r=$(mesh alice send "$server" message <<<'{"text": "hello everyone", "name": "Alice"}')
 expect "alice sends to everyone" true "$(field .ok "$r")"
-mesh alice send "$server" message <<<'{"text": "just for carol", "to": "carol", "name": "Alice"}' >/dev/null
+r=$(mesh alice send "$server" message <<<'{"text": "just for carol", "to": "carol", "name": "Alice"}')
+expect "alice writes privately to carol, once her key is known" true "$(field .ok "$r")"
 mesh alice send "$server" presence <<<'{"state": "meeting", "name": "Alice"}' >/dev/null
 r=$(mesh alice send "$server" message <<<'{"text": "   "}' || true)
 expect "an empty message is refused" false "$(field .ok "$r")"
@@ -164,11 +188,56 @@ carol=$(grep '"event": "message"' "$tmp/carol.events" || true)
 if grep -q '"hello everyone"' <<<"$bob"; then pass "bob gets the message to everyone"; else fail "bob gets the message to everyone" "$bob"; fi
 if grep -q 'just for carol' <<<"$bob"; then fail "bob doesn't get carol's private message" "$bob"; else pass "bob doesn't get carol's private message"; fi
 if grep -q 'just for carol' <<<"$carol"; then pass "carol gets her private message"; else fail "carol gets her private message" "$carol"; fi
+expect "carol's private message is marked private" true "$(field .private "$(grep 'just for carol' <<<"$carol" | head -1)")"
+for _ in $(seq 50); do
+  grep -q 'just for carol' "$tmp/alice.events" && break
+  sleep 0.2
+done
+if grep -q 'just for carol' "$tmp/alice.events"; then pass "alice reads her own copy"; else fail "alice reads her own copy" "$(cat "$tmp/alice.events")"; fi
+
+# Bob holds the mesh key: he opens the mesh's layer, and finds sealed
+# envelopes that say nothing (no names, no text) and that he can't open.
+bob_try=$(
+  "$py" -P - "$script" "$tmp/bob" "$server" "${token[bob]}" <<'PY'
+import importlib.machinery, json, os, sys, urllib.request
+os.environ.update(XDG_CONFIG_HOME=f"{sys.argv[2]}/config", XDG_STATE_HOME=f"{sys.argv[2]}/state", NIXBOOK_MESH_STORE="file")
+mesh = importlib.machinery.SourceFileLoader("mesh", sys.argv[1]).load_module()
+key, _ = mesh.load_key()
+topic = mesh.topic_of(key)
+req = urllib.request.Request(f"{sys.argv[3]}/{topic}/json?poll=1&since=all", headers={"Authorization": f"Bearer {sys.argv[4]}"})
+sk, pk = mesh.load_identity()
+sealed, telling, opened = 0, 0, 0
+for line in urllib.request.urlopen(req).read().decode().splitlines():
+    p = mesh.unseal(key, topic, json.loads(line).get("message") or "")
+    if not p or p.get("kind") != "sealed":
+        continue
+    sealed += 1
+    outer = json.dumps(p)
+    telling += any(w in outer for w in ("alice", "carol", "just for carol", '"to"', '"from"', '"mid"', '"time"'))
+    opened += mesh.open_private(sk, pk, p, topic)[0] is not None
+print(json.dumps({"sealed": sealed, "telling": telling, "opened": opened}))
+PY
+)
+if [ "$(field .sealed "$bob_try")" -ge 1 ]; then pass "private messages travel sealed"; else fail "private messages travel sealed" "$bob_try"; fi
+expect "a sealed envelope shows no names, text, ids or times" 0 "$(field .telling "$bob_try")"
+expect "bob, with the mesh key, opens none of them" 0 "$(field .opened "$bob_try")"
+
+# A read receipt is sealed too: alice gets it, bob sees nothing.
+r=$(mesh carol send "$server" read <<<'{"to": "alice", "upTo": 1234}')
+expect "carol sends alice a read receipt" true "$(field .ok "$r")"
+for _ in $(seq 50); do
+  grep -q '"kind": "read"' "$tmp/alice.events" && break
+  sleep 0.2
+done
+receipt=$(grep '"kind": "read"' "$tmp/alice.events" | head -1)
+expect "alice gets it, from carol" "carol 1234" "$(field .from "$receipt") $(field .data.upTo "$receipt")"
+if grep -q '"kind": "read"' "$tmp/bob.events"; then fail "bob doesn't see it" "$(cat "$tmp/bob.events")"; else pass "bob doesn't see it"; fi
+
 msg=$(grep '"hello everyone"' <<<"$bob" | head -1)
 expect "the sender is alice" alice "$(field .from "$msg")"
 expect "with her name" Alice "$(field .name "$msg")"
 expect "not marked as bob's own" false "$(field .mine "$msg")"
-pres=$(grep '"presence"' <<<"$bob" | head -1)
+pres=$(grep '"presence"' <<<"$bob" | grep '"from": "alice"' | head -1)
 expect "bob sees alice's status" meeting "$(field .data.state "$pres")"
 
 # On the server: ciphertext only.
@@ -186,7 +255,7 @@ else
 fi
 
 # Resuming: a restarted listener doesn't get the same messages again.
-kill "${pids[-1]}" "${pids[-2]}" 2>/dev/null || true
+kill "${listener[bob]}" 2>/dev/null || true
 sleep 0.3
 : >"$tmp/bob.events"
 listen bob
@@ -233,6 +302,52 @@ for _ in $(seq 50); do
 done
 if grep -q '"hello everyone"' "$tmp/erin.events"; then pass "a desktop joining late gets the conversation so far"; else fail "a desktop joining late gets the conversation so far" "$(cat "$tmp/erin.events")"; fi
 if grep -q 'just for carol' "$tmp/erin.events"; then fail "but not others' private messages"; else pass "but not others' private messages"; fi
+
+# A desktop's key is made once, even by processes starting together.
+for i in 1 2 3 4 5; do mesh fern keys mine >"$tmp/fern.$i" & done
+wait "${!}" 2>/dev/null || true
+sleep 1
+expect "processes starting together make one key" 1 "$(cat "$tmp"/fern.[1-5] | jq -r .fingerprint | sort -u | wc -l)"
+
+# A new key for a member (erin reinstalls): held back until trusted.
+mesh erin send "$server" presence <<<'{"state": "free"}' >/dev/null
+for _ in $(seq 50); do
+  [ "$(mesh alice keys | jq -r '.members.erin.fingerprint // empty')" != "" ] && break
+  sleep 0.2
+done
+# The reinstall: a new desktop key and no pinned keys, the token and the
+# mesh key kept (as if restored), listening again.
+kill "${listener[erin]}" 2>/dev/null || true
+rm -f "$tmp/erin/config/nixbook-shell/mesh/identity" "$tmp/erin/state/nixbook-shell/mesh/keys.json"
+listen erin
+mesh erin send "$server" presence <<<'{"state": "free"}' >/dev/null
+for _ in $(seq 50); do
+  grep -q '"keychange"' "$tmp/alice.events" && break
+  sleep 0.2
+done
+if grep -q '"member": "erin"' <<<"$(grep '"keychange"' "$tmp/alice.events")"; then pass "a member's new key is noticed"; else fail "a member's new key is noticed" "$(cat "$tmp/alice.events")"; fi
+r=$(mesh alice send "$server" message <<<'{"text": "for the new erin", "to": "erin"}' || true)
+expect "no private message to a changed key before it is trusted" false "$(field .ok "$r")"
+r=$(mesh alice keys trust erin)
+expect "the new key can be trusted" true "$(field .ok "$r")"
+r=$(mesh alice send "$server" message <<<'{"text": "for the new erin", "to": "erin"}')
+expect "then the private message goes" true "$(field .ok "$r")"
+for _ in $(seq 50); do
+  grep -q 'for the new erin' "$tmp/erin.events" && break
+  sleep 0.2
+done
+if grep -q 'for the new erin' "$tmp/erin.events"; then pass "and the new erin reads it"; else fail "and the new erin reads it" "$(cat "$tmp/erin.events")"; fi
+
+# Bob poses as alice (his own key, alice's name) to write to carol privately:
+# carol's desktop knows alice's key, so it holds the message back.
+r=$(mesh_as bob alice send "$server" message <<<'{"text": "forged, as alice", "to": "carol"}')
+expect "(bob's desktop sends the forgery)" true "$(field .ok "$r")"
+for _ in $(seq 50); do
+  grep -q 'held back' "$tmp/carol.events" && break
+  sleep 0.2
+done
+if grep -q 'forged, as alice' "$tmp/carol.events"; then fail "a forged private message isn't shown" "$(cat "$tmp/carol.events")"; else pass "a forged private message isn't shown"; fi
+if grep -q 'held back' "$tmp/carol.events"; then pass "and carol is told it was held back"; else fail "and carol is told it was held back" "$(cat "$tmp/carol.events")"; fi
 
 # A desktop with another mesh's key hears nothing of this one.
 mesh carol mesh create >/dev/null

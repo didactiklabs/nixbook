@@ -48,6 +48,30 @@ Singleton {
     readonly property bool isAdmin: root.account.role === "admin"
     // The admin's view of who is in: [{ name, role }].
     property var people: []
+    // Private messages are sealed for each member's own key: the keys this
+    // desktop pinned ({ id: { fingerprint, changed } }, `nixbook-mesh keys`)
+    // and its own fingerprint.
+    property var keys: ({})
+    property string myFingerprint: ""
+    function keyChanged(id) {
+        return !!(root.keys[id]?.changed);
+    }
+    function refreshKeys() {
+        root.run(["keys"], "", (ok, answer) => {
+            if (ok) root.keys = answer.members ?? {};
+        });
+        root.run(["keys", "mine"], "", (ok, answer) => {
+            if (ok) root.myFingerprint = answer.fingerprint ?? "";
+        });
+    }
+    // A member's new key (a new computer): private messages from and to them
+    // go again. Only the user decides this.
+    function trustKey(id, then) {
+        root.run(["keys", "trust", id], "", (ok, answer) => {
+            root.refreshKeys();
+            if (then) then(ok, answer);
+        });
+    }
 
     // Everyone seen: { id: { id, name, state, seen (ms), readUpTo (ms) } }.
     property var members: ({})
@@ -193,12 +217,12 @@ Singleton {
         for (let i = 0; i < 16; i++) s += Math.floor(Math.random() * 16).toString(16);
         return s;
     }
-    function _setStatus(mid, status) {
+    function _setStatus(mid, status, error) {
         let changed = false;
         const list = root.messages.map(m => {
-            if (m.mid !== mid || m.status === status) return m;
+            if (m.mid !== mid || (m.status === status && (m.error ?? "") === (error ?? ""))) return m;
             changed = true;
-            return Object.assign({}, m, { status: status });
+            return Object.assign({}, m, { status: status, error: error ?? "" });
         });
         if (changed) {
             root.messages = list;
@@ -242,7 +266,8 @@ Singleton {
                     answer = JSON.parse(sendOut.text);
                 } catch (e) {}
                 if (proc.kind === "message" && proc.mid !== "")
-                    root._setStatus(proc.mid, code === 0 && answer?.ok ? "sent" : "failed");
+                    root._setStatus(proc.mid, code === 0 && answer?.ok ? "sent" : "failed",
+                        code === 0 && answer?.ok ? "" : (answer?.error ?? ""));
                 // The server took it but the listener says it's cut off (a
                 // refusal it waits a minute after): listen again now.
                 if (code === 0 && answer?.ok && !root.connected) root._kick();
@@ -350,6 +375,10 @@ Singleton {
             root.lastError = e.error ?? "";
             return;
         }
+        if (e.event === "keychange") {
+            root.refreshKeys();
+            return;
+        }
         if (e.event !== "message") return;
         const time = (e.time ?? 0) * 1000;
         const id = `${e.from ?? ""}`;
@@ -368,6 +397,7 @@ Singleton {
             member.readUpTo = Math.max(prev.readUpTo ?? 0, Number(e.data?.upTo ?? 0));
         if (!e.mine || id === root.me)
             root.members = Object.assign({}, root.members, { [id]: member });
+        if (!root.keys[id]) keysSoon.restart();
         if (e.kind === "message") root._receive(e, time);
         else root._saveSoon();
     }
@@ -434,7 +464,10 @@ Singleton {
             if (ok) root.setup = answer;
             const first = !root._loaded;
             root._loaded = true;
-            if (first) root.refreshAccount();
+            if (first) {
+                root.refreshAccount();
+                root.refreshKeys();
+            }
             if (then) then(ok, answer);
         });
     }
@@ -552,6 +585,11 @@ Singleton {
     }
     function _saveSoon() {
         saveTimer.restart();
+    }
+    Timer {
+        id: keysSoon
+        interval: 2000
+        onTriggered: root.refreshKeys()
     }
     Timer {
         id: saveTimer
