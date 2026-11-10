@@ -6,7 +6,7 @@ The mesh lets a few people talk desktop to desktop over the internet: messages t
 
 - **Messages** to everyone, or to one person, with files. They are written in the right sidebar's **Mesh** tab (Mod+N), which lists the conversations (Everyone, then each person), with quick messages ("❤️", "Thinking of you", "On my way"…, `mesh.quickMessages`).
 - **Status**: free, in a meeting, gaming, busy (a fullscreen window), do not disturb, away (locked, screens off). It never says which app or window. It is sent when it changes, and again every 10 minutes; someone not heard from for 25 minutes shows as offline. How the others see you shows at the top of the Mesh tab ("You (Khoa): Free") and first in the bar widget's hover list. In order: not shared (the switch is off), away, do not disturb, in a meeting (a timed calendar event now), gaming (a Steam game or gamescope focused), busy (a fullscreen window), free.
-- **Listening together**: share what your YouTube Music or Spotify plays; the others listen along, in sync. See [Listening together](#listening-together).
+- **Listening together**: share what your YouTube Music, Spotify or Jellyfin plays; the others listen (or watch) along, in sync. See [Listening together](#listening-together).
 - **Files**: images and GIFs, shown in the conversation, and any other file (a PDF, an archive…), shown as a card. See [Files](#files).
 - **Read receipts** in a conversation with one person ("seen").
 - **Notifications**: each message arrives as a notification named after its sender, with **Reply**, which opens the conversation. On nixbook, a message to you alone gets the Persona cut-in, and every mesh message stays on screen like other chats (`hint:"nixbook-mesh-direct"`, `nixbook-mesh` in the notification rules).
@@ -32,13 +32,15 @@ A file is encrypted on your computer before it leaves (AES-256-GCM, with a key o
 
 ## Listening together
 
-Share what your **YouTube Music** or **Spotify** plays in a conversation (everyone, or one person): the headphones button in the conversation's header. The others see "Khoa is sharing their music" with the song, and a notification with **Listen along**. Listening along opens the same song in their own player, at the same moment, and follows your pauses, seeks and next songs; the bar shows who listens. **Stop** ends it (the session also ends when your player is gone for a minute); **Leave** stops listening along.
+Share what your **YouTube Music**, **Spotify** or **Jellyfin** plays in a conversation (everyone, or one person): the headphones button in the conversation's header. The others see "Khoa is sharing their music" with the song, and a notification with **Listen along**. Listening along opens the same song in their own player, at the same moment, and follows your pauses, seeks and next songs; the bar shows who listens. **Stop** ends it (the session also ends when your player is gone for a minute); **Leave** stops listening along.
 
 - **The other app**: a listener with Spotify follows a YouTube Music host, and the other way round. A Spotify song is found on YouTube Music by its title, artist and length (YouTube Music's own search), and played there. Spotify has no search without an account, so a YouTube Music song opens Spotify's search for the listener to pick.
 - **Which app**: an app already open (the host's, else the other), else one installed (the host's first), started for you.
 - **You take over**: a listener who plays something else, or pauses, stops listening along (it says so in the Mesh tab).
 - **Privacy**: nothing is shared until you click the button, and only the song (title, artist, album, cover, length), the position and play/pause. A session with one person is sealed for them alone, like private messages. Nothing is kept.
 - Each listener streams from their own account: everyone needs their own YouTube Music or Spotify.
+
+**Watching together (Jellyfin)**: the same button shares what this computer's mpv plays from Jellyfin (jellyfin-mpv-shim): the others get **Watch along**, which plays the same film or episode on their own mpv from the same moment, and follows your pauses, seeks and next episodes. Each one watches from their own Jellyfin account, set up in Settings > Desktop agents > Apps it can use (their progress is theirs). On the same server it is the same item; on another server it is found by its IMDb/TMDb/TVDb ids, else by name and year, or series, season and episode (`jellyfin-mcp listen-info` / `listen-play`). Audio and subtitles follow each one's own Jellyfin preferences.
 
 From the command line: `nixbook-shell ipc call mesh listenShare MEMBER` ("" = everyone), `listenStop`, `listenJoin MEMBER`, `listenLeave`, `listenStatus`.
 

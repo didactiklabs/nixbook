@@ -331,6 +331,10 @@ r=$(mesh alice send "$server" listen <<<"$state")
 expect "alice shares her music with everyone" true "$(field .ok "$r")"
 r=$(mesh alice send "$server" listen <<<"$(jq -c '.to = "carol" | .sid = "fedcba9876543210" | .track.id = "privatetrack1"' <<<"$state")")
 expect "and privately with carol" true "$(field .ok "$r")"
+r=$(mesh alice send "$server" listen <<<"$(jq -c '.service = "jellyfin" | .sid = "aaaabbbbccccdddd" | .track.id = "0f3c9a2b7e"
+  | .jf = {serverId: "srv-1", id: "0f3c9a2b7e", type: "Episode", seriesName: "Edgerunners", season: 1, episode: 3,
+           providers: {imdb: "tt123", evil: "x"}, seriesProviders: {tvdb: "416359"}, token: "secret"}' <<<"$state")")
+expect "a Jellyfin episode can be shared too" true "$(field .ok "$r")"
 r=$(mesh alice send "$server" listen <<<"$(jq -c '.service = "deezer"' <<<"$state")" || true)
 expect "only YouTube Music and Spotify are shared" false "$(field .ok "$r")"
 r=$(mesh alice send "$server" listen <<<"$(jq -c '.op = "steal"' <<<"$state")" || true)
@@ -344,6 +348,12 @@ done
 shared=$(grep '"kind": "listen"' "$tmp/bob.events" | head -1)
 expect "bob gets the shared song, its position" "4uLU6hMCjMI75M1A2tKUQC 12.5 true" "$(field .data.track.id "$shared") $(field .data.position "$shared") $(field .data.playing "$shared")"
 expect "a cover that isn't https is dropped" "" "$(field .data.track.art "$shared")"
+for _ in $(seq 50); do
+  grep -q '"aaaabbbbccccdddd"' "$tmp/bob.events" && break
+  sleep 0.2
+done
+jfs=$(grep '"aaaabbbbccccdddd"' "$tmp/bob.events" | head -1)
+expect "a Jellyfin item travels with what finds it elsewhere, nothing else" '{"episode":3,"id":"0f3c9a2b7e","name":"","providers":{"imdb":"tt123"},"season":1,"seriesName":"Edgerunners","seriesProviders":{"tvdb":"416359"},"serverId":"srv-1","type":"Episode","year":null}' "$(jq -cS .data.jf <<<"$jfs")"
 if grep -q '"privatetrack1"' "$tmp/bob.events"; then fail "bob doesn't see carol's private session" "$(cat "$tmp/bob.events")"; else pass "bob doesn't see carol's private session"; fi
 if grep -q '"privatetrack1"' "$tmp/carol.events"; then pass "carol gets her private session"; else fail "carol gets her private session" "$(cat "$tmp/carol.events")"; fi
 if grep -q '"op": "join"' "$tmp/alice.events"; then pass "alice hears carol joined"; else fail "alice hears carol joined" "$(cat "$tmp/alice.events")"; fi

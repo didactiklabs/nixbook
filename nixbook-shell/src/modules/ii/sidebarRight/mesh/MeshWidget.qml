@@ -220,7 +220,7 @@ Item {
                     text: MeshListen.canShare
                         ? Translation.tr("Listen together: share what your %1 plays with %2; they can listen along")
                             .arg(MeshListen.serviceName(MeshListen.serviceOf(MeshListen.shareablePlayer()))).arg(Mesh.nameOf(root.conv))
-                        : Translation.tr("Listen together: play something in YouTube Music or Spotify, then share it here")
+                        : Translation.tr("Listen together: play something in YouTube Music, Spotify or Jellyfin, then share it here")
                 }
             }
             MaterialSymbol {

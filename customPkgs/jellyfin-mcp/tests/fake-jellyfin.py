@@ -50,10 +50,11 @@ ITEMS = [
     {"Id": "ser-edge", "Type": "Series", "Name": "Cyberpunk: Edgerunners", "ProductionYear": 2022,
      "Overview": "In a dystopia riddled with corruption and cybernetic implants, a talented but reckless street kid "
                  "strives to become a mercenary outlaw — an edgerunner. " * 3,
-     "Genres": ["Animation", "Sci-Fi"], "UserData": {"UnplayedItemCount": 9}},
+     "Genres": ["Animation", "Sci-Fi"], "UserData": {"UnplayedItemCount": 9}, "ProviderIds": {"Tvdb": "416359"}},
     {"Id": "sea-edge-1", "Type": "Season", "Name": "Season 1", "SeriesId": "ser-edge", "IndexNumber": 1,
      "ParentId": "ser-edge", "UserData": {"UnplayedItemCount": 9}},
     {"Id": "mov-spirited", "Type": "Movie", "Name": "Spirited Away", "ProductionYear": 2001,
+     "ProviderIds": {"Imdb": "tt0245429", "Tmdb": "129"},
      "RunTimeTicks": 125 * 60 * TICKS, "Overview": "A girl in a world of spirits.", "UserData": ud()},
     {"Id": "mov-dune84", "Type": "Movie", "Name": "Dune", "ProductionYear": 1984, "RunTimeTicks": 137 * 60 * TICKS,
      "UserData": ud()},
@@ -253,6 +254,9 @@ class Handler(BaseHTTPRequestHandler):
             if query.get("IncludeItemTypes"):
                 kinds = set(query["IncludeItemTypes"][0].split(","))
                 items = [i for i in items if i["Type"] in kinds]
+            if query.get("AnyProviderIdEquals"):
+                want = set(query["AnyProviderIdEquals"][0].lower().split(","))
+                items = [i for i in items if any(f"{k.lower()}.{v}".lower() in want for k, v in (i.get("ProviderIds") or {}).items())]
             if query.get("searchTerm"):
                 term = fold(query["searchTerm"][0])
                 items = [i for i in items if term in fold(i["Name"])]

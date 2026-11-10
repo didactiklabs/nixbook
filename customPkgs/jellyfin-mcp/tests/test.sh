@@ -382,6 +382,29 @@ expect_eq "configured: no key" "$(jq -r .configured <<<"$r")" "false"
 r=$("${jmcp[@]}" configured)
 expect_eq "configured: key and player" "$(jq -c . <<<"$r")" '{"configured":true,"player":true}'
 
+# -- listening together (nixbook-shell's mesh) ---------------------------------
+write_sessions ",$SHIM_SESSION"
+r=$("${jmcp[@]}" listen-info ep-e3)
+expect_eq "listen-info: an episode, findable on any server" \
+  "$(jq -c '[.ok, .serverId, .type, .seriesName, .season, .episode, .seriesProviders.tvdb]' <<<"$r")" '[true,"srv-1","Episode","Cyberpunk: Edgerunners",1,3,"416359"]'
+r=$("${jmcp[@]}" listen-info ser-edge || true)
+expect_eq "listen-info: a series isn't watched together (an episode is)" "$(jq -r .ok <<<"$r")" "false"
+: >"$log"
+r=$("${jmcp[@]}" listen-play <<<'{"serverId": "srv-1", "id": "mov-spirited", "type": "Movie", "position": 754.5}')
+expect_eq "listen-play: the same server, the same item" "$(jq -r '"\(.ok) \(.id)"' <<<"$r")" "true mov-spirited"
+expect_eq "listen-play: from the host's position, on this computer's player" \
+  "$(last_req /Sessions/s-shim/Playing | jq -r '.query.itemIds + " " + .query.startPositionTicks')" "mov-spirited 7545000000"
+r=$("${jmcp[@]}" listen-play <<<'{"serverId": "other", "id": "x-1", "type": "Movie", "name": "Chihiro", "providers": {"imdb": "tt0245429"}, "position": 10}')
+expect_eq "listen-play: another server, found by its IMDb id" "$(jq -r '"\(.ok) \(.id)"' <<<"$r")" "true mov-spirited"
+r=$("${jmcp[@]}" listen-play <<<'{"serverId": "other", "id": "x-2", "type": "Episode", "seriesName": "Edgerunners?", "seriesProviders": {"tvdb": "416359"}, "season": 1, "episode": 4, "position": 0}')
+expect_eq "listen-play: another server's episode, by its series and number" "$(jq -r '"\(.ok) \(.id)"' <<<"$r")" "true ep-e4"
+r=$("${jmcp[@]}" listen-play <<<'{"serverId": "other", "id": "x-3", "type": "Movie", "name": "Dune", "year": 2021, "position": 0}')
+expect_eq "listen-play: by name and year" "$(jq -r '"\(.ok) \(.id)"' <<<"$r")" "true mov-dune21"
+r=$("${jmcp[@]}" listen-play <<<'{"id": "ep-e5", "position": 0}')
+expect_eq "listen-play: only an id (the host's details missing)" "$(jq -r '"\(.ok) \(.id)"' <<<"$r")" "true ep-e5"
+r=$("${jmcp[@]}" listen-play <<<'{"serverId": "other", "id": "x-4", "type": "Movie", "name": "Not Here", "position": 0}' || true)
+expect_eq "listen-play: not on this server, said" "$(jq -r '"\(.ok) \(.notFound)"' <<<"$r")" "false true"
+
 # -- the fast path: play-query ----------------------------------------------
 write_sessions ",$SHIM_SESSION"
 pq() { "${jmcp[@]}" play-query "$@" || true; }
