@@ -13,7 +13,7 @@ const src = fs
   )
   .replace(/^\.pragma library/m, "");
 const m = new Function(
-  src + "\nreturn { norm, sameSong, fresh, followStep, playStep }",
+  src + "\nreturn { norm, sameSong, fresh, followStep, playStep, seekStep }",
 )();
 
 let failed = 0,
@@ -270,6 +270,39 @@ function play(f, now, local, recv) {
       localPlaying: true,
       hostRecv: 0,
     }) === "pause",
+  );
+}
+
+// -- Jumping to the host's position ---------------------------------------------
+function seek(f, now, pos, target, recv) {
+  return m.seekStep(f, { now, pos, target, len: 286, hostRecv: recv || 1 });
+}
+{
+  const f = m.fresh();
+  f.openedFor = canh.id;
+  f.openedAt = 0;
+  check("not while it loads", seek(f, 1000, 0, 40) === -1);
+  check("once it opened, to the host", seek(f, 3000, 1, 42) === 42);
+  // Its position reported badly (stuck), the host silent: no jump every 4 s.
+  const jumps = [];
+  for (let t = 4000; t <= 32000; t += 1000)
+    if (seek(f, t, 1, 42 + (t - 3000) / 1000) >= 0) jumps.push(t);
+  check("a drift: no jump every few seconds", jumps.length === 0, jumps);
+  check("a drift: at most every 30 s", seek(f, 34000, 1, 73) === 73);
+  check("the host seeks: followed", seek(f, 40000, 80, 150, 2) === 150);
+  check(
+    "the host's news, no drift: nothing",
+    seek(f, 50000, 160, 160, 3) === -1,
+  );
+  check("not at the song's end", seek(f, 90000, 100, 285, 4) === -1);
+}
+{
+  const f = m.fresh();
+  f.openedFor = canh.id;
+  check(
+    "opened at the right spot: no jump",
+    m.seekStep(f, { now: 5000, pos: 41, target: 42, len: 286, hostRecv: 1 }) ===
+      -1,
   );
 }
 

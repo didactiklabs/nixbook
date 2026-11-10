@@ -16,6 +16,9 @@ Singleton {
     function followStep(f, x) {
         return Match.followStep(f, x)
     }
+    function seekStep(f, x) {
+        return Match.seekStep(f, x)
+    }
     function playStep(f, x) {
         return Match.playStep(f, x)
     }
