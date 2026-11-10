@@ -522,7 +522,7 @@ Scope { // Scope
 
                 MouseArea {
                     hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
+                    cursorShape: Qt.ArrowCursor
                     anchors.fill: parent
                     onClicked: (mouse) => { mouse.accepted = true }
                 }
