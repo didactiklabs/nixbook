@@ -50,8 +50,8 @@ Singleton {
         // Arrived within the cut-in cooldown of another cut-in: a regular
         // popup instead (cutInCooldown).
         property bool cutInCooledDown: false
-        // Arrived while the side panel's Notifications page was on screen:
-        // seen there, so no cut-in (panelShowsNotifications).
+        // Arrived while the side panel showed it (its Notifications page, or
+        // the Mesh tab for a mesh message): no cut-in, the popup is enough.
         property bool seenInPanel: false
         // Within that cooldown, a newer copy of the last cut-in: it only
         // updates that cut-in if still up (cutInCooldown).
@@ -301,7 +301,7 @@ Singleton {
             "notification": notification,
             "time": Date.now(),
             "replaces": supersedes,
-            "seenInPanel": root.panelShowsNotifications,
+            "seenInPanel": root.panelShowsNotifications || (Mesh.inView && !!notification.hints?.["x-nixbook-mesh"]),
         });
         const replaced = (root.dedupOptions?.history ?? true)
             ? root.recent.filter(r => supersedes.includes(r.notificationId)) : [];
