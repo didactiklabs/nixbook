@@ -42,6 +42,10 @@ Commands (JSON on stdout; secrets only ever on stdin):
   limits SERVER                 the largest file the server takes, and expiry
   send SERVER delete            delete one of your messages for everyone
                                 (stdin: {target: its mid, to}): see "Deleting"
+  send SERVER react             a reaction to a message (stdin: {target, emoji,
+                                on, to}): an emoji, on or off
+  profile SERVER                your picture for the others (stdin: {path,
+                                force}): see "Profile pictures"
   match                         a song on YouTube Music like a Spotify one
                                 (stdin: {title, artist, album, length}), for
                                 listening together: {videoId, title, …}
@@ -92,9 +96,12 @@ VERSION = "m1"
 TOPIC_PREFIX = "mesh-"
 TOKEN_RE = re.compile(r"^tk_[A-Za-z0-9]{29}$")
 MEMBER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
-KINDS = ("message", "presence", "read", "listen", "delete")
+KINDS = ("message", "presence", "read", "listen", "delete", "react", "profile")
 # What travels sealed when it is for one member.
-PRIVATE_KINDS = ("message", "read", "listen", "delete")
+PRIVATE_KINDS = ("message", "read", "listen", "delete", "react")
+# A reaction: a short emoji (a ZWJ sequence, a flag, a skin tone), no
+# letters, digits, spaces or markup.
+EMOJI_RE = re.compile(r"^[^\w\s<>&\"'`\\]{1,16}$")
 MID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 MAX_TEXT = 1000
 # ntfy sends a keepalive every 45s: nothing for this long means the
@@ -800,6 +807,13 @@ def cmd_send(args):
         if not MID_RE.match(target):
             fail("which message to delete?")
         data = {"target": target, "mid": data.get("mid"), "name": data.get("name")}
+    if kind == "react":
+        clean = reaction(data)
+        if clean is None:
+            fail("a reaction is one emoji, to a message")
+        data = dict(clean, mid=data.get("mid"), name=data.get("name"))
+    if kind == "profile":
+        fail("a picture goes with `profile`")
     token = token_or_fail()
     key = key_or_fail()
     mid = str(data.pop("mid", "") or secrets.token_hex(8))
@@ -1031,11 +1045,13 @@ def cmd_limits(args):
 class Progress:
     """`{"event": "progress", "done", "total"}` lines, at most 5 a second."""
 
-    def __init__(self, total):
-        self.total, self.done, self.last = total, 0, 0.0
+    def __init__(self, total, quiet=False):
+        self.total, self.done, self.last, self.quiet = total, 0, 0.0, quiet
 
     def add(self, n):
         self.done += n
+        if self.quiet:
+            return
         now = time.monotonic()
         if now - self.last >= 0.2 or self.done >= self.total:
             self.last = now
@@ -1097,8 +1113,17 @@ def cmd_sendfile(args):
     mid = str(data.get("mid") or secrets.token_hex(8))
     name = str(data.get("name") or "")[:64]
     readers = readers_or_fail(to, "message")
+    meta, local, info = upload(server, token, key, path, st.st_size)
+    text = str(data.get("text") or "").strip()[:MAX_TEXT]
+    _, now = publish(server, token, key, "message", to, {"text": text, "file": meta}, mid, name, readers)
+    out({"ok": True, "mid": mid, "time": now, "text": text, "dh": delete_commitment(readers[0], topic_of(key), mid),
+         "file": local_meta(local, meta["sha"], meta["size"], info, meta["exp"])})
+
+
+def upload(server, token, key, path, size, quiet=False):
+    """The file encrypted with a key of its own and uploaded as an
+    attachment: (its meta for a message, the local copy, what it is)."""
     limits = account_limits(server, token)
-    size = st.st_size
     if limits["maxFile"] and size + TAG > limits["maxFile"]:
         fail(f"{path.name} is {human_size(size)}: the mesh's server takes files up to "
              f"{human_size(max(0, limits['maxFile'] - TAG))}")
@@ -1115,7 +1140,7 @@ def cmd_sendfile(args):
         with open(path, "rb") as src, \
                 (open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "wb") if keep_copy
                  else contextlib.nullcontext(NoCopy())) as copy:
-            body = EncryptingReader(src, file_key, nonce, copy, Progress(size))
+            body = EncryptingReader(src, file_key, nonce, copy, Progress(size, quiet))
             req = urllib.request.Request(f"{server}/{files_topic_of(key)}", data=body, method="PUT")
             req.add_header("Authorization", f"Bearer {token}")
             req.add_header("User-Agent", USER_AGENT)
@@ -1144,10 +1169,86 @@ def cmd_sendfile(args):
     meta = {"u": server_path, "k": b64(file_key), "n": b64(nonce), "name": safe_name(path.name), "size": size,
             "sha": sha, "mime": info["mime"], "w": info["w"], "h": info["h"],
             "exp": int(attachment.get("expires") or 0)}
-    text = str(data.get("text") or "").strip()[:MAX_TEXT]
-    _, now = publish(server, token, key, "message", to, {"text": text, "file": meta}, mid, name, readers)
-    out({"ok": True, "mid": mid, "time": now, "text": text, "dh": delete_commitment(readers[0], topic_of(key), mid),
-         "file": local_meta(local, sha, size, info, meta["exp"])})
+    return meta, local, info
+
+
+# -- Profile pictures ---------------------------------------------------------
+#
+# Each desktop shows the others its account picture (the one the login
+# screen shows): `profile`, stdin {path, force}, makes a 256 px square JPEG
+# of it (ImageMagick; a small picture goes as it is without it), uploads it
+# like a file and tells everyone (kind `profile`, {avatar: the file's meta},
+# never sealed: the whole mesh sees it). It is sent again when the picture
+# changes, and once a month (the server deletes attachments after a while);
+# an empty path takes the picture back ({avatar: null}). The members' desktops
+# download it with `fetch`, like any file.
+PROFILE_MAX = 2 * 1000 * 1000
+PROFILE_RESEND = 30 * 86400
+
+
+def profile_picture(src, tmpdir):
+    """A 256 px square JPEG of `src`, or `src` itself when ImageMagick isn't
+    there and it is a small image; None when there is none."""
+    out_path = tmpdir / f".profile.{os.getpid()}.jpg"
+    magick = shutil.which("magick")
+    if magick:
+        try:
+            subprocess.run([magick, f"{src}[0]", "-auto-orient", "-thumbnail", "256x256^", "-gravity", "center",
+                            "-extent", "256x256", "-strip", "-quality", "85", f"jpg:{out_path}"],
+                           check=True, capture_output=True, timeout=30)
+            if out_path.stat().st_size > 0:
+                return out_path
+        except (OSError, subprocess.SubprocessError):
+            pass
+    info = sniff(src)
+    if info["image"] and not info["animated"] and src.stat().st_size <= PROFILE_MAX:
+        return src
+    return None
+
+
+def cmd_profile(args):
+    server = server_url(args[0] if args else "")
+    try:
+        data = json.loads(sys.stdin.readline() or "{}")
+    except ValueError:
+        fail("the data isn't JSON")
+    if not isinstance(data, dict):
+        fail("the data must be an object")
+    token = token_or_fail()
+    key = key_or_fail()
+    topic = topic_of(key)
+    state_path = state_dir() / "profile.json"
+    try:
+        state = json.loads(state_path.read_text())
+    except (OSError, ValueError):
+        state = {}
+    raw = str(data.get("path") or "").removeprefix("file://").split("?")[0]
+    src = Path(raw).expanduser() if raw else None
+    if src is not None and not src.is_file():
+        src = None
+    fdir = files_dir()
+    private_file(fdir)
+    pic = profile_picture(src, fdir) if src else None
+    try:
+        sha = hashlib.sha256(pic.read_bytes()).hexdigest() if pic else ""
+        fresh = time.time() - float(state.get("at") or 0) < PROFILE_RESEND
+        if not data.get("force") and state.get("topic") == topic and state.get("sha") == sha and (fresh or not sha):
+            out({"ok": True, "skipped": True, "sha": sha})
+            return
+        name = str(data.get("name") or "")[:64]
+        readers = readers_or_fail("", "profile")
+        avatar = None
+        if pic:
+            avatar, _, _ = upload(server, token, key, pic, pic.stat().st_size, quiet=True)
+            avatar["name"] = "avatar.jpg" if pic != src else safe_name(src.name)
+    finally:
+        if pic and pic != src:
+            with contextlib.suppress(OSError):
+                pic.unlink()
+    publish(server, token, key, "profile", "", {"avatar": avatar}, secrets.token_hex(8), name, readers)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps({"topic": topic, "sha": sha, "at": time.time()}))
+    out({"ok": True, "sha": sha})
 
 
 def local_meta(path, sha, size, info, exp=0):
@@ -1460,6 +1561,10 @@ def receive(payload, topic, sk, my_pk, myself, told):
             data = deletion(data)
             if data is None:
                 return None
+        if inner["kind"] == "react":
+            data = reaction(data)
+            if data is None:
+                return None
         event = {"kind": inner["kind"], "from": sender, "name": str(inner.get("name") or "")[:64], "to": to,
                  "time": inner.get("time"), "mid": str(inner.get("mid") or ""), "data": data,
                  "private": True, "event": "message", "mine": sender == myself}
@@ -1485,6 +1590,13 @@ def receive(payload, topic, sk, my_pk, myself, told):
         payload["data"] = deletion(payload.get("data"))
         if payload["data"] is None:
             return None
+    if kind == "react":
+        payload["data"] = reaction(payload.get("data"))
+        if payload["data"] is None:
+            return None
+    if kind == "profile":
+        payload["data"] = {"avatar": avatar_meta((payload.get("data") or {}).get("avatar")
+                                                 if isinstance(payload.get("data"), dict) else None)}
     payload.pop("pk", None)
     payload["event"] = "message"
     payload["mine"] = sender == myself
@@ -1504,6 +1616,32 @@ def deletion(data):
     if re.match(r"^[0-9a-f]{64}$", proof):
         clean["proofHash"] = hashlib.sha256(bytes.fromhex(proof)).hexdigest()
     return clean
+
+
+def reaction(data):
+    """A reaction, kept to {target, emoji, on}; None when it isn't one."""
+    if not isinstance(data, dict):
+        return None
+    target = str(data.get("target") or "")
+    emoji = str(data.get("emoji") or "").strip()
+    if not MID_RE.match(target) or not EMOJI_RE.match(emoji):
+        return None
+    return {"target": target, "emoji": emoji, "on": data.get("on") is not False}
+
+
+def avatar_meta(m):
+    """A profile picture's file meta, checked (fetch checks it again); None
+    when there is none or it isn't one."""
+    if not isinstance(m, dict):
+        return None
+    try:
+        size = int(m.get("size") or 0)
+    except (TypeError, ValueError):
+        return None
+    if not SHA_RE.match(str(m.get("sha") or "")) or not FILE_PATH_RE.match(str(m.get("u") or "")) \
+            or not 0 < size <= PROFILE_MAX or not str(m.get("mime") or "").startswith("image/"):
+        return None
+    return {k: m.get(k) for k in ("u", "k", "n", "name", "size", "sha", "mime", "w", "h", "exp")}
 
 
 def cmd_keys(args):
@@ -1611,6 +1749,7 @@ def main():
         "invite": cmd_invite,
         "members": cmd_members,
         "remove": cmd_remove,
+        "profile": cmd_profile,
         "accept": cmd_accept,
         "keys": cmd_keys,
         "sendfile": cmd_sendfile,
@@ -1623,7 +1762,7 @@ def main():
     command = commands.get(args[0]) if args else None
     if not command:
         fail("usage: nixbook-mesh status|token|mesh|test|send|sendfile|fetch|save|prune|limits|listen|invite|members|"
-             "remove|accept|keys")
+             "remove|accept|keys|profile")
     try:
         command(args[1:])
     except KeyboardInterrupt:

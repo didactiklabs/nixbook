@@ -1015,6 +1015,16 @@ ContentPage {
                     }
                 }
                 ConfigSwitch {
+                    configKey: "mesh.shareAvatar";
+                    enabled: !nixManaged;
+                    buttonIcon: "account_circle"
+                    text: Translation.tr("Show my account picture to the others")
+                    checked: Config.options.mesh.shareAvatar
+                    onCheckedChanged: {
+                        Config.options.mesh.shareAvatar = checked;
+                    }
+                }
+                ConfigSwitch {
                     configKey: "mesh.notify";
                     enabled: !nixManaged;
                     buttonIcon: "notifications"

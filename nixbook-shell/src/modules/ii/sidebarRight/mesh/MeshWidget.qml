@@ -14,8 +14,9 @@ import QtQuick.Layouts
  * picked, quick messages and a field to write. Files (the clip button, a
  * drop, or Ctrl+V of a copied image or file) wait above the field and go
  * when it is sent, the text with the first. Hovering a message shows its
- * delete button (a second click confirms): your own for everyone, anyone's
- * for this desktop only.
+ * react button (an emoji, Mesh.reactionChoices) and its delete button (a
+ * second click confirms): your own for everyone, anyone's for this desktop
+ * only. Members show their shared picture (MeshAvatar).
  */
 Item {
     id: root
@@ -123,24 +124,23 @@ Item {
                                 implicitWidth: 22
                                 implicitHeight: 22
                                 Rectangle {
+                                    visible: chip.memberId === ""
                                     anchors.fill: parent
                                     radius: width / 2
                                     color: chip.toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colSecondaryContainer
                                     MaterialSymbol {
                                         anchors.centerIn: parent
-                                        visible: chip.memberId === ""
                                         text: "groups"
                                         iconSize: 16
                                         color: chip.toggled ? Appearance.colors.colPrimary : Appearance.colors.colOnSecondaryContainer
                                     }
-                                    StyledText {
-                                        anchors.centerIn: parent
-                                        visible: chip.memberId !== ""
-                                        text: Mesh.nameOf(chip.memberId).charAt(0).toUpperCase()
-                                        font.weight: Font.DemiBold
-                                        font.pixelSize: Appearance.font.pixelSize.small
-                                        color: chip.toggled ? Appearance.colors.colPrimary : Appearance.colors.colOnSecondaryContainer
-                                    }
+                                }
+                                MeshAvatar {
+                                    visible: chip.memberId !== ""
+                                    anchors.fill: parent
+                                    size: 22
+                                    memberId: chip.memberId
+                                    onPrimary: chip.toggled
                                 }
                                 Rectangle {
                                     visible: chip.memberId !== ""
@@ -202,9 +202,15 @@ Item {
             Layout.fillWidth: true
             spacing: 8
             MaterialSymbol {
-                text: root.conv === "" ? "groups" : "person"
+                visible: root.conv === ""
+                text: "groups"
                 iconSize: Appearance.font.pixelSize.larger
                 color: Appearance.colors.colOnLayer1
+            }
+            MeshAvatar {
+                visible: root.conv !== ""
+                size: 32
+                memberId: root.conv
             }
             ColumnLayout {
                 Layout.fillWidth: true
@@ -314,14 +320,24 @@ Item {
                 required property int index
                 readonly property bool mine: row.modelData.mine
                 readonly property var prev: row.index > 0 ? root.shown[row.index - 1] : null
-                readonly property bool showName: !row.mine && root.conv === "" && (row.prev?.from !== row.modelData.from)
+                readonly property bool firstOfRun: row.prev?.from !== row.modelData.from
+                readonly property bool showName: !row.mine && root.conv === "" && row.firstOfRun
+                // Everyone's conversation: the sender's picture beside their
+                // first message of a run, their messages lined up after it.
+                readonly property real indent: !row.mine && root.conv === "" ? 34 : 0
+                readonly property real maxWidth: (list.width - row.indent) * 0.8
                 readonly property bool deleted: !!row.modelData.deleted
+                readonly property var reactions: row.deleted ? [] : Object.keys(row.modelData.reactions ?? {})
+                    .map(e => ({ emoji: e, who: row.modelData.reactions[e] }))
                 // Your own: for everyone; anyone's (or yours from before
                 // deleting existed, to everyone): for this desktop.
                 readonly property bool forEveryone: Mesh.canDeleteForEveryone(row.modelData)
                 property bool armed: false
+                property bool picking: false
+                readonly property bool busy: !!row.modelData.deleting || row.modelData.status === "sending"
                 width: list.width
-                implicitHeight: bubble.implicitHeight + (row.showName ? nameText.implicitHeight + 2 : 0)
+                implicitHeight: bubble.y + bubble.height + (row.reactions.length > 0 ? reactionRow.implicitHeight + 3 : 0)
+                    + (row.picking ? picker.implicitHeight + 4 : 0)
 
                 HoverHandler {
                     id: rowHover
@@ -331,67 +347,90 @@ Item {
                     interval: 3000
                     onTriggered: row.armed = false
                 }
-                // Delete: a click arms it, a second within 3 s deletes.
-                RippleButton {
-                    id: deleteButton
-                    visible: (rowHover.hovered || row.armed) && !row.modelData.deleting && row.modelData.status !== "sending"
+
+                MeshAvatar {
+                    visible: row.indent > 0 && row.firstOfRun
+                    x: 0
+                    y: bubble.y
+                    size: 28
+                    memberId: row.modelData.from
+                }
+                StyledText {
+                    id: nameText
+                    visible: row.showName
+                    x: row.indent + 10
+                    text: row.modelData.name || Mesh.nameOf(row.modelData.from)
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                }
+
+                // React and delete, beside the message while hovered.
+                Row {
+                    id: actions
+                    visible: (rowHover.hovered || row.armed || row.picking) && !row.busy
                     anchors.verticalCenter: bubble.verticalCenter
                     anchors.right: row.mine ? bubble.left : undefined
                     anchors.left: row.mine ? undefined : bubble.right
                     anchors.leftMargin: 4
                     anchors.rightMargin: 4
-                    implicitHeight: 26
-                    implicitWidth: row.armed ? armedText.implicitWidth + 16 : 26
-                    buttonRadius: Appearance.rounding.full
-                    colBackground: row.armed ? Appearance.m3colors.m3error : ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 1)
-                    colBackgroundHover: row.armed ? Appearance.m3colors.m3error : Appearance.colors.colLayer1Hover
-                    onClicked: {
-                        if (!row.armed) {
-                            row.armed = true;
-                            disarm.restart();
-                            return;
-                        }
-                        row.armed = false;
-                        disarm.stop();
-                        if (row.forEveryone) Mesh.deleteForEveryone(row.modelData.mid);
-                        else Mesh.deleteForMe(row.modelData.mid);
-                    }
-                    contentItem: Item {
-                        MaterialSymbol {
-                            visible: !row.armed
-                            anchors.centerIn: parent
-                            text: "delete"
+                    layoutDirection: row.mine ? Qt.RightToLeft : Qt.LeftToRight
+                    spacing: 2
+                    RippleButton {
+                        id: reactButton
+                        visible: !row.deleted
+                        implicitHeight: 26
+                        implicitWidth: 26
+                        buttonRadius: Appearance.rounding.full
+                        toggled: row.picking
+                        onClicked: row.picking = !row.picking
+                        contentItem: MaterialSymbol {
+                            horizontalAlignment: Text.AlignHCenter
+                            text: "add_reaction"
                             iconSize: Appearance.font.pixelSize.normal
-                            color: Appearance.colors.colSubtext
+                            color: row.picking ? Appearance.colors.colOnPrimary : Appearance.colors.colSubtext
                         }
-                        StyledText {
-                            id: armedText
-                            visible: row.armed
-                            anchors.centerIn: parent
-                            text: row.forEveryone ? Translation.tr("Delete for everyone?") : Translation.tr("Delete for me?")
-                            font.pixelSize: Appearance.font.pixelSize.smaller
-                            color: Appearance.m3colors.m3onError
+                        StyledToolTip {
+                            text: Translation.tr("React")
                         }
                     }
-                    StyledToolTip {
-                        text: row.forEveryone ? Translation.tr("Delete for everyone") : Translation.tr("Delete on this computer")
+                    // Delete: a click arms it, a second within 3 s deletes.
+                    RippleButton {
+                        id: deleteButton
+                        implicitHeight: 26
+                        implicitWidth: 26
+                        buttonRadius: Appearance.rounding.full
+                        colBackground: row.armed ? Appearance.m3colors.m3error : ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 1)
+                        colBackgroundHover: row.armed ? Appearance.m3colors.m3error : Appearance.colors.colLayer1Hover
+                        onClicked: {
+                            if (!row.armed) {
+                                row.armed = true;
+                                disarm.restart();
+                                return;
+                            }
+                            row.armed = false;
+                            disarm.stop();
+                            if (row.forEveryone) Mesh.deleteForEveryone(row.modelData.mid);
+                            else Mesh.deleteForMe(row.modelData.mid);
+                        }
+                        contentItem: MaterialSymbol {
+                            horizontalAlignment: Text.AlignHCenter
+                            text: row.armed ? "delete_forever" : "delete"
+                            iconSize: Appearance.font.pixelSize.normal
+                            color: row.armed ? Appearance.m3colors.m3onError : Appearance.colors.colSubtext
+                        }
+                        StyledToolTip {
+                            text: row.armed
+                                ? (row.forEveryone ? Translation.tr("Click again to delete it for everyone") : Translation.tr("Click again to delete it on this computer"))
+                                : (row.forEveryone ? Translation.tr("Delete for everyone") : Translation.tr("Delete on this computer"))
+                        }
                     }
                 }
 
-                StyledText {
-                    id: nameText
-                    visible: row.showName
-                    x: 10
-                    text: row.modelData.name || Mesh.nameOf(row.modelData.from)
-                    font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: Appearance.colors.colSubtext
-                }
                 Rectangle {
                     id: bubble
                     y: row.showName ? nameText.implicitHeight + 2 : 0
-                    anchors.right: row.mine ? parent.right : undefined
-                    anchors.left: row.mine ? undefined : parent.left
-                    width: Math.min(list.width * 0.82, bubbleColumn.implicitWidth + 20)
+                    x: row.mine ? row.width - bubble.width : row.indent
+                    width: Math.min(row.maxWidth, bubbleColumn.implicitWidth + 20)
                     implicitHeight: bubbleColumn.implicitHeight + 12
                     radius: Appearance.rounding.normal
                     color: row.deleted ? "transparent" : (row.mine ? Appearance.colors.colPrimaryContainer : Appearance.colors.colLayer2)
@@ -413,14 +452,14 @@ Item {
                         MeshAttachment {
                             visible: !!row.modelData.file
                             message: row.modelData
-                            maxWidth: list.width * 0.82 - 20
+                            maxWidth: row.maxWidth - 20
                             textColor: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
                             subColor: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext
                         }
                         StyledText {
                             visible: row.modelData.text !== ""
                             Layout.fillWidth: true
-                            Layout.maximumWidth: list.width * 0.82 - 20
+                            Layout.maximumWidth: row.maxWidth - 20
                             text: row.modelData.text
                             wrapMode: Text.Wrap
                             textFormat: Text.PlainText
@@ -453,6 +492,80 @@ Item {
                         hoverEnabled: enabled
                         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                         onClicked: Mesh.retry(row.modelData.mid)
+                    }
+                }
+
+                // The reactions: an emoji and how many; yours highlighted, a
+                // click takes yours back or adds it.
+                Row {
+                    id: reactionRow
+                    visible: row.reactions.length > 0
+                    y: bubble.y + bubble.height + 3
+                    x: row.mine ? row.width - reactionRow.width : row.indent + 4
+                    layoutDirection: row.mine ? Qt.RightToLeft : Qt.LeftToRight
+                    spacing: 4
+                    Repeater {
+                        model: row.reactions
+                        delegate: RippleButton {
+                            id: chipReaction
+                            required property var modelData
+                            readonly property bool byMe: chipReaction.modelData.who.includes(Mesh.me)
+                            implicitHeight: 24
+                            implicitWidth: reactionText.implicitWidth + 14
+                            buttonRadius: Appearance.rounding.full
+                            toggled: chipReaction.byMe
+                            colBackground: Appearance.colors.colLayer2
+                            onClicked: Mesh.react(row.modelData.mid, chipReaction.modelData.emoji)
+                            contentItem: StyledText {
+                                id: reactionText
+                                horizontalAlignment: Text.AlignHCenter
+                                text: chipReaction.modelData.who.length > 1
+                                    ? `${chipReaction.modelData.emoji} ${chipReaction.modelData.who.length}` : chipReaction.modelData.emoji
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                color: chipReaction.byMe ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer2
+                            }
+                            StyledToolTip {
+                                text: chipReaction.modelData.who.map(id => id === Mesh.me ? Translation.tr("You") : Mesh.nameOf(id)).join(", ")
+                            }
+                        }
+                    }
+                }
+
+                // Picking a reaction.
+                Rectangle {
+                    id: picker
+                    visible: row.picking
+                    y: bubble.y + bubble.height + (row.reactions.length > 0 ? reactionRow.implicitHeight + 3 : 0) + 4
+                    x: row.mine ? row.width - picker.width : row.indent
+                    implicitWidth: pickerRow.implicitWidth + 8
+                    implicitHeight: pickerRow.implicitHeight + 8
+                    radius: Appearance.rounding.full
+                    color: Appearance.colors.colLayer2
+                    Row {
+                        id: pickerRow
+                        anchors.centerIn: parent
+                        spacing: 2
+                        Repeater {
+                            model: Mesh.reactionChoices
+                            delegate: RippleButton {
+                                id: choice
+                                required property string modelData
+                                implicitWidth: 32
+                                implicitHeight: 32
+                                buttonRadius: Appearance.rounding.full
+                                toggled: (row.modelData.reactions?.[choice.modelData] ?? []).includes(Mesh.me)
+                                onClicked: {
+                                    Mesh.react(row.modelData.mid, choice.modelData);
+                                    row.picking = false;
+                                }
+                                contentItem: StyledText {
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    text: choice.modelData
+                                    font.pixelSize: Appearance.font.pixelSize.larger
+                                }
+                            }
+                        }
                     }
                 }
             }
