@@ -31,6 +31,18 @@ in
     else
       prev.opencode;
 
+  # viddy 1.3.1's libsqlite3-sys links the system sqlite on this nixpkgs
+  # ("cannot find -lsqlite3"), and its package gives it none. Only while it
+  # has no buildInputs: drop this once nixpkgs adds sqlite itself.
+  viddy =
+    if prev.viddy.buildInputs or [ ] == [ ] then
+      prev.viddy.overrideAttrs (oldAttrs: {
+        nativeBuildInputs = (oldAttrs.nativeBuildInputs or [ ]) ++ [ prev.pkg-config ];
+        buildInputs = [ prev.sqlite ];
+      })
+    else
+      prev.viddy;
+
   # Fix upstream hash mismatch: the GitHub-generated patch for PR #23326
   # changed content, breaking the pinned hash in nixpkgs.
   openapi-generator-cli = prev.openapi-generator-cli.overrideAttrs (oldAttrs: {
