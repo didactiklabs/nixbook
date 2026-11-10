@@ -23,7 +23,6 @@ Item {
     id: root
 
     readonly property string conv: Mesh.conversation
-    readonly property var shown: Mesh.messagesIn(root.conv)
 
     // A message's text as rich text: escaped, line breaks kept, its http(s)
     // links clickable (in `linkColor`, underlined). Nothing else of the
@@ -44,8 +43,8 @@ Item {
         return out.replace(/\n/g, "<br>");
     }
 
-    // Your last message here (Everyone's "seen by" goes under it).
-    readonly property string lastMineMid: root.shown.filter(m => m.mine && !m.deleted).slice(-1)[0]?.mid ?? ""
+    // The list on screen (one per conversation opened: `lists`).
+    property var currentList: null
 
     // The ✨ picker (nudges, quick messages) open.
     property bool picking: false
@@ -85,9 +84,7 @@ Item {
     // A quote clicked: its message, centred and flashed.
     property string flashMid: ""
     function jumpTo(mid) {
-        const at = root.shown.findIndex(m => m.mid === mid);
-        if (at < 0) return;
-        list.positionViewAtIndex(at, ListView.Center);
+        if (!root.currentList?.jumpTo(mid)) return;
         root.flashMid = mid;
         flashOff.restart();
     }
@@ -359,479 +356,548 @@ Item {
             conv: root.conv
         }
 
-        // The messages.
-        StyledListView {
-            id: list
+        // The messages: one list per conversation, built when it is first
+        // opened and kept, so going back to one is only showing it again
+        // (rebuilding Everyone's 300 rows on each switch made it lag); each
+        // keeps where it was scrolled to.
+        Item {
+            id: lists
             Layout.fillWidth: true
             Layout.fillHeight: true
-            clip: true
-            spacing: 6
-            // One row per message id, diffed (ScriptModel compares the ids):
-            // a new message adds its row, a reaction or a status only updates
-            // its own (row.msg follows Mesh.byMid). A plain array rebuilt every
-            // row on each change, flickering and jumping to the end.
-            model: ScriptModel {
-                values: root.shown.map(m => m.mid)
-            }
-            // Every row built (a conversation keeps 500 at most): ListView
-            // otherwise guesses the height of the rows not built yet, and a
-            // new message changing that guess clamped the view to its end
-            // while you were reading higher up.
-            cacheBuffer: 1000000
-            // The newest at the bottom, in view: when the list was left at
-            // (or near) its end, or the new message is yours. Scrolled up to
-            // read, it stays where it is.
-            property real bottomGap: 0
-            property bool autoScrolling: false
-            property int lastCount: 0
-            // How far the end is below what is shown (ListView's contentY
-            // counts from originY, which moves as rows get their height).
-            function gapToEnd() {
-                return Math.max(0, list.originY + list.contentHeight - list.contentY - list.height);
-            }
-            function toEnd() {
-                list.autoScrolling = true;
-                list.positionViewAtEnd();
-                autoScrollDone.restart();
-            }
-            Timer {
-                id: autoScrollDone
-                interval: 500
-                onTriggered: {
-                    list.autoScrolling = false;
-                    list.bottomGap = list.gapToEnd();
-                }
-            }
-            onContentYChanged: if (!list.autoScrolling) list.bottomGap = list.gapToEnd()
-            onCountChanged: {
-                const grew = list.count > list.lastCount;
-                list.lastCount = list.count;
-                if (grew && (list.bottomGap < 80 || root.shown[root.shown.length - 1]?.mine)) Qt.callLater(list.toEnd);
-            }
-            Component.onCompleted: {
-                list.lastCount = list.count;
-                Qt.callLater(list.toEnd);
+            property var opened: [root.conv]
+            function open(c) {
+                if (!lists.opened.includes(c)) lists.opened = [...lists.opened, c];
             }
             Connections {
                 target: root
-                function onConvChanged() { Qt.callLater(list.toEnd); }
+                function onConvChanged() { lists.open(root.conv); }
             }
-            delegate: Item {
-                id: row
-                required property string modelData
-                required property int index
-                // The message itself, live: its reactions, status, deletion.
-                readonly property var msg: Mesh.byMid[row.modelData] ?? ({ mid: row.modelData, text: "", time: 0 })
-                readonly property bool mine: row.msg.mine
-                readonly property var prev: row.index > 0 ? root.shown[row.index - 1] : null
-                readonly property bool firstOfRun: row.prev?.from !== row.msg.from
-                readonly property bool showName: !row.mine && root.conv === "" && row.firstOfRun
-                // Everyone's conversation: the sender's picture beside their
-                // first message of a run, their messages lined up after it.
-                readonly property real indent: !row.mine && root.conv === "" ? 34 : 0
-                readonly property real maxWidth: (list.width - row.indent) * 0.8
-                readonly property bool deleted: !!row.msg.deleted
-                readonly property var reactions: row.deleted ? [] : Object.keys(row.msg.reactions ?? {})
-                    .map(e => ({ emoji: e, who: row.msg.reactions[e] }))
-                // Your own: for everyone; anyone's (or yours from before
-                // deleting existed, to everyone): for this desktop.
-                readonly property bool forEveryone: Mesh.canDeleteForEveryone(row.msg)
-                property bool armed: false
-                property bool picking: false
-                readonly property bool busy: !!row.msg.deleting || row.msg.status === "sending"
-                width: list.width
-                implicitHeight: bubble.y + bubble.height + (row.reactions.length > 0 ? reactionRow.implicitHeight + 3 : 0)
-                    + (row.picking ? picker.implicitHeight + 4 : 0)
-
-                HoverHandler {
-                    id: rowHover
+            Repeater {
+                model: lists.opened
+                delegate: Loader {
+                    id: convLoader
+                    required property string modelData
+                    anchors.fill: parent
+                    visible: convLoader.modelData === root.conv
+                    // Built off the GUI thread's way when it can (a first open).
+                    asynchronous: true
+                    sourceComponent: convList
+                    onLoaded: convLoader.item.conv = convLoader.modelData
+                    Binding {
+                        when: convLoader.modelData === root.conv && convLoader.item !== null
+                        root.currentList: convLoader.item
+                    }
+                }
+            }
+        }
+        Component {
+            id: convList
+            StyledListView {
+                id: list
+                // The conversation this list shows, and its messages: the last
+                // `limit` of them, older ones loaded 60 at a time when scrolled
+                // near the top (all 300 rows of Everyone's built at once lagged).
+                property string conv
+                readonly property var all: Mesh.messagesIn(list.conv)
+                property int limit: 60
+                readonly property var shown: list.all.length > list.limit ? list.all.slice(list.all.length - list.limit) : list.all
+                readonly property bool hasOlder: list.all.length > list.limit
+                property bool loadingOlder: false
+                function loadOlder() {
+                    if (!list.hasOlder || list.loadingOlder) return;
+                    list.loadingOlder = true;
+                    list.limit += 60;
+                    Qt.callLater(() => list.loadingOlder = false);
+                }
+                // Your last message here (Everyone's "seen by" goes under it).
+                readonly property string lastMineMid: list.shown.filter(m => m.mine && !m.deleted).slice(-1)[0]?.mid ?? ""
+                // A quote clicked: its message, centred (root.jumpTo flashes it).
+                function jumpTo(mid) {
+                    // Older than what is loaded: loaded up to it first.
+                    const inAll = list.all.findIndex(m => m.mid === mid);
+                    if (inAll < 0) return false;
+                    if (inAll < list.all.length - list.limit) list.limit = list.all.length - inAll + 10;
+                    const at = list.shown.findIndex(m => m.mid === mid);
+                    if (at < 0) return false;
+                    list.positionViewAtIndex(at, ListView.Center);
+                    return true;
+                }
+                clip: true
+                spacing: 6
+                // One row per message id, diffed (ScriptModel compares the ids):
+                // a new message adds its row, a reaction or a status only updates
+                // its own (row.msg follows Mesh.byMid). A plain array rebuilt every
+                // row on each change, flickering and jumping to the end.
+                model: ScriptModel {
+                    values: list.shown.map(m => m.mid)
+                }
+                // Every row built (a conversation keeps 500 at most): ListView
+                // otherwise guesses the height of the rows not built yet, and a
+                // new message changing that guess clamped the view to its end
+                // while you were reading higher up.
+                cacheBuffer: 1000000
+                // The newest at the bottom, in view: when the list was left at
+                // (or near) its end, or the new message is yours. Scrolled up to
+                // read, it stays where it is.
+                property real bottomGap: 0
+                property bool autoScrolling: false
+                property int lastCount: 0
+                // How far the end is below what is shown (ListView's contentY
+                // counts from originY, which moves as rows get their height).
+                function gapToEnd() {
+                    return Math.max(0, list.originY + list.contentHeight - list.contentY - list.height);
+                }
+                function toEnd() {
+                    list.autoScrolling = true;
+                    list.positionViewAtEnd();
+                    autoScrollDone.restart();
                 }
                 Timer {
-                    id: disarm
-                    interval: 3000
-                    onTriggered: row.armed = false
+                    id: autoScrollDone
+                    interval: 500
+                    onTriggered: {
+                        list.autoScrolling = false;
+                        list.bottomGap = list.gapToEnd();
+                    }
                 }
+                onContentYChanged: {
+                    if (!list.autoScrolling) list.bottomGap = list.gapToEnd();
+                    // Near the top: the older ones (ListView keeps what is shown in
+                    // place when rows come in above it).
+                    if (!list.autoScrolling && list.contentY - list.originY < 300 && list.hasOlder) list.loadOlder();
+                }
+                onCountChanged: {
+                    // Older ones loaded above: no following the end for them.
+                    if (list.loadingOlder) {
+                        list.lastCount = list.count;
+                        return;
+                    }
+                    const grew = list.count > list.lastCount;
+                    list.lastCount = list.count;
+                    if (grew && (list.bottomGap < 80 || list.shown[list.shown.length - 1]?.mine)) Qt.callLater(list.toEnd);
+                }
+                Component.onCompleted: {
+                    list.lastCount = list.count;
+                    Qt.callLater(list.toEnd);
+                }
+                delegate: Item {
+                    id: row
+                    required property string modelData
+                    required property int index
+                    // The message itself, live: its reactions, status, deletion.
+                    readonly property var msg: Mesh.byMid[row.modelData] ?? ({ mid: row.modelData, text: "", time: 0 })
+                    readonly property bool mine: row.msg.mine
+                    readonly property var prev: row.index > 0 ? list.shown[row.index - 1] : null
+                    readonly property bool firstOfRun: row.prev?.from !== row.msg.from
+                    readonly property bool showName: !row.mine && list.conv === "" && row.firstOfRun
+                    // Everyone's conversation: the sender's picture beside their
+                    // first message of a run, their messages lined up after it.
+                    readonly property real indent: !row.mine && list.conv === "" ? 34 : 0
+                    readonly property real maxWidth: (list.width - row.indent) * 0.8
+                    readonly property bool deleted: !!row.msg.deleted
+                    readonly property var reactions: row.deleted ? [] : Object.keys(row.msg.reactions ?? {})
+                        .map(e => ({ emoji: e, who: row.msg.reactions[e] }))
+                    // Your own: for everyone; anyone's (or yours from before
+                    // deleting existed, to everyone): for this desktop.
+                    readonly property bool forEveryone: Mesh.canDeleteForEveryone(row.msg)
+                    property bool armed: false
+                    property bool picking: false
+                    readonly property bool busy: !!row.msg.deleting || row.msg.status === "sending"
+                    width: list.width
+                    implicitHeight: bubble.y + bubble.height + (row.reactions.length > 0 ? reactionRow.implicitHeight + 3 : 0)
+                        + (row.picking ? picker.implicitHeight + 4 : 0)
 
-                MeshAvatar {
-                    visible: row.indent > 0 && row.firstOfRun
-                    x: 0
-                    y: bubble.y
-                    size: 28
-                    memberId: row.msg.from
-                }
-                StyledText {
-                    id: nameText
-                    visible: row.showName
-                    x: row.indent + 10
-                    // The member's name now (each message keeps the one it came
-                    // with: a renamed member showed under both).
-                    text: Mesh.nameOf(row.msg.from)
-                    font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: Appearance.colors.colSubtext
-                }
+                    HoverHandler {
+                        id: rowHover
+                    }
+                    Timer {
+                        id: disarm
+                        interval: 3000
+                        onTriggered: row.armed = false
+                    }
 
-                // Reply, react, copy and delete: a small toolbar on the
-                // bubble's top edge while hovered (Discord-like), beside it
-                // when there is room, over its corner when not, never out of
-                // the list.
-                Rectangle {
-                    id: toolbar
-                    z: 2
-                    visible: actions.visible
-                    readonly property real wanted: row.mine ? bubble.x - width - 4 : bubble.x + bubble.width + 4
-                    x: Math.max(0, Math.min(row.width - width, toolbar.wanted))
-                    y: Math.max(0, bubble.y - height / 2 + 4)
-                    width: actions.implicitWidth + 6
-                    height: actions.implicitHeight + 6
-                    radius: Appearance.rounding.full
-                    color: Appearance.colors.colLayer1
-                    border.width: 1
-                    border.color: Appearance.colors.colOutlineVariant
-                }
-                Row {
-                    id: actions
-                    z: 3
-                    visible: (rowHover.hovered || row.armed || row.picking) && !row.busy
-                    x: toolbar.x + 3
-                    y: toolbar.y + 3
-                    layoutDirection: row.mine ? Qt.RightToLeft : Qt.LeftToRight
-                    spacing: 0
-                    RippleButton {
-                        visible: !row.deleted && (row.msg.status ?? "sent") === "sent"
-                        implicitHeight: 26
-                        implicitWidth: 26
-                        buttonRadius: Appearance.rounding.full
-                        onClicked: root.startReply(row.msg)
-                        contentItem: MaterialSymbol {
-                            horizontalAlignment: Text.AlignHCenter
-                            text: "reply"
-                            iconSize: Appearance.font.pixelSize.normal
-                            color: Appearance.colors.colSubtext
-                        }
-                        StyledToolTip {
-                            text: Translation.tr("Reply")
-                        }
+                    MeshAvatar {
+                        visible: row.indent > 0 && row.firstOfRun
+                        x: 0
+                        y: bubble.y
+                        size: 28
+                        memberId: row.msg.from
                     }
-                    RippleButton {
-                        id: reactButton
-                        visible: !row.deleted
-                        implicitHeight: 26
-                        implicitWidth: 26
-                        buttonRadius: Appearance.rounding.full
-                        toggled: row.picking
-                        onClicked: row.picking = !row.picking
-                        contentItem: MaterialSymbol {
-                            horizontalAlignment: Text.AlignHCenter
-                            text: "add_reaction"
-                            iconSize: Appearance.font.pixelSize.normal
-                            color: row.picking ? Appearance.colors.colOnPrimary : Appearance.colors.colSubtext
-                        }
-                        StyledToolTip {
-                            text: Translation.tr("React")
-                        }
+                    StyledText {
+                        id: nameText
+                        visible: row.showName
+                        x: row.indent + 10
+                        // The member's name now (each message keeps the one it came
+                        // with: a renamed member showed under both).
+                        text: Mesh.nameOf(row.msg.from)
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
                     }
-                    RippleButton {
-                        visible: !row.deleted && (row.msg.text ?? "") !== ""
-                        implicitHeight: 26
-                        implicitWidth: 26
-                        buttonRadius: Appearance.rounding.full
-                        property bool copied: false
-                        onClicked: {
-                            Clipboard.copy(row.msg.text);
-                            copied = true;
-                            copiedReset.restart();
-                        }
-                        Timer {
-                            id: copiedReset
-                            interval: 1500
-                            onTriggered: parent.copied = false
-                        }
-                        contentItem: MaterialSymbol {
-                            horizontalAlignment: Text.AlignHCenter
-                            text: parent.copied ? "check" : "content_copy"
-                            iconSize: Appearance.font.pixelSize.normal
-                            color: Appearance.colors.colSubtext
-                        }
-                        StyledToolTip {
-                            text: Translation.tr("Copy the text")
-                        }
-                    }
-                    // Delete: a click arms it, a second within 3 s deletes.
-                    RippleButton {
-                        id: deleteButton
-                        implicitHeight: 26
-                        implicitWidth: 26
-                        buttonRadius: Appearance.rounding.full
-                        colBackground: row.armed ? Appearance.m3colors.m3error : ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 1)
-                        colBackgroundHover: row.armed ? Appearance.m3colors.m3error : Appearance.colors.colLayer1Hover
-                        onClicked: {
-                            if (!row.armed) {
-                                row.armed = true;
-                                disarm.restart();
-                                return;
-                            }
-                            row.armed = false;
-                            disarm.stop();
-                            if (row.forEveryone) Mesh.deleteForEveryone(row.msg.mid);
-                            else Mesh.deleteForMe(row.msg.mid);
-                        }
-                        contentItem: MaterialSymbol {
-                            horizontalAlignment: Text.AlignHCenter
-                            text: row.armed ? "delete_forever" : "delete"
-                            iconSize: Appearance.font.pixelSize.normal
-                            color: row.armed ? Appearance.m3colors.m3onError : Appearance.colors.colSubtext
-                        }
-                        StyledToolTip {
-                            text: row.armed
-                                ? (row.forEveryone ? Translation.tr("Click again to delete it for everyone") : Translation.tr("Click again to delete it on this computer"))
-                                : (row.forEveryone ? Translation.tr("Delete for everyone") : Translation.tr("Delete on this computer"))
-                        }
-                    }
-                }
 
-                Rectangle {
-                    id: bubble
-                    y: row.showName ? nameText.implicitHeight + 2 : 0
-                    x: row.mine ? row.width - bubble.width : row.indent
-                    width: Math.min(row.maxWidth, bubbleColumn.implicitWidth + 20)
-                    implicitHeight: bubbleColumn.implicitHeight + 12
-                    radius: Appearance.rounding.normal
-                    color: row.deleted ? "transparent" : (row.mine ? Appearance.colors.colPrimaryContainer : Appearance.colors.colLayer2)
-                    // Flashed when a reply's quote jumps to it.
-                    readonly property bool flashed: root.flashMid !== "" && root.flashMid === row.msg.mid
-                    border.width: bubble.flashed ? 2 : row.deleted ? 1 : 0
-                    border.color: bubble.flashed ? Appearance.colors.colPrimary : Appearance.colors.colOutlineVariant
-                    Behavior on border.width {
-                        NumberAnimation { duration: 150 }
+                    // Reply, react, copy and delete: a small toolbar on the
+                    // bubble's top edge while hovered (Discord-like), beside it
+                    // when there is room, over its corner when not, never out of
+                    // the list.
+                    Rectangle {
+                        id: toolbar
+                        z: 2
+                        visible: actions.visible
+                        readonly property real wanted: row.mine ? bubble.x - width - 4 : bubble.x + bubble.width + 4
+                        x: Math.max(0, Math.min(row.width - width, toolbar.wanted))
+                        y: Math.max(0, bubble.y - height / 2 + 4)
+                        width: actions.implicitWidth + 6
+                        height: actions.implicitHeight + 6
+                        radius: Appearance.rounding.full
+                        color: Appearance.colors.colLayer1
+                        border.width: 1
+                        border.color: Appearance.colors.colOutlineVariant
                     }
-                    ColumnLayout {
-                        id: bubbleColumn
-                        anchors.fill: parent
-                        anchors.margins: 6
-                        anchors.leftMargin: 10
-                        anchors.rightMargin: 10
-                        spacing: 2
-                        // What it answers: the quoted message (live when kept here,
-                        // else the snippet it came with); a click jumps to it.
-                        Rectangle {
-                            id: quote
-                            readonly property var r: row.deleted ? null : row.msg.reply ?? null
-                            readonly property var original: quote.r ? Mesh.byMid[quote.r.mid] ?? null : null
-                            visible: quote.r !== null
-                            Layout.fillWidth: true
-                            Layout.maximumWidth: row.maxWidth - 20
-                            Layout.bottomMargin: 2
-                            implicitWidth: quoteColumn.implicitWidth + 14
-                            implicitHeight: quoteColumn.implicitHeight + 8
-                            radius: Appearance.rounding.small
-                            color: ColorUtils.transparentize(row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2, 0.9)
-                            Rectangle {
-                                width: 3
-                                height: parent.height
-                                radius: 1.5
-                                color: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colPrimary
-                            }
-                            ColumnLayout {
-                                id: quoteColumn
-                                x: 10
-                                y: 4
-                                width: quote.width - 14
-                                spacing: 0
-                                StyledText {
-                                    Layout.fillWidth: true
-                                    text: quote.r ? (quote.r.from === Mesh.me ? Translation.tr("You") : Mesh.nameOf(quote.r.from)) : ""
-                                    elide: Text.ElideRight
-                                    font.pixelSize: Appearance.font.pixelSize.smaller
-                                    font.weight: Font.DemiBold
-                                    color: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colPrimary
-                                }
-                                StyledText {
-                                    Layout.fillWidth: true
-                                    text: quote.original?.deleted ? Translation.tr("Original message was deleted")
-                                        : quote.original ? Mesh.replyOf(quote.original).text : (quote.r?.text ?? "")
-                                    font.italic: !!quote.original?.deleted
-                                    textFormat: Text.PlainText
-                                    elide: Text.ElideRight
-                                    wrapMode: Text.Wrap
-                                    maximumLineCount: 2
-                                    font.pixelSize: Appearance.font.pixelSize.smaller
-                                    color: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
-                                    opacity: 0.85
-                                }
-                            }
-                            TapHandler {
-                                enabled: !!quote.original
-                                onTapped: root.jumpTo(quote.r.mid)
-                            }
-                            HoverHandler {
-                                cursorShape: quote.original ? Qt.PointingHandCursor : Qt.ArrowCursor
-                            }
-                        }
-                        StyledText {
-                            visible: row.deleted
-                            text: row.mine ? Translation.tr("You deleted this message") : Translation.tr("This message was deleted")
-                            font.italic: true
-                            color: Appearance.colors.colSubtext
-                        }
-                        MeshAttachment {
-                            visible: !!row.msg.file
-                            message: row.msg
-                            maxWidth: row.maxWidth - 20
-                            textColor: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
-                            subColor: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext
-                        }
-                        // Selectable (drag; Ctrl+C), its links clickable.
-                        TextEdit {
-                            id: messageText
-                            visible: row.msg.text !== ""
-                            Layout.fillWidth: true
-                            Layout.maximumWidth: row.maxWidth - 20
-                            readOnly: true
-                            selectByMouse: true
-                            persistentSelection: false
-                            textFormat: TextEdit.RichText
-                            text: root.linkified(row.msg.text ?? "", row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colPrimary)
-                            wrapMode: TextEdit.Wrap
-                            color: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
-                            selectionColor: Appearance.colors.colPrimary
-                            selectedTextColor: Appearance.colors.colOnPrimary
-                            font.family: Appearance.font.family.main
-                            font.pixelSize: Appearance.font.pixelSize.small
-                            font.variableAxes: Appearance.font.variableAxes.main
-                            onLinkActivated: link => AppLaunch.openUrl(link)
-                            Keys.onPressed: event => {
-                                if (event.matches(StandardKey.Copy) && messageText.selectedText !== "") {
-                                    // Through wl-copy: the compositor may ignore a copy
-                                    // from a panel's own clipboard (Clipboard.copy).
-                                    Clipboard.copy(messageText.selectedText);
-                                    event.accepted = true;
-                                } else if (event.text !== "" && event.text.charCodeAt(0) >= 32
-                                        && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
-                                    // Typing after selecting: back to the field.
-                                    input.forceActiveFocus();
-                                    input.insert(input.cursorPosition, event.text);
-                                    event.accepted = true;
-                                }
-                            }
-                            // The link under the pointer: hoveredLink reads the global
-                            // cursor position, unknown on Wayland (NotesWidget does the same).
-                            readonly property string hoveredUrl: textHover.hovered
-                                ? messageText.linkAt(textHover.point.position.x, textHover.point.position.y) : ""
-                            HoverHandler {
-                                id: textHover
-                                cursorShape: messageText.hoveredUrl !== "" ? Qt.PointingHandCursor : Qt.IBeamCursor
-                            }
-                        }
-                        StyledText {
-                            Layout.alignment: row.mine ? Qt.AlignRight : Qt.AlignLeft
-                            text: {
-                                const when = Qt.locale().toString(new Date(row.msg.time), Config.options?.time.format ?? "hh:mm");
-                                if (!row.mine || row.deleted) return when;
-                                if (row.msg.deleting) return Translation.tr("%1 · deleting…").arg(when);
-                                if (row.msg.deleteError)
-                                    return Translation.tr("%1 · couldn't delete: %2").arg(when).arg(row.msg.deleteError);
-                                if (row.msg.status === "failed")
-                                    return row.msg.error ? Translation.tr("%1 · not sent: %2 (click to retry)").arg(when).arg(row.msg.error)
-                                        : Translation.tr("%1 · not sent, click to retry").arg(when);
-                                if (row.msg.status === "sending") return Translation.tr("%1 · sending…").arg(when);
-                                if (row.msg.to !== "") return Mesh.seen(row.msg) ? Translation.tr("%1 · seen").arg(when) : when;
-                                // Everyone's: who read it, under your last message only.
-                                if (row.msg.mid !== root.lastMineMid) return when;
-                                const by = Mesh.seenBy(row.msg);
-                                if (by.length === 0) return when;
-                                return by.length === 1 ? Translation.tr("%1 · seen by %2").arg(when).arg(Mesh.nameOf(by[0]))
-                                    : Translation.tr("%1 · seen by %2").arg(when).arg(by.length);
-                            }
-                            font.pixelSize: Appearance.font.pixelSize.smallest
-                            color: row.msg.status === "failed" || (!!row.msg.deleteError && !row.deleted) ? Appearance.m3colors.m3error
-                                : (row.mine && !row.deleted ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext)
-                            opacity: 0.8
-                        }
-                    }
-                    // Only on a message that failed (click to retry).
-                    MouseArea {
-                        anchors.fill: parent
-                        visible: row.msg.status === "failed"
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: Mesh.retry(row.msg.mid)
-                    }
-                }
-
-                // The reactions: an emoji and how many; yours highlighted, a
-                // click takes yours back or adds it.
-                Row {
-                    id: reactionRow
-                    visible: row.reactions.length > 0
-                    y: bubble.y + bubble.height + 3
-                    x: row.mine ? row.width - reactionRow.width : row.indent + 4
-                    layoutDirection: row.mine ? Qt.RightToLeft : Qt.LeftToRight
-                    spacing: 4
-                    Repeater {
-                        model: row.reactions
-                        delegate: RippleButton {
-                            id: chipReaction
-                            required property var modelData
-                            readonly property bool byMe: chipReaction.modelData.who.includes(Mesh.me)
-                            implicitHeight: 24
-                            implicitWidth: reactionText.implicitWidth + 14
+                    Row {
+                        id: actions
+                        z: 3
+                        visible: (rowHover.hovered || row.armed || row.picking) && !row.busy
+                        x: toolbar.x + 3
+                        y: toolbar.y + 3
+                        layoutDirection: row.mine ? Qt.RightToLeft : Qt.LeftToRight
+                        spacing: 0
+                        RippleButton {
+                            visible: !row.deleted && (row.msg.status ?? "sent") === "sent"
+                            implicitHeight: 26
+                            implicitWidth: 26
                             buttonRadius: Appearance.rounding.full
-                            toggled: chipReaction.byMe
-                            colBackground: Appearance.colors.colLayer2
-                            onClicked: Mesh.react(row.msg.mid, chipReaction.modelData.emoji)
-                            contentItem: StyledText {
-                                id: reactionText
+                            onClicked: root.startReply(row.msg)
+                            contentItem: MaterialSymbol {
                                 horizontalAlignment: Text.AlignHCenter
-                                text: chipReaction.modelData.who.length > 1
-                                    ? `${chipReaction.modelData.emoji} ${chipReaction.modelData.who.length}` : chipReaction.modelData.emoji
-                                font.pixelSize: Appearance.font.pixelSize.small
-                                color: chipReaction.byMe ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer2
+                                text: "reply"
+                                iconSize: Appearance.font.pixelSize.normal
+                                color: Appearance.colors.colSubtext
                             }
                             StyledToolTip {
-                                text: chipReaction.modelData.who.map(id => id === Mesh.me ? Translation.tr("You") : Mesh.nameOf(id)).join(", ")
+                                text: Translation.tr("Reply")
+                            }
+                        }
+                        RippleButton {
+                            id: reactButton
+                            visible: !row.deleted
+                            implicitHeight: 26
+                            implicitWidth: 26
+                            buttonRadius: Appearance.rounding.full
+                            toggled: row.picking
+                            onClicked: row.picking = !row.picking
+                            contentItem: MaterialSymbol {
+                                horizontalAlignment: Text.AlignHCenter
+                                text: "add_reaction"
+                                iconSize: Appearance.font.pixelSize.normal
+                                color: row.picking ? Appearance.colors.colOnPrimary : Appearance.colors.colSubtext
+                            }
+                            StyledToolTip {
+                                text: Translation.tr("React")
+                            }
+                        }
+                        RippleButton {
+                            visible: !row.deleted && (row.msg.text ?? "") !== ""
+                            implicitHeight: 26
+                            implicitWidth: 26
+                            buttonRadius: Appearance.rounding.full
+                            property bool copied: false
+                            onClicked: {
+                                Clipboard.copy(row.msg.text);
+                                copied = true;
+                                copiedReset.restart();
+                            }
+                            Timer {
+                                id: copiedReset
+                                interval: 1500
+                                onTriggered: parent.copied = false
+                            }
+                            contentItem: MaterialSymbol {
+                                horizontalAlignment: Text.AlignHCenter
+                                text: parent.copied ? "check" : "content_copy"
+                                iconSize: Appearance.font.pixelSize.normal
+                                color: Appearance.colors.colSubtext
+                            }
+                            StyledToolTip {
+                                text: Translation.tr("Copy the text")
+                            }
+                        }
+                        // Delete: a click arms it, a second within 3 s deletes.
+                        RippleButton {
+                            id: deleteButton
+                            implicitHeight: 26
+                            implicitWidth: 26
+                            buttonRadius: Appearance.rounding.full
+                            colBackground: row.armed ? Appearance.m3colors.m3error : ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 1)
+                            colBackgroundHover: row.armed ? Appearance.m3colors.m3error : Appearance.colors.colLayer1Hover
+                            onClicked: {
+                                if (!row.armed) {
+                                    row.armed = true;
+                                    disarm.restart();
+                                    return;
+                                }
+                                row.armed = false;
+                                disarm.stop();
+                                if (row.forEveryone) Mesh.deleteForEveryone(row.msg.mid);
+                                else Mesh.deleteForMe(row.msg.mid);
+                            }
+                            contentItem: MaterialSymbol {
+                                horizontalAlignment: Text.AlignHCenter
+                                text: row.armed ? "delete_forever" : "delete"
+                                iconSize: Appearance.font.pixelSize.normal
+                                color: row.armed ? Appearance.m3colors.m3onError : Appearance.colors.colSubtext
+                            }
+                            StyledToolTip {
+                                text: row.armed
+                                    ? (row.forEveryone ? Translation.tr("Click again to delete it for everyone") : Translation.tr("Click again to delete it on this computer"))
+                                    : (row.forEveryone ? Translation.tr("Delete for everyone") : Translation.tr("Delete on this computer"))
                             }
                         }
                     }
-                }
 
-                // Picking a reaction.
-                Rectangle {
-                    id: picker
-                    visible: row.picking
-                    y: bubble.y + bubble.height + (row.reactions.length > 0 ? reactionRow.implicitHeight + 3 : 0) + 4
-                    x: row.mine ? row.width - picker.width : row.indent
-                    implicitWidth: pickerRow.implicitWidth + 8
-                    implicitHeight: pickerRow.implicitHeight + 8
-                    radius: Appearance.rounding.full
-                    color: Appearance.colors.colLayer2
-                    Row {
-                        id: pickerRow
-                        anchors.centerIn: parent
-                        spacing: 2
-                        Repeater {
-                            model: Mesh.reactionChoices
-                            delegate: RippleButton {
-                                id: choice
-                                required property string modelData
-                                implicitWidth: 32
-                                implicitHeight: 32
-                                buttonRadius: Appearance.rounding.full
-                                toggled: (row.msg.reactions?.[choice.modelData] ?? []).includes(Mesh.me)
-                                onClicked: {
-                                    Mesh.react(row.msg.mid, choice.modelData);
-                                    row.picking = false;
+                    Rectangle {
+                        id: bubble
+                        y: row.showName ? nameText.implicitHeight + 2 : 0
+                        x: row.mine ? row.width - bubble.width : row.indent
+                        width: Math.min(row.maxWidth, bubbleColumn.implicitWidth + 20)
+                        implicitHeight: bubbleColumn.implicitHeight + 12
+                        radius: Appearance.rounding.normal
+                        color: row.deleted ? "transparent" : (row.mine ? Appearance.colors.colPrimaryContainer : Appearance.colors.colLayer2)
+                        // Flashed when a reply's quote jumps to it.
+                        readonly property bool flashed: root.flashMid !== "" && root.flashMid === row.msg.mid
+                        border.width: bubble.flashed ? 2 : row.deleted ? 1 : 0
+                        border.color: bubble.flashed ? Appearance.colors.colPrimary : Appearance.colors.colOutlineVariant
+                        Behavior on border.width {
+                            NumberAnimation { duration: 150 }
+                        }
+                        ColumnLayout {
+                            id: bubbleColumn
+                            anchors.fill: parent
+                            anchors.margins: 6
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+                            spacing: 2
+                            // What it answers: the quoted message (live when kept here,
+                            // else the snippet it came with); a click jumps to it.
+                            Rectangle {
+                                id: quote
+                                readonly property var r: row.deleted ? null : row.msg.reply ?? null
+                                readonly property var original: quote.r ? Mesh.byMid[quote.r.mid] ?? null : null
+                                visible: quote.r !== null
+                                Layout.fillWidth: true
+                                Layout.maximumWidth: row.maxWidth - 20
+                                Layout.bottomMargin: 2
+                                implicitWidth: quoteColumn.implicitWidth + 14
+                                implicitHeight: quoteColumn.implicitHeight + 8
+                                radius: Appearance.rounding.small
+                                color: ColorUtils.transparentize(row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2, 0.9)
+                                Rectangle {
+                                    width: 3
+                                    height: parent.height
+                                    radius: 1.5
+                                    color: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colPrimary
                                 }
+                                ColumnLayout {
+                                    id: quoteColumn
+                                    x: 10
+                                    y: 4
+                                    width: quote.width - 14
+                                    spacing: 0
+                                    StyledText {
+                                        Layout.fillWidth: true
+                                        text: quote.r ? (quote.r.from === Mesh.me ? Translation.tr("You") : Mesh.nameOf(quote.r.from)) : ""
+                                        elide: Text.ElideRight
+                                        font.pixelSize: Appearance.font.pixelSize.smaller
+                                        font.weight: Font.DemiBold
+                                        color: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colPrimary
+                                    }
+                                    StyledText {
+                                        Layout.fillWidth: true
+                                        text: quote.original?.deleted ? Translation.tr("Original message was deleted")
+                                            : quote.original ? Mesh.replyOf(quote.original).text : (quote.r?.text ?? "")
+                                        font.italic: !!quote.original?.deleted
+                                        textFormat: Text.PlainText
+                                        elide: Text.ElideRight
+                                        wrapMode: Text.Wrap
+                                        maximumLineCount: 2
+                                        font.pixelSize: Appearance.font.pixelSize.smaller
+                                        color: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
+                                        opacity: 0.85
+                                    }
+                                }
+                                TapHandler {
+                                    enabled: !!quote.original
+                                    onTapped: root.jumpTo(quote.r.mid)
+                                }
+                                HoverHandler {
+                                    cursorShape: quote.original ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                }
+                            }
+                            StyledText {
+                                visible: row.deleted
+                                text: row.mine ? Translation.tr("You deleted this message") : Translation.tr("This message was deleted")
+                                font.italic: true
+                                color: Appearance.colors.colSubtext
+                            }
+                            MeshAttachment {
+                                visible: !!row.msg.file
+                                message: row.msg
+                                maxWidth: row.maxWidth - 20
+                                textColor: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
+                                subColor: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext
+                            }
+                            // Selectable (drag; Ctrl+C), its links clickable.
+                            TextEdit {
+                                id: messageText
+                                visible: row.msg.text !== ""
+                                Layout.fillWidth: true
+                                Layout.maximumWidth: row.maxWidth - 20
+                                readOnly: true
+                                selectByMouse: true
+                                persistentSelection: false
+                                textFormat: TextEdit.RichText
+                                text: root.linkified(row.msg.text ?? "", row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colPrimary)
+                                wrapMode: TextEdit.Wrap
+                                color: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
+                                selectionColor: Appearance.colors.colPrimary
+                                selectedTextColor: Appearance.colors.colOnPrimary
+                                font.family: Appearance.font.family.main
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                font.variableAxes: Appearance.font.variableAxes.main
+                                onLinkActivated: link => AppLaunch.openUrl(link)
+                                Keys.onPressed: event => {
+                                    if (event.matches(StandardKey.Copy) && messageText.selectedText !== "") {
+                                        // Through wl-copy: the compositor may ignore a copy
+                                        // from a panel's own clipboard (Clipboard.copy).
+                                        Clipboard.copy(messageText.selectedText);
+                                        event.accepted = true;
+                                    } else if (event.text !== "" && event.text.charCodeAt(0) >= 32
+                                            && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
+                                        // Typing after selecting: back to the field.
+                                        input.forceActiveFocus();
+                                        input.insert(input.cursorPosition, event.text);
+                                        event.accepted = true;
+                                    }
+                                }
+                                // The link under the pointer: hoveredLink reads the global
+                                // cursor position, unknown on Wayland (NotesWidget does the same).
+                                readonly property string hoveredUrl: textHover.hovered
+                                    ? messageText.linkAt(textHover.point.position.x, textHover.point.position.y) : ""
+                                HoverHandler {
+                                    id: textHover
+                                    cursorShape: messageText.hoveredUrl !== "" ? Qt.PointingHandCursor : Qt.IBeamCursor
+                                }
+                            }
+                            StyledText {
+                                Layout.alignment: row.mine ? Qt.AlignRight : Qt.AlignLeft
+                                text: {
+                                    const when = Qt.locale().toString(new Date(row.msg.time), Config.options?.time.format ?? "hh:mm");
+                                    if (!row.mine || row.deleted) return when;
+                                    if (row.msg.deleting) return Translation.tr("%1 · deleting…").arg(when);
+                                    if (row.msg.deleteError)
+                                        return Translation.tr("%1 · couldn't delete: %2").arg(when).arg(row.msg.deleteError);
+                                    if (row.msg.status === "failed")
+                                        return row.msg.error ? Translation.tr("%1 · not sent: %2 (click to retry)").arg(when).arg(row.msg.error)
+                                            : Translation.tr("%1 · not sent, click to retry").arg(when);
+                                    if (row.msg.status === "sending") return Translation.tr("%1 · sending…").arg(when);
+                                    if (row.msg.to !== "") return Mesh.seen(row.msg) ? Translation.tr("%1 · seen").arg(when) : when;
+                                    // Everyone's: who read it, under your last message only.
+                                    if (row.msg.mid !== list.lastMineMid) return when;
+                                    const by = Mesh.seenBy(row.msg);
+                                    if (by.length === 0) return when;
+                                    return by.length === 1 ? Translation.tr("%1 · seen by %2").arg(when).arg(Mesh.nameOf(by[0]))
+                                        : Translation.tr("%1 · seen by %2").arg(when).arg(by.length);
+                                }
+                                font.pixelSize: Appearance.font.pixelSize.smallest
+                                color: row.msg.status === "failed" || (!!row.msg.deleteError && !row.deleted) ? Appearance.m3colors.m3error
+                                    : (row.mine && !row.deleted ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext)
+                                opacity: 0.8
+                            }
+                        }
+                        // Only on a message that failed (click to retry).
+                        MouseArea {
+                            anchors.fill: parent
+                            visible: row.msg.status === "failed"
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: Mesh.retry(row.msg.mid)
+                        }
+                    }
+
+                    // The reactions: an emoji and how many; yours highlighted, a
+                    // click takes yours back or adds it.
+                    Row {
+                        id: reactionRow
+                        visible: row.reactions.length > 0
+                        y: bubble.y + bubble.height + 3
+                        x: row.mine ? row.width - reactionRow.width : row.indent + 4
+                        layoutDirection: row.mine ? Qt.RightToLeft : Qt.LeftToRight
+                        spacing: 4
+                        Repeater {
+                            model: row.reactions
+                            delegate: RippleButton {
+                                id: chipReaction
+                                required property var modelData
+                                readonly property bool byMe: chipReaction.modelData.who.includes(Mesh.me)
+                                implicitHeight: 24
+                                implicitWidth: reactionText.implicitWidth + 14
+                                buttonRadius: Appearance.rounding.full
+                                toggled: chipReaction.byMe
+                                colBackground: Appearance.colors.colLayer2
+                                onClicked: Mesh.react(row.msg.mid, chipReaction.modelData.emoji)
                                 contentItem: StyledText {
+                                    id: reactionText
                                     horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                    text: choice.modelData
-                                    font.pixelSize: Appearance.font.pixelSize.larger
+                                    text: chipReaction.modelData.who.length > 1
+                                        ? `${chipReaction.modelData.emoji} ${chipReaction.modelData.who.length}` : chipReaction.modelData.emoji
+                                    font.pixelSize: Appearance.font.pixelSize.small
+                                    color: chipReaction.byMe ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer2
+                                }
+                                StyledToolTip {
+                                    text: chipReaction.modelData.who.map(id => id === Mesh.me ? Translation.tr("You") : Mesh.nameOf(id)).join(", ")
+                                }
+                            }
+                        }
+                    }
+
+                    // Picking a reaction.
+                    Rectangle {
+                        id: picker
+                        visible: row.picking
+                        y: bubble.y + bubble.height + (row.reactions.length > 0 ? reactionRow.implicitHeight + 3 : 0) + 4
+                        x: row.mine ? row.width - picker.width : row.indent
+                        implicitWidth: pickerRow.implicitWidth + 8
+                        implicitHeight: pickerRow.implicitHeight + 8
+                        radius: Appearance.rounding.full
+                        color: Appearance.colors.colLayer2
+                        Row {
+                            id: pickerRow
+                            anchors.centerIn: parent
+                            spacing: 2
+                            Repeater {
+                                model: Mesh.reactionChoices
+                                delegate: RippleButton {
+                                    id: choice
+                                    required property string modelData
+                                    implicitWidth: 32
+                                    implicitHeight: 32
+                                    buttonRadius: Appearance.rounding.full
+                                    toggled: (row.msg.reactions?.[choice.modelData] ?? []).includes(Mesh.me)
+                                    onClicked: {
+                                        Mesh.react(row.msg.mid, choice.modelData);
+                                        row.picking = false;
+                                    }
+                                    contentItem: StyledText {
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        text: choice.modelData
+                                        font.pixelSize: Appearance.font.pixelSize.larger
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+
         }
 
         // Nudges and quick messages (the ✨ button): one picker instead of
@@ -1007,7 +1073,7 @@ Item {
                     id: pendingChip
                     required property string modelData
                     implicitHeight: 30
-                    implicitWidth: Math.min(list.width, pendingRow.implicitWidth + 16)
+                    implicitWidth: Math.min(lists.width, pendingRow.implicitWidth + 16)
                     radius: Appearance.rounding.full
                     color: Appearance.colors.colSecondaryContainer
                     RowLayout {
@@ -1023,7 +1089,7 @@ Item {
                         }
                         StyledText {
                             Layout.fillWidth: true
-                            Layout.maximumWidth: list.width - 70
+                            Layout.maximumWidth: lists.width - 70
                             text: pendingChip.modelData.split("/").pop()
                             elide: Text.ElideMiddle
                             font.pixelSize: Appearance.font.pixelSize.small
