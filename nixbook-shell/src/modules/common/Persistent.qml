@@ -96,6 +96,12 @@ Singleton {
                     property bool open: false
                     property string screen: ""
                 }
+                // The right sidebar pinned (the header's pin, Ctrl+P), on the
+                // monitor it was pinned on: always open, it comes back so.
+                property JsonObject right: JsonObject {
+                    property bool pinned: false
+                    property string screen: ""
+                }
             }
 
 

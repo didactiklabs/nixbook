@@ -120,7 +120,11 @@ Singleton {
     property var filePath: Directories.notificationsPath
     property list<Notif> list: []
     property var popupList: list.filter((notif) => notif.popup);
-    property bool popupInhibited: (GlobalStates?.sidebarRightOpen ?? false) || silent
+    // No popups while the right sidebar shows the notifications. Pinned, it
+    // stays open whatever it shows: popups come unless its Notifications
+    // page is the one in view.
+    property bool popupInhibited: ((GlobalStates?.sidebarRightOpen ?? false)
+        && (!(GlobalStates?.sidebarRightPinned ?? false) || Persistent.states.sidebar.tab === "notifications")) || silent
     property var latestTimeForApp: ({})
     Component {
         id: notifComponent

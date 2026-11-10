@@ -22,6 +22,9 @@ Singleton {
     // The side panel's chat to the front (services/Initiative.qml: a reply).
     signal aiChatRequested()
     property bool sidebarRightOpen: false
+    // Pinned (the header's pin, Ctrl+P): open beside the windows, its strip
+    // reserved, kept across restarts (modules/ii/sidebarRight/SidebarRight).
+    property bool sidebarRightPinned: false
     // Opened by hovering its edge handle (sidebarHandles): the sidebar closes
     // again once the pointer leaves it. Cleared when it closes.
     property bool sidebarLeftPeek: false

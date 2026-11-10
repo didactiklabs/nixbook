@@ -28,17 +28,65 @@ Scope {
         }
     }
 
+    // Pinned (the header's pin, Ctrl+P, IPC `sidebarRight pin`): the sidebar
+    // stays open beside the windows and reserves its strip (exclusiveZone),
+    // like the left one pinned. Every close (Escape, Mod+N, a click outside,
+    // links, toggles) is refused; unpin first. It survives restarts and
+    // reboots (Persistent states.json), on the monitor it was pinned on.
+    readonly property bool pin: GlobalStates.sidebarRightPinned
+    function togglePin() {
+        GlobalStates.sidebarRightPinned = !GlobalStates.sidebarRightPinned;
+    }
+    function enforcePinnedOpen() {
+        if (root.pin && !GlobalStates.sidebarRightOpen) GlobalStates.sidebarRightOpen = true;
+    }
+    property bool restoringPin: false
+    function restorePin() {
+        root.restoringPin = true; // keep the saved monitor (onPinChanged)
+        GlobalStates.sidebarRightPinned = Persistent.states.sidebar.right.pinned;
+        root.restoringPin = false;
+        panelWindow.restorePinnedScreen();
+        root.enforcePinnedOpen();
+    }
+    Connections {
+        target: Persistent
+        function onReadyChanged() {
+            if (Persistent.ready) root.restorePin();
+        }
+    }
+    Component.onCompleted: if (Persistent.ready) root.restorePin()
+    onPinChanged: {
+        root.enforcePinnedOpen();
+        if (!Persistent.ready) return;
+        Persistent.states.sidebar.right.pinned = root.pin;
+        if (root.pin && !root.restoringPin)
+            Persistent.states.sidebar.right.screen = panelWindow.screen?.name ?? WM.focusedMonitor?.name ?? "";
+        // Kept mapped since before the bar was created, it would squeeze the
+        // bar once it reserves its strip.
+        if (root.pin) panelWindow.checkBarOrder();
+    }
+
+    // Opening the sidebar marks the notifications read (GlobalStates); pinned,
+    // it doesn't open again, so going to its Notifications page does.
+    Connections {
+        target: Persistent.states.sidebar
+        function onTabChanged() {
+            if (GlobalStates.sidebarRightOpen && Persistent.states.sidebar.tab === "notifications")
+                Notifications.markAllRead();
+        }
+    }
+
     // Click outside to close: its own transparent
     // full-screen window, input everywhere but over the sidebar. It used to be
     // part of the sidebar window, widened to the full screen while open, so
     // every animation, hover or tick in the sidebar re-rendered a full-screen
     // buffer. This one is drawn once when shown and then stays idle. Overlay,
     // like the sidebar, so it also covers the bar (a bar click closes the
-    // sidebar, as before).
+    // sidebar, as before). Not while pinned: the sidebar is part of the layout.
     PanelWindow {
         id: outsideClickWindow
         screen: panelWindow.screen
-        visible: panelWindow.reallyVisible
+        visible: panelWindow.reallyVisible && !root.pin
         color: "transparent"
         exclusionMode: ExclusionMode.Ignore
         WlrLayershell.namespace: "quickshell:sidebarRightOutside"
@@ -81,13 +129,25 @@ Scope {
         // (opacity 0 → nothing drawn); opening only gives it input back. It
         // keeps its size, so nothing is re-laid-out either.
         property bool keepMapped: false
-        visible: reallyVisible || keepMapped
+        visible: (reallyVisible || keepMapped) && !remapping
         Region { id: noInput }
+
+        // Pinned, it is open from the start, and on the Overlay layer a
+        // surface mapped later is drawn on top: it would show over the
+        // loading screen. While the shell boots it stays mapped (its strip
+        // reserved) but draws nothing and takes no input; it fades in with
+        // the loading screen's fade-out (see SidebarLeft).
+        readonly property bool bootHidden: Preloader.booting
+        property real bootFade: Preloader.booting ? 0 : 1
+        Behavior on bootFade {
+            NumberAnimation { duration: 320; easing.type: Easing.OutCubic } // BootSplash's fade-out
+        }
+
         // Niri's blur behind the body (NiriConfig.panelBlur), while open.
         // It slides with a transform, which a region isn't told about: x
         // (unused with an item) follows the slide so the region is
         // recomputed (from the item's place on screen, transform included).
-        readonly property bool blurred: NiriConfig.panelBlur && panelWindow.reallyVisible
+        readonly property bool blurred: NiriConfig.panelBlur && panelWindow.reallyVisible && !panelWindow.bootHidden
         BackgroundEffect.blurRegion: panelWindow.blurred ? blurArea : null
         BlurCommit { blur: panelWindow.blurred }
         Region {
@@ -96,7 +156,7 @@ Scope {
             radius: Appearance.rounding.screenRounding - Appearance.sizes.gapsOut + 5 // SidebarRightContent's
             x: slide.x
         }
-        mask: reallyVisible ? null : noInput
+        mask: reallyVisible && !bootHidden ? null : noInput
         Connections {
             target: Preloader
             function onSidebarRightChanged() {
@@ -111,6 +171,78 @@ Scope {
             const s = Quickshell.screens.find(s => s.name === WM.focusedMonitor?.name);
             if (s && panelWindow.screen !== s) panelWindow.screen = s;
         }
+        // Pinned: back on the monitor it was pinned on. Not connected (yet),
+        // it waits on the focused one and moves there once it appears.
+        function restorePinnedScreen() {
+            if (!root.pin) return;
+            const name = Persistent.states.sidebar.right.screen;
+            const s = Quickshell.screens.find(s => s.name === name);
+            if (s) {
+                if (panelWindow.screen !== s) panelWindow.screen = s;
+            } else if (!panelWindow.screen) {
+                panelWindow.followFocusedScreen();
+            }
+        }
+        Connections {
+            target: Quickshell
+            function onScreensChanged() { panelWindow.restorePinnedScreen() }
+        }
+
+        // Pinned, it reserves its strip, and niri places the surfaces that
+        // reserve space in the order they were mapped: mapped before the bar,
+        // it squeezed the bar into the space beside it (every unlock destroys
+        // the bar, startup, a screen plugged in). So when a bar is created on
+        // its screen, or it gets pinned, the order is read back from niri and,
+        // when it comes first, the sidebar is mapped again: behind the bar.
+        property bool remapping: false
+        function checkBarOrder() {
+            if (!root.pin) return;
+            barOrderCheck.tries = 0;
+            barOrderCheck.restart();
+        }
+        Connections {
+            target: GlobalStates
+            function onBarCreated(screenName) {
+                if (screenName === panelWindow.screen?.name) panelWindow.checkBarOrder();
+            }
+        }
+        Timer {
+            id: barOrderCheck
+            property int tries: 0
+            interval: 300 // the bar maps once it has drawn its first frame
+            onTriggered: barOrderProc.running = true
+        }
+        Process {
+            id: barOrderProc
+            command: ["niri", "msg", "--json", "layers"]
+            stdout: StdioCollector {
+                onStreamFinished: panelWindow.applyBarOrder(text)
+            }
+        }
+        function applyBarOrder(text) {
+            if (!root.pin) return;
+            let layers;
+            try {
+                layers = JSON.parse(text);
+            } catch (e) {
+                return;
+            }
+            const here = layers.filter(l => l.output === panelWindow.screen?.name).map(l => l.namespace);
+            const sidebar = here.indexOf("quickshell:sidebarRight");
+            const bar = here.findIndex(n => n === "quickshell:bar" || n === "quickshell:verticalBar");
+            if (sidebar < 0) return;
+            if (bar < 0) {
+                if (++barOrderCheck.tries < 10) barOrderCheck.restart();
+                return;
+            }
+            if (sidebar > bar) return;
+            console.log("[SidebarRight] mapped before the bar on", panelWindow.screen?.name, "- mapping it again behind it");
+            panelWindow.remapping = true;
+            Qt.callLater(() => {
+                panelWindow.remapping = false;
+                if (++barOrderCheck.tries < 10) barOrderCheck.restart(); // confirm
+            });
+        }
 
         Component.onCompleted: reallyVisible = GlobalStates.sidebarRightOpen
 
@@ -119,9 +251,13 @@ Scope {
             function onSidebarRightOpenChanged() {
                 if (GlobalStates.sidebarRightOpen) {
                     closeAnimTimer.stop();
-                    panelWindow.followFocusedScreen();
+                    if (root.pin) panelWindow.restorePinnedScreen();
+                    else panelWindow.followFocusedScreen();
                     panelWindow.reallyVisible = true;
                     panelWindow.keepMapped = true;
+                } else if (root.pin) {
+                    // Pinned: no closing (unpin first).
+                    root.enforcePinnedOpen();
                 } else {
                     GlobalStates.sidebarRightPeek = false;
                     panelWindow.peekUsed = false;
@@ -136,6 +272,7 @@ Scope {
         // closes it at once.
         property bool peekUsed: false
         readonly property bool glancing: GlobalStates.sidebarRightOpen && GlobalStates.sidebarRightPeek && !panelWindow.peekUsed
+            && !root.pin
         Timer {
             interval: 400
             running: panelWindow.glancing && slide.x === 0 && peekHover.hovered
@@ -146,7 +283,7 @@ Scope {
         // Close once the pointer has been outside it a moment.
         Timer {
             interval: panelWindow.glancing ? 100 : 350
-            running: GlobalStates.sidebarRightOpen && GlobalStates.sidebarRightPeek
+            running: GlobalStates.sidebarRightOpen && GlobalStates.sidebarRightPeek && !root.pin
                 && outsideClickArea.containsMouse
             onTriggered: panelWindow.hide()
         }
@@ -158,33 +295,44 @@ Scope {
         }
 
         function hide() {
+            if (root.pin) return;
             GlobalStates.sidebarRightOpen = false;
         }
 
-        onReallyVisibleChanged: {
-            if (reallyVisible) {
+        // A pinned sidebar is part of the layout, not a popup: out of the
+        // dismissable set (it would also keep the click catcher up).
+        onReallyVisibleChanged: panelWindow.syncDismissable()
+        function syncDismissable() {
+            if (panelWindow.reallyVisible && !root.pin)
                 GlobalFocusGrab.addDismissable(panelWindow);
-            } else {
+            else
                 GlobalFocusGrab.removeDismissable(panelWindow);
-            }
+        }
+        Connections {
+            target: root
+            function onPinChanged() { panelWindow.syncDismissable() }
         }
 
         Connections {
             target: GlobalFocusGrab
             function onDismissed() {
-                if (GlobalFocusGrab.spares(panelWindow)) return;
+                if (GlobalFocusGrab.spares(panelWindow) || root.pin) return;
                 panelWindow.hide();
             }
         }
 
-        exclusiveZone: 0
+        exclusionMode: ExclusionMode.Normal
+        exclusiveZone: root.pin ? sidebarWidth : 0
         implicitWidth: sidebarWidth
         WlrLayershell.namespace: "quickshell:sidebarRight"
         // Overlay so it stays above GlobalFocusGrab's click catcher (Top).
         WlrLayershell.layer: WlrLayer.Overlay
         // Open panels take the keyboard (see SidebarLeft): OnDemand only got it
-        // after a click on this kept-mapped surface.
-        WlrLayershell.keyboardFocus: GlobalStates.sidebarRightOpen && !panelWindow.glancing ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        // after a click on this kept-mapped surface. Pinned, it is permanent:
+        // click-to-focus only.
+        WlrLayershell.keyboardFocus: !GlobalStates.sidebarRightOpen || panelWindow.glancing || panelWindow.bootHidden
+            ? WlrKeyboardFocus.None
+            : root.pin ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive
         color: "transparent"
 
         anchors {
@@ -205,7 +353,9 @@ Scope {
                 id: entranceWrapper
                 // Nothing drawn while closed (the surface stays mapped).
                 // (≈invisible while booting: draws once so textures are uploaded)
-                opacity: panelWindow.reallyVisible ? 1 : (Preloader.prerender ? 0.004 : 0)
+                opacity: panelWindow.reallyVisible
+                    ? Math.max(panelWindow.bootFade, Preloader.prerender ? 0.004 : 0)
+                    : (Preloader.prerender ? 0.004 : 0)
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 width: sidebarWidth
@@ -271,6 +421,9 @@ Scope {
                     Keys.onPressed: event => {
                         if (event.key === Qt.Key_Escape) {
                             panelWindow.hide();
+                        } else if (event.key === Qt.Key_P && (event.modifiers & Qt.ControlModifier)) {
+                            root.togglePin();
+                            event.accepted = true;
                         }
                     }
 
@@ -292,6 +445,19 @@ Scope {
 
             function open(): void {
                 GlobalStates.sidebarRightOpen = true;
+            }
+
+            // Pinned: open beside the windows, its strip reserved.
+            function pin(): void {
+                GlobalStates.sidebarRightPinned = true;
+            }
+
+            function unpin(): void {
+                GlobalStates.sidebarRightPinned = false;
+            }
+
+            function togglePin(): void {
+                root.togglePin();
             }
         }
     }

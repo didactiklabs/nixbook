@@ -432,6 +432,16 @@ Item {
                 text: Translation.tr("Reload Niri & Quickshell")
             }
         }
+        // Pinned: open beside the windows, its strip reserved (Ctrl+P).
+        QuickToggleButton {
+            toggled: GlobalStates.sidebarRightPinned
+            buttonIcon: "push_pin"
+            onClicked: GlobalStates.sidebarRightPinned = !GlobalStates.sidebarRightPinned
+            StyledToolTip {
+                text: GlobalStates.sidebarRightPinned ? Translation.tr("Unpin the panel (Ctrl+P)")
+                    : Translation.tr("Keep the panel open beside your windows (Ctrl+P)")
+            }
+        }
         QuickToggleButton {
             toggled: GlobalStates.settingsOpen
             buttonIcon: "settings"
