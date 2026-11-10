@@ -213,6 +213,7 @@ let
       ydotool
       wtype # desktop-mcp keyboard input (virtual keyboard, no uinput)
       tesseract # region OCR
+      libqalculate # qalc: the launcher's maths (LauncherSearch's mathProc)
       poppler-utils # pdftotext/pdftoppm/pdfinfo: DAI reads PDFs (its Bash; read_document OCRs with tesseract)
 
       playerctl
