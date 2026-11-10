@@ -42,6 +42,8 @@ cat >"$tmp/server/server.yml" <<EOF
 listen-http: "127.0.0.1:$port"
 base-url: "$server"
 cache-file: "$tmp/server/cache.db"
+attachment-cache-dir: "$tmp/server/attachments"
+attachment-file-size-limit: "1M"
 auth-file: "$tmp/server/user.db"
 auth-default-access: "deny-all"
 auth-access:
@@ -66,8 +68,8 @@ mesh() {
   local u="$1"
   shift
   mkdir -p "$tmp/$u/config" "$tmp/$u/state"
-  XDG_CONFIG_HOME="$tmp/$u/config" XDG_STATE_HOME="$tmp/$u/state" NIXBOOK_MESH_STORE=file \
-    NIXBOOK_MESH_ME="$u" "$py" -P "$script" "$@"
+  XDG_CONFIG_HOME="$tmp/$u/config" XDG_STATE_HOME="$tmp/$u/state" XDG_DATA_HOME="$tmp/$u/data" HOME="$tmp/$u" \
+    NIXBOOK_MESH_STORE=file NIXBOOK_MESH_ME="$u" "$py" -P "$script" "$@"
 }
 field() { jq -r "$1" <<<"$2"; }
 
@@ -144,8 +146,8 @@ listen() {
 mesh_as() {
   local d="$1" who="$2"
   shift 2
-  XDG_CONFIG_HOME="$tmp/$d/config" XDG_STATE_HOME="$tmp/$d/state" NIXBOOK_MESH_STORE=file \
-    NIXBOOK_MESH_ME="$who" "$py" -P "$script" "$@"
+  XDG_CONFIG_HOME="$tmp/$d/config" XDG_STATE_HOME="$tmp/$d/state" XDG_DATA_HOME="$tmp/$d/data" HOME="$tmp/$d" \
+    NIXBOOK_MESH_STORE=file NIXBOOK_MESH_ME="$who" "$py" -P "$script" "$@"
 }
 listen bob
 listen carol
@@ -253,6 +255,72 @@ if grep -q 'hello everyone\|just for carol\|meeting\|alice' <<<"$raw"; then
 else
   pass "the server only sees ciphertext"
 fi
+
+# -- Files -----------------------------------------------------------------------
+
+# A GIF (100x50, the header is all sniff reads) and a document.
+printf 'GIF89a\x64\x00\x32\x00' >"$tmp/cat.gif"
+head -c 300000 /dev/urandom >>"$tmp/cat.gif"
+printf 'a report\n' >"$tmp/report.txt"
+r=$(mesh alice limits "$server")
+expect "the server's file limit, less the tag" $((1024 * 1024 - 16)) "$(field .maxFile "$r")"
+r=$(mesh alice sendfile "$server" <<<"{\"path\": \"$tmp/cat.gif\", \"to\": \"carol\", \"text\": \"look\", \"mid\": \"filemid1\", \"name\": \"Alice\"}" | tail -1)
+expect "alice sends carol a GIF privately" true "$(field .ok "$r")"
+expect "it is seen as an animated image, its size read" "image/gif true 100x50" "$(field .file.mime "$r") $(field .file.animated "$r") $(field .file.w "$r")x$(field .file.h "$r")"
+if cmp -s "$tmp/cat.gif" "$(field .file.path "$r")"; then pass "the sender keeps a copy"; else fail "the sender keeps a copy" "$r"; fi
+progress=$(mesh alice sendfile "$server" <<<"{\"path\": \"$tmp/report.txt\", \"mid\": \"filemid2\"}" | sed -n 1p)
+expect "sending reports progress" progress "$(field .event "$progress")"
+head -c 1100000 /dev/urandom >"$tmp/big.bin"
+r=$(mesh alice sendfile "$server" <<<"{\"path\": \"$tmp/big.bin\"}" | tail -1 || true)
+if grep -q "up to 1.0 MB" <<<"$(field .error "$r")"; then pass "a file over the server's limit is refused, before uploading"; else fail "a file over the server's limit is refused, before uploading" "$r"; fi
+r=$(mesh alice sendfile "$server" <<<'{"path": "/nonexistent/x.png"}' || true)
+expect "a missing file is refused" false "$(field .ok "$r")"
+for _ in $(seq 50); do
+  grep -q '"filemid2"' "$tmp/bob.events" && grep -q '"filemid1"' "$tmp/carol.events" && break
+  sleep 0.2
+done
+gif=$(grep '"filemid1"' "$tmp/carol.events" | head -1)
+expect "carol's message carries the file and the text" "look cat.gif" "$(field .data.text "$gif") $(field .data.file.name "$gif")"
+if grep -q '"filemid1"' "$tmp/bob.events"; then fail "bob doesn't get the private file's message" "$(grep filemid1 "$tmp/bob.events")"; else pass "bob doesn't get the private file's message"; fi
+r=$(mesh carol fetch "$server" <<<"{\"file\": $(jq -c .data.file <<<"$gif")}" | tail -1)
+expect "carol downloads and decrypts it" true "$(field .ok "$r")"
+if cmp -s "$tmp/cat.gif" "$(field .file.path "$r")"; then pass "the file is the one sent"; else fail "the file is the one sent" "$r"; fi
+expect "kept privately" 600 "$(stat -c %a "$(field .file.path "$r")")"
+again=$(mesh carol fetch "$server" <<<"{\"file\": $(jq -c .data.file <<<"$gif")}" | tail -1)
+expect "fetching again uses the copy there" "$(field .file.path "$r")" "$(field .file.path "$again")"
+if [ "$(curl -s "$server$(field .data.file.u "$gif")" | head -c 6 | tr -d '\0')" = "GIF89a" ]; then fail "the server holds ciphertext only"; else pass "the server holds ciphertext only"; fi
+doc=$(grep '"filemid2"' "$tmp/bob.events" | head -1)
+r=$(mesh bob fetch "$server" <<<"{\"file\": $(jq -c .data.file <<<"$doc")}" | tail -1)
+if cmp -s "$tmp/report.txt" "$(field .file.path "$r")"; then pass "a file to everyone: bob gets it"; else fail "a file to everyone: bob gets it" "$r"; fi
+expect "not an image" "false" "$(field .file.image "$r")"
+wrong=$(jq -c '.data.file | .sha = ("0" * 64)' <<<"$doc")
+r=$(mesh bob fetch "$server" <<<"{\"file\": $wrong}" || true)
+expect "a file that isn't the one described is refused" false "$(field .ok "$(tail -1 <<<"$r")")"
+# (Its verified copy, kept by hash, would be used as is.)
+rm -rf "$tmp/bob/data/nixbook-shell/mesh/files"
+wrong=$(jq -c '.data.file | .k = "'"$(head -c 32 /dev/urandom | base64)"'"' <<<"$doc")
+r=$(mesh bob fetch "$server" <<<"{\"file\": $wrong}" | tail -1 || true)
+if grep -q "decrypted" <<<"$(field .error "$r")"; then pass "a wrong key is caught"; else fail "a wrong key is caught" "$r"; fi
+for u in "http://evil.example/file/a.bin" "/v1/account" "/file/../v1/account"; do
+  wrong=$(jq -c --arg u "$u" '.data.file | .u = $u' <<<"$doc")
+  r=$(mesh bob fetch "$server" <<<"{\"file\": $wrong}" || true)
+  expect "nothing is fetched from elsewhere ($u)" false "$(field .ok "$r")"
+done
+wrong=$(jq -c '.data.file | .u = "/file/AAAAAAAAAAAA.bin" | .sha = ("1" * 64)' <<<"$doc")
+r=$(mesh bob fetch "$server" <<<"{\"file\": $wrong}" || true)
+expect "a file gone from the server says so" true "$(field .expired "$r")"
+wrong=$(jq -c '.data.file | .name = "../../.bashrc" | .sha = ("2" * 64)' <<<"$doc")
+mesh bob fetch "$server" <<<"{\"file\": $wrong}" >/dev/null 2>&1 || true
+if [ -e "$tmp/bob/.bashrc" ] || [ -e "$tmp/bob/data/nixbook-shell/.bashrc" ]; then fail "a file's name can't leave the files folder"; else pass "a file's name can't leave the files folder"; fi
+p=$(field .file.path "$(mesh bob fetch "$server" <<<"{\"file\": $(jq -c .data.file <<<"$doc")}" | tail -1)")
+r=$(mesh bob save <<<"{\"path\": \"$p\"}")
+expect "save: a copy in Downloads" "$tmp/bob/Downloads/report.txt" "$(field .path "$r")"
+r=$(mesh bob save <<<"{\"path\": \"$p\"}")
+expect "save again: a free name" "$tmp/bob/Downloads/report (2).txt" "$(field .path "$r")"
+r=$(mesh bob save <<<"{\"path\": \"$tmp/bob/config/nixbook-shell/mesh/token\"}" || true)
+expect "save only copies the mesh's files" false "$(field .ok "$r")"
+r=$(mesh carol prune <<<'{"keep": []}')
+expect "prune: the files of messages gone are deleted" "1 0" "$(field .removed "$r") $(find "$tmp/carol/data/nixbook-shell/mesh/files" -type f | wc -l)"
 
 # Resuming: a restarted listener doesn't get the same messages again.
 kill "${listener[bob]}" 2>/dev/null || true

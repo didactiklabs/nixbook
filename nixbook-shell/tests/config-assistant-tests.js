@@ -89,6 +89,11 @@ check("how do i request a feature", howTos.agentFeatures);
 check("can DAI build features", howTos.agentFeatures);
 check("how do fixes work", howTos.agentFixes);
 check("how do I find a file", howTos.findAnything);
+check("how do I send a gif in the mesh", howTos.mesh);
+check("how do I send a photo to someone in the mesh", howTos.mesh);
+check("comment envoyer une photo dans le mesh", howTos.mesh);
+check("wie kann ich im Mesh eine Datei senden", howTos.mesh);
+check("làm sao gửi ảnh trong mesh", howTos.mesh);
 check("comment fonctionne la mémoire", howTos.desktopMemory);
 check("wie funktioniert das Gedächtnis", howTos.desktopMemory);
 

@@ -12,6 +12,11 @@ import qs.services
 Item {
     id: root
     signal attached(string path)
+    // The picker (pick()): where it opens, what it offers ("" = any file),
+    // and whether several files can be picked (each one `attached`).
+    property string pickFolder: Quickshell.env("HOME") + "/Pictures"
+    property string pickFilter: "image/png image/jpg image/jpeg image/webp image/gif"
+    property bool pickMultiple: false
 
     // Ctrl+V into `field`: an image or a file copied is attached, text is
     // pasted into it. Reads the live clipboard (wl-paste): the history's
@@ -62,13 +67,15 @@ Item {
 
     Process {
         id: pickProc
-        command: ["kdialog", "--getopenfilename", Quickshell.env("HOME") + "/Pictures", "image/png image/jpg image/jpeg image/webp image/gif"]
+        command: ["kdialog", "--getopenfilename", root.pickFolder, ...(root.pickFilter !== "" ? [root.pickFilter] : []),
+            ...(root.pickMultiple ? ["--multiple", "--separate-output"] : [])]
         stdout: StdioCollector {
             id: pickOutput
         }
         onExited: (code) => {
-            const path = pickOutput.text.trim();
-            if (code === 0 && path !== "") root.attached(path);
+            if (code !== 0) return;
+            for (const path of pickOutput.text.split("\n").map(p => p.trim()).filter(p => p !== ""))
+                root.attached(path);
         }
     }
 }

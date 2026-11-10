@@ -4,8 +4,9 @@ The mesh lets a few people talk desktop to desktop over the internet: messages t
 
 ## What it does
 
-- **Messages** to everyone, or to one person. They are written in the right sidebar's **Mesh** tab (Mod+N), which lists the conversations (Everyone, then each person), with quick messages ("❤️", "Thinking of you", "On my way"…, `mesh.quickMessages`).
+- **Messages** to everyone, or to one person, with files. They are written in the right sidebar's **Mesh** tab (Mod+N), which lists the conversations (Everyone, then each person), with quick messages ("❤️", "Thinking of you", "On my way"…, `mesh.quickMessages`).
 - **Status**: free, in a meeting, gaming, busy (a fullscreen window), do not disturb, away (locked, screens off). It never says which app or window. It is sent when it changes, and again every 10 minutes; someone not heard from for 25 minutes shows as offline. How the others see you shows at the top of the Mesh tab ("You (Khoa): Free") and first in the bar widget's hover list. In order: not shared (the switch is off), away, do not disturb, in a meeting (a timed calendar event now), gaming (a Steam game or gamescope focused), busy (a fullscreen window), free.
+- **Files**: images and GIFs, shown in the conversation, and any other file (a PDF, an archive…), shown as a card. See [Files](#files).
 - **Read receipts** in a conversation with one person ("seen").
 - **Notifications**: each message arrives as a notification named after its sender, with **Reply**, which opens the conversation. On nixbook, a message to you alone gets the Persona cut-in, and every mesh message stays on screen like other chats (`hint:"nixbook-mesh-direct"`, `nixbook-mesh` in the notification rules).
 - **The bar's mesh widget**: how many people are around, and unread messages. Hovering it lists everyone's status; a click opens the conversation that has something new.
@@ -13,6 +14,19 @@ The mesh lets a few people talk desktop to desktop over the internet: messages t
 **History**: each desktop keeps its last 500 messages (`~/.local/state/quickshell/user/mesh-conversation.json`): scroll up in a conversation. The server keeps messages 3 months, so a desktop that was off catches up, and one that joins (or is reinstalled) gets the conversation so far, without others' private messages. Status updates older than 30 minutes are skipped when catching up. Two computers of the same person don't share their history.
 
 Messages written while the computer was off arrive when it comes back (the server keeps them 3 months: `cache-duration` in `../atlas`). Messages older than two hours then count as unread, without a notification each.
+
+## Files
+
+Send files with the **clip button** beside the field (several at once), by **dropping** them on the Mesh tab, or by pasting a copied image or file (**Ctrl+V**; text still pastes as text). They wait above the field (✕ or Esc takes them back) and leave with the next message, the text with the first one.
+
+- **Images and GIFs** (PNG, JPEG, GIF, WebP) show in the conversation, GIFs animated while the tab is in view. Click one to open it in your image viewer; right click, or the button in its corner, saves a copy in Downloads.
+- **Other files** show as a card with their name and size, **Open** (with their app; a file that could run something, a script or a program, opens its folder instead) and **Save** (a copy in Downloads).
+- While a file moves, its card shows how far it is. A failed send says why (click the message to try again); a failed download says why (click to retry).
+- **Size**: the server decides. Hover the clip button to see its limit (on nixbook: `attachment-file-size-limit` in `../atlas`, `clusters/production/ntfy/cm.yaml`).
+- **How long**: the server deletes files after a while (72 h on nixbook's, `attachment-expiry-duration`), so each desktop downloads a file as soon as its message arrives and keeps it with the conversation (`~/.local/share/nixbook-shell/mesh/files/`; files of messages no longer kept are deleted). A computer that was off for longer than that finds the message, and a card saying the file is no longer on the server.
+- A notification for an image shows the image.
+
+A file is encrypted on your computer before it leaves (AES-256-GCM, with a key of its own) and uploaded as an ntfy attachment under a random name; its key travels inside the message, sealed like any other: for everyone in the mesh, or for one person alone in a private conversation. The server stores ciphertext only, and the downloaded file is checked against the hash the sender gave. A desktop only downloads from its own mesh server's attachments: a message can't make it fetch anything else.
 
 ## Joining
 
@@ -55,7 +69,10 @@ The same section turns off sharing your status (the others then see "Not sharing
 | `nixbook-mesh mesh create` / `mesh code`  | a new mesh / its code again                   |
 | `nixbook-mesh mesh join` / `mesh leave`   | enter a code (on stdin) / forget the key      |
 | `nixbook-mesh test SERVER`                | the token works, the mesh is reachable        |
+| `nixbook-mesh limits SERVER`              | the largest file the server takes, its expiry |
+| `nixbook-mesh sendfile SERVER`            | send a file (`{path, to, text}` on stdin)     |
+| `nixbook-mesh fetch SERVER`               | download a received file (`{file}` on stdin)  |
 
-And the shell's IPC target `mesh`: `nixbook-shell ipc call mesh status`, `send TEXT`, `sendTo MEMBER TEXT`, `open`, `openConversation MEMBER`.
+And the shell's IPC target `mesh`: `nixbook-shell ipc call mesh status`, `send TEXT`, `sendTo MEMBER TEXT`, `sendFile PATH`, `sendFileTo MEMBER PATH`, `open`, `openConversation MEMBER`.
 
 The conversation is kept in `~/.local/state/quickshell/user/mesh-conversation.json` (the last 500 messages).
