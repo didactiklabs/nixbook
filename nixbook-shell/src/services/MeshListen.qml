@@ -191,12 +191,14 @@ Singleton {
         root.hostService = root.serviceOf(p);
         root.hostTrack = null;
         root._last = null;
+        root._lastState = null;
+        root._idleSince = 0;
         root._hostTick(true);
         return "";
     }
     function stop() {
         if (!root.hosting) return;
-        Mesh._send("listen", { to: root.hosting.to, op: "end", sid: root.hosting.sid });
+        root._send({ to: root.hosting.to, op: "end", sid: root.hosting.sid });
         root.hosting = null;
         root.hostTrack = null;
     }
@@ -204,6 +206,16 @@ Singleton {
     property var hostTrack: null
     property string hostService: ""
     property var _jfAsking: ({})
+    // The last state sent (a stop is told from it), and since when the shared
+    // player has had nothing on it.
+    property var _lastState: null
+    property real _idleSince: 0
+    // What goes to the mesh (tests catch it in testSend).
+    property var testSend: null
+    function _send(data) {
+        if (root.testSend !== null) root.testSend(data);
+        else Mesh._send("listen", data);
+    }
     property var _last: null // what was sent last: { key, playing, position, at }
     property string _pendingKey: ""
     property real _goneSince: 0
@@ -226,7 +238,23 @@ Singleton {
         if (p.dbusName !== h.bus) root.hosting = Object.assign({}, h, { bus: p.dbusName });
         root.hostService = root.serviceOf(p);
         const track = root.trackOf(p);
-        if (!track) return;
+        if (!track) {
+            // It ended (or was stopped): after 3 s, once, the listeners are
+            // told it stopped there (they pause), and the bar says nothing
+            // plays; the next one is shared as usual.
+            if (root._idleSince === 0) root._idleSince = now;
+            if (now - root._idleSince > 3000 && root._lastState && root._lastState.playing) {
+                const st = root._lastState;
+                const len = st.track.length > 0 ? st.track.length : Number.MAX_SAFE_INTEGER;
+                const position = Math.min(len, st.position + (now - st.at) / 1000);
+                root._lastState = Object.assign({}, st, { playing: false, position: position, at: now });
+                root._last = { key: root._last?.key ?? "", playing: false, position: position, at: now };
+                root._send(root._lastState);
+            }
+            if (now - root._idleSince > 3000) root.hostTrack = null;
+            return;
+        }
+        root._idleSince = 0;
         const service = root.serviceOf(p);
         const key = `${service}:${track.id}`;
         const position = p.position ?? 0;
@@ -266,7 +294,8 @@ Singleton {
         const state = { to: h.to, op: "state", sid: h.sid, service: service, track: track,
             position: position, playing: p.isPlaying, at: now };
         if (service === "jellyfin" && root._jfInfo[track.id]) state.jf = root._jfInfo[track.id];
-        Mesh._send("listen", state);
+        root._lastState = state;
+        root._send(state);
     }
     Timer {
         interval: 1000
@@ -286,12 +315,12 @@ Singleton {
         root.notice = "";
         root.followStatus = "";
         root._f = { jfFor: "", jfLocal: "", jfBusy: false, jfError: "", syncedTo: "", openedFor: "", stateRecv: 0, openedAt: 0, cmdAt: 0, seekAt: 0, launchedAt: 0, sawPlaying: false, lastPos: 0, lastLen: 0, searched: "" };
-        Mesh._send("listen", { to: s.to === "" ? "" : s.host, op: "join", sid: sid });
+        root._send({ to: s.to === "" ? "" : s.host, op: "join", sid: sid });
         root._followTick();
     }
     function leave(reason) {
         const s = root.sessions[root.following];
-        if (s) Mesh._send("listen", { to: s.to === "" ? "" : s.host, op: "leave", sid: s.sid });
+        if (s) root._send({ to: s.to === "" ? "" : s.host, op: "leave", sid: s.sid });
         root.following = "";
         root.followStatus = "";
         root.notice = reason ?? "";
