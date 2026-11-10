@@ -57,6 +57,24 @@ let
     exec ${pkgs.bash}/bin/bash ${./scripts/update-check.sh} "$@"
   '';
 
+  # Echo cancellation (scripts/echo-cancel.sh), run by the
+  # `nixbook-echo-cancel` user unit (hm-module.nix, services/EchoCancel.qml).
+  echoCancel = pkgs.writeShellScriptBin "nixbook-echo-cancel" ''
+    export PATH=${
+      lib.makeBinPath (
+        with pkgs;
+        [
+          coreutils
+          gnused
+          jq
+          pipewire
+          wireplumber
+        ]
+      )
+    }:$PATH
+    exec ${pkgs.bash}/bin/bash ${./scripts/echo-cancel.sh} "$@"
+  '';
+
   # Claude usage reader for the AnthropicUsage bar widget (OpenCode OAuth).
   anthropicUsage = pkgs.writeShellScriptBin "anthropic-usage" (
     builtins.readFile ./scripts/anthropic-usage.sh
@@ -337,6 +355,7 @@ let
 in
 launcher.overrideAttrs (old: {
   passthru = (old.passthru or { }) // {
+    inherit echoCancel;
     inherit
       shell
       quickshell

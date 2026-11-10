@@ -110,9 +110,17 @@ Singleton {
     // else one of them playing, else any of them.
     function shareablePlayer() {
         const active = MprisController.activePlayer;
-        if (root.serviceOf(active) !== "") return active;
         const players = root.players().filter(p => root.serviceOf(p) !== "");
-        return players.find(p => p.isPlaying) ?? players[0] ?? null;
+        const has = p => root.trackOf(p) !== null;
+        // Something on it first (playing, then paused), the one in front
+        // first among equals; an empty one last.
+        const order = [p => has(p) && p.isPlaying, p => has(p), p => true];
+        for (const ok of order) {
+            if (root.serviceOf(active) !== "" && ok(active)) return active;
+            const p = players.find(ok);
+            if (p) return p;
+        }
+        return null;
     }
     readonly property bool canShare: root.shareablePlayer() !== null
 
@@ -159,6 +167,8 @@ Singleton {
         if (root.following !== "") root.leave("");
         if (root.hosting) root.stop();
         root.hosting = { sid: root._sid(), to: conv ?? "", bus: p.dbusName, listeners: {} };
+        root.hostService = root.serviceOf(p);
+        root.hostTrack = null;
         root._last = null;
         root._hostTick(true);
         return "";
@@ -180,7 +190,12 @@ Singleton {
         const h = root.hosting;
         if (!h) return;
         const now = Date.now();
-        const p = root.players().find(x => x.dbusName === h.bus) ?? root.shareablePlayer();
+        let p = root.players().find(x => x.dbusName === h.bus) ?? root.shareablePlayer();
+        // Nothing on the one shared, something on another: that one now.
+        if (p && root.trackOf(p) === null) {
+            const other = root.shareablePlayer();
+            if (other && root.trackOf(other) !== null) p = other;
+        }
         if (!p) {
             if (root._goneSince === 0) root._goneSince = now;
             else if (now - root._goneSince > 60000) root.stop();
@@ -188,6 +203,7 @@ Singleton {
         }
         root._goneSince = 0;
         if (p.dbusName !== h.bus) root.hosting = Object.assign({}, h, { bus: p.dbusName });
+        root.hostService = root.serviceOf(p);
         const track = root.trackOf(p);
         if (!track) return;
         const service = root.serviceOf(p);

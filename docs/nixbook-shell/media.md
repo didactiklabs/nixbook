@@ -14,6 +14,12 @@ The shell follows every MPRIS player (Spotify, browsers, mpv, YouTube Music, pho
 
 The equalizer panel drives **EasyEffects**: presets or a 10-band curve with preamp, or **Auto**, which picks a curve from the song's Last.fm genre tags. Its optional **agent mode** has a small Claude Code task (Haiku by default) tune the curve for each new song (`equalizer.agent`, `equalizer.agentModel`). The curve it makes for a song is remembered (the last 500 songs, in `~/.local/state/quickshell/user/eq/agent-curves.json`): when that song plays again, the same curve comes back at once, with no new agent run.
 
+## Echo cancellation
+
+For calls: what plays on the computer (music, a film, the other side of the call) stays out of your microphone, and background noise is reduced. Turn it on with the **Echo cancellation** quick toggle (add it from the quick toggles' edit mode), the switch in the audio input dialog (right click the microphone toggle), or the Mesh's listening-together bar. While it is on, an **Echo-cancelled microphone** is your default input, and calls using the default input move to it; turning it off brings your microphone back. It stays on across logins until you turn it off.
+
+It is PipeWire's own WebRTC echo canceller (`module-echo-cancel`, with noise suppression), in the `nixbook-echo-cancel` user service: what the default output plays is the reference it removes, so nothing is rerouted, and switching to headphones keeps working. It works with EasyEffects (your microphone's effects come first). No AI. `programs.nixbook-shell.echoCancel.enable` (on by default) installs it; `nixbook-shell ipc call echoCancel on|off|toggle|status`.
+
 ## Music recognition
 
 The music-recognition toggle and widget listen to what is playing and identify it with **songrec** (Shazam), keeping a list of the songs found.

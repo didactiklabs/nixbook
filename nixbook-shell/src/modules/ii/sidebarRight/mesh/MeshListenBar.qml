@@ -107,7 +107,11 @@ ColumnLayout {
                     elide: Text.ElideRight
                     font.weight: Font.DemiBold
                     color: card.fg
-                    text: root.trackText(root.track) || (root.video ? Translation.tr("Waiting…") : Translation.tr("Waiting for a song…"))
+                    text: root.trackText(root.track) || (root.hosting
+                        ? Translation.tr("Nothing is playing in %1 yet: play something and it's shared").arg(MeshListen.serviceName(MeshListen.hostService))
+                        : root.video ? Translation.tr("Waiting…") : Translation.tr("Waiting for a song…"))
+                    wrapMode: Text.Wrap
+                    maximumLineCount: 2
                 }
                 StyledText {
                     Layout.fillWidth: true
@@ -134,6 +138,20 @@ ColumnLayout {
                     else MeshListen.join(root.session.sid);
                 }
             }
+        }
+    }
+
+    // Calling while listening together: the music kept out of the microphone.
+    RippleButtonWithIcon {
+        visible: EchoCancel.available && (root.hosting || root.followingThis)
+        buttonRadius: Appearance.rounding.full
+        toggled: EchoCancel.active
+        enabled: !EchoCancel.busy
+        materialIcon: EchoCancel.active ? "noise_aware" : "noise_control_off"
+        mainText: EchoCancel.active ? Translation.tr("Echo cancellation on") : Translation.tr("Calling too? Echo cancellation")
+        onClicked: EchoCancel.toggle()
+        StyledToolTip {
+            text: Translation.tr("Keeps what plays here out of your microphone, so the people you're calling don't hear the music twice")
         }
     }
 

@@ -109,6 +109,9 @@ Singleton {
                 // D-Bus name of the player picked in a media source selector;
                 // "" = automatic (follow whatever is playing).
                 property string selectedPlayer: ""
+                // Echo cancellation on (services/EchoCancel.qml): started
+                // again at the next login.
+                property bool echoCancel: false
             }
 
             property JsonObject idle: JsonObject {
