@@ -92,6 +92,14 @@ check("how do I find a file", howTos.findAnything);
 check("how do I send a gif in the mesh", howTos.mesh);
 check("how do we listen together in the mesh", howTos.mesh);
 check("how do we watch together on jellyfin in the mesh", howTos.mesh);
+check("how do I turn on echo cancellation", howTos.echoCancel);
+check(
+  "the music is heard through my microphone in calls, echo",
+  howTos.echoCancel,
+);
+check("comment activer l'annulation d'écho", howTos.echoCancel);
+check("wie schalte ich die Echounterdrückung ein", howTos.echoCancel);
+check("làm sao bật khử tiếng vọng", howTos.echoCancel);
 check("comment regarder ensemble un film", howTos.mesh);
 check("comment écouter ensemble de la musique", howTos.mesh);
 check("wie können wir zusammen hören", howTos.mesh);

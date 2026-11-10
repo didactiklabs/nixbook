@@ -39,6 +39,8 @@ Share what your **YouTube Music**, **Spotify** or **Jellyfin** plays in a conver
 - **You take over**: a listener who plays something else, or pauses, stops listening along (it says so in the Mesh tab).
 - **Privacy**: nothing is shared until you click the button, and only the song (title, artist, album, cover, length), the position and play/pause. A session with one person is sealed for them alone, like private messages. Nothing is kept.
 - Each listener streams from their own account: everyone needs their own YouTube Music or Spotify.
+- **Calling at the same time**: turn on [echo cancellation](./media.md#echo-cancellation) (the button in the bar while you share or listen along), so the music playing on your computer doesn't go back through your microphone.
+- **Which player is shared**: one that has something on it (playing first, then paused); if the one shared has nothing and another has, it moves to that one.
 
 **Watching together (Jellyfin)**: the same button shares what this computer's mpv plays from Jellyfin (jellyfin-mpv-shim): the others get **Watch along**, which plays the same film or episode on their own mpv from the same moment, and follows your pauses, seeks and next episodes. Each one watches from their own Jellyfin account, signed in in **Settings > Services > Jellyfin** (their progress is theirs; also shown in Settings > Desktop agents). On the same server it is the same item; on another server it is found by its IMDb/TMDb/TVDb ids, else by name and year, or series, season and episode (`jellyfin-mcp listen-info` / `listen-play`). Audio and subtitles follow each one's own Jellyfin preferences. Listening and watching together use no AI: they work with the AI features off (`policies.ai` 0).
 

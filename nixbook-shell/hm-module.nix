@@ -351,6 +351,12 @@ let
       de = "Das KI-Chat-Panel (linke Seitenleiste) hat unter seinen Tabs Knöpfe für seine Tastenkürzel: Erweitern (Strg+O) macht es breiter, Anheften (Strg+P) hält es neben den Fenstern offen, Lösen (Strg+D) öffnet den Chat in einem eigenen Fenster (nochmals Strg+D oder Andocken holt ihn zurück). Strg+Bild auf/ab wechseln zwischen Chat und Übersetzer.";
       vi = "Bảng chat AI (thanh bên trái) có các nút phím tắt dưới các tab: Mở rộng (Ctrl+O) làm bảng rộng hơn, Ghim (Ctrl+P) giữ bảng mở cạnh cửa sổ, Tách (Ctrl+D) mở chat trong cửa sổ riêng (nhấn lại Ctrl+D hoặc Gắn lại để đưa về). Ctrl+PageUp/PageDown chuyển giữa chat và trình dịch.";
     };
+    echoCancel = {
+      en = "Echo cancellation keeps what plays on this computer (music, a film, the other side of a call) out of your microphone, and reduces background noise: for calls, or listening together in the Mesh while calling. Turn it on with the Echo cancellation quick toggle (add it from the quick toggles' edit mode), the switch in the audio input dialog (right click the microphone toggle), or the button in the Mesh's listening-together bar. While it is on, the Echo-cancelled microphone is your default input; off, your microphone comes back. It stays on across logins until you turn it off.";
+      fr = "L'annulation d'écho garde ce que joue cet ordinateur (musique, film, l'autre côté d'un appel) hors de votre micro, et réduit le bruit de fond : pour les appels, ou pour écouter ensemble dans le Mesh tout en appelant. Activez-la avec la tuile rapide Echo cancellation (à ajouter en mode édition des tuiles rapides), l'interrupteur de la fenêtre d'entrée audio (clic droit sur la tuile du micro), ou le bouton de la barre d'écoute partagée du Mesh. Tant qu'elle est active, le micro « Echo-cancelled microphone » est votre entrée par défaut ; désactivée, votre micro revient. Elle reste active d'une session à l'autre jusqu'à ce que vous la coupiez.";
+      de = "Die Echounterdrückung hält, was auf diesem Computer spielt (Musik, ein Film, die andere Seite eines Anrufs), aus deinem Mikrofon heraus und mindert Hintergrundgeräusche: für Anrufe, oder um im Mesh zusammen zu hören und dabei zu telefonieren. Schalte sie mit der Schnelleinstellung Echo cancellation ein (im Bearbeitungsmodus der Schnelleinstellungen hinzufügen), mit dem Schalter im Audioeingang-Dialog (Rechtsklick auf die Mikrofon-Kachel) oder mit dem Knopf in der Zusammen-hören-Leiste des Mesh. Solange sie an ist, ist das Echo-cancelled microphone dein Standardeingang; aus, kommt dein Mikrofon zurück. Sie bleibt über Anmeldungen hinweg an, bis du sie ausschaltest.";
+      vi = "Khử tiếng vọng giữ những gì máy này đang phát (nhạc, phim, tiếng người bên kia cuộc gọi) không lọt vào micro của bạn, và giảm tiếng ồn nền: dùng khi gọi điện, hoặc khi nghe nhạc cùng nhau trong Mesh mà vẫn đang gọi. Bật bằng ô cài đặt nhanh Echo cancellation (thêm nó trong chế độ sửa các ô cài đặt nhanh), công tắc trong hộp thoại đầu vào âm thanh (chuột phải vào ô micro), hoặc nút trong thanh nghe cùng nhau của Mesh. Khi bật, Echo-cancelled microphone là đầu vào mặc định; tắt đi thì micro của bạn quay lại. Nó vẫn bật qua các lần đăng nhập cho đến khi bạn tắt.";
+    };
     mesh = {
       en = "The mesh lets you talk with the people you choose, desktop to desktop over the internet: messages to everyone or to one person, and everyone's status (free, in a meeting, gaming, busy, do not disturb, away; never which app). To join, paste the invite code someone gave you in Settings > General > Mesh and click Join: that's all. The server's admin invites people from the same place (People: type their name, Invite, send them the code privately; Remove takes someone out). Talk in the right sidebar's Mesh tab (Mod+N): pick Everyone or a person, type, or click a quick message; the bar's mesh icon shows how many are around and unread messages (hover it for everyone's status). Your own status, as the others see it, shows at the top of the Mesh tab and first when hovering the bar icon; each desktop keeps the last 500 messages (scroll up). A message to you alone gets a notification with Reply. Files go too: the clip button beside the field (several at once), drop files on the Mesh tab, or Ctrl+V a copied image or file; they wait above the field and leave with the next message (Esc drops them). Images and GIFs show in the conversation (click one to open it, right click or its button to save a copy in Downloads); other files show as a card with Open and Save. Hover the clip button for the largest file the server takes. A file is encrypted on your computer before it leaves. Each desktop downloads a file up to 250 MB as soon as its message arrives; a bigger one shows a Download button. The server keeps files a year on nixbook's (up to 10 GB each), then deletes them. Listen together: the headphones button in a conversation's header shares what your YouTube Music or Spotify plays; the others get Listen along, which plays the same song in their own player at the same moment and follows your pauses, seeks and next songs (Stop ends it, Leave stops listening along; playing something else or pausing leaves too). A listener with the other app follows there: a Spotify song is found on YouTube Music, a YouTube Music song opens Spotify's search. The same button shares what mpv plays from Jellyfin: the others get Watch along, the same film or episode on their own mpv from the same moment (each with their own Jellyfin account, signed in in Settings > Services > Jellyfin — no AI needed; on another server it is found by its IMDb/TMDb/TVDb ids or its name and episode). Everything is encrypted on your computer: messages to everyone with the mesh's key (every member reads them), a message to one person also with that person's own key, so no one else in the mesh can read it; the server only passes on what it can't read. If someone's key changes (a new computer), their private conversation asks you to Trust the new key. Turn status sharing or the notifications off in the same settings.";
       fr = "Le mesh permet de parler avec les personnes que vous choisissez, de bureau à bureau par internet : des messages à tout le monde ou à une personne, et le statut de chacun (libre, en réunion, en jeu, occupé, ne pas déranger, absent ; jamais quelle application). Pour rejoindre, collez le code d'invitation reçu dans Paramètres > Général > Mesh et cliquez sur Join : c'est tout. L'administrateur du serveur invite depuis le même endroit (People : tapez le nom, Invite, envoyez le code en privé ; Remove retire quelqu'un). Parlez dans l'onglet Mesh du panneau latéral droit (Mod+N) : choisissez Everyone ou une personne, tapez, ou cliquez un message rapide ; l'icône mesh de la barre montre combien de personnes sont là et les messages non lus (survolez-la pour le statut de chacun). Votre propre statut, tel que les autres le voient, s'affiche en haut de l'onglet Mesh et en premier au survol de l'icône de la barre ; chaque bureau garde les 500 derniers messages (faites défiler vers le haut). Un message pour vous seul arrive en notification avec Répondre. Les fichiers aussi : le bouton trombone à côté du champ (plusieurs à la fois), déposez des fichiers sur l'onglet Mesh, ou Ctrl+V d'une image ou d'un fichier copié ; ils attendent au-dessus du champ et partent avec le prochain message (Échap les retire). Les images et les GIF s'affichent dans la conversation (cliquez pour l'ouvrir, clic droit ou son bouton pour en garder une copie dans Téléchargements) ; les autres fichiers s'affichent en carte avec Ouvrir et Enregistrer. Survolez le trombone pour la taille maximale acceptée par le serveur. Un fichier est chiffré sur votre ordinateur avant de partir. Chaque bureau télécharge un fichier jusqu'à 250 Mo dès que son message arrive ; un plus gros affiche un bouton Télécharger. Le serveur garde les fichiers un an sur celui de nixbook (jusqu'à 10 Go chacun), puis les supprime. Écouter ensemble : le bouton casque en haut d'une conversation partage ce que joue votre YouTube Music ou Spotify ; les autres ont Listen along, qui joue le même morceau dans leur propre lecteur au même moment et suit vos pauses, avances et morceaux suivants (Stop arrête, Leave quitte ; jouer autre chose ou mettre en pause quitte aussi). Quelqu'un qui a l'autre application suit dessus : un morceau Spotify est retrouvé sur YouTube Music, un morceau YouTube Music ouvre la recherche de Spotify. Le même bouton partage ce que mpv joue depuis Jellyfin : les autres ont Watch along, le même film ou épisode sur leur propre mpv au même moment (chacun avec son compte Jellyfin, connecté dans Paramètres > Services > Jellyfin — sans IA ; sur un autre serveur il est retrouvé par ses identifiants IMDb/TMDb/TVDb ou son nom et son épisode). Tout est chiffré sur votre ordinateur : les messages à tout le monde avec la clé du mesh (chaque membre les lit), un message à une personne aussi avec la clé de cette personne, que personne d'autre dans le mesh ne peut lire ; le serveur ne transmet que ce qu'il ne peut pas lire. Si la clé de quelqu'un change (un nouvel ordinateur), sa conversation privée vous demande Trust the new key. Désactivez le partage du statut ou les notifications dans les mêmes paramètres.";
@@ -846,6 +852,19 @@ in
       and `nixbook-improve`
       are absent or refuse; with it both stay off until turned on in
       Settings (`ai.improve.enable`, `ai.improve.features.enable`)'';
+
+    echoCancel.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Echo cancellation, toggled from the shell (quick toggle, the audio
+        input dialog, the Mesh's listening-together bar): the
+        `nixbook-echo-cancel` user unit runs PipeWire's WebRTC echo canceller
+        with noise suppression, an "Echo-cancelled microphone" made the
+        default input while it runs, so the computer's own sound stays out
+        of calls. Needs PipeWire.
+      '';
+    };
 
     cliphist.enable = lib.mkOption {
       type = lib.types.bool;
@@ -1614,6 +1633,27 @@ in
             UMask = "0077";
           };
           Install.WantedBy = [ "graphical-session.target" ];
+        };
+
+        # Started and stopped by the shell (services/EchoCancel.qml), not
+        # at login by itself: the shell starts it again when it was on.
+        systemd.user.services.nixbook-echo-cancel = lib.mkIf cfg.echoCancel.enable {
+          Unit = {
+            Description = "Echo cancellation for the microphone (nixbook-shell)";
+            PartOf = [ "graphical-session.target" ];
+            After = [
+              "pipewire.service"
+              "wireplumber.service"
+            ];
+          };
+          Service = {
+            ExecStart = "${lib.getExe cfg.package.passthru.echoCancel} run";
+            ExecStartPost = "${lib.getExe cfg.package.passthru.echoCancel} post";
+            ExecStopPost = "${lib.getExe cfg.package.passthru.echoCancel} restore";
+            Restart = "on-failure";
+            RestartSec = 3;
+            Slice = "session.slice";
+          };
         };
 
         systemd.user.services.cliphist = lib.mkIf cfg.cliphist.enable {
