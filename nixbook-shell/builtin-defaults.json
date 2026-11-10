@@ -787,6 +787,7 @@
       "left": true,
       "right": true
     },
+    "jellyfinTab": true,
     "keepRightSidebarLoaded": true,
     "mediaPlayer": false,
     "quickSliders": {

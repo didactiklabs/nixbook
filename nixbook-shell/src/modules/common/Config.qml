@@ -1285,6 +1285,7 @@ Singleton {
             property JsonObject sidebar: JsonObject {
                 property bool banner: true
                 property bool bottomGroup: true
+                property bool jellyfinTab: true // A Jellyfin tab: what's next, what's new (shown once Jellyfin is signed in)
                 property bool mediaPlayer: false
                 property string bannerImage: ""
                 property bool keepRightSidebarLoaded: true

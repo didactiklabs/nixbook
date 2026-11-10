@@ -154,6 +154,18 @@ ContentPage {
                 }
 
                 ConfigSwitch {
+                    configKey: "sidebar.jellyfinTab";
+                    shown: Jellyfin.available
+                    enabled: !nixManaged;
+                    buttonIcon: "live_tv"
+                    text: Translation.tr('Jellyfin tab: up next and recently added')
+                    checked: Config.options.sidebar.jellyfinTab
+                    onCheckedChanged: {
+                        Config.options.sidebar.jellyfinTab = checked;
+                    }
+                }
+
+                ConfigSwitch {
                     configKey: "sidebar.mediaPlayer";
                     enabled: !nixManaged;
                     buttonIcon: "music_note"
