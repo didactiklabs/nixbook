@@ -25,6 +25,25 @@ Item {
     readonly property string conv: Mesh.conversation
     readonly property var shown: Mesh.messagesIn(root.conv)
 
+    // A message's text as rich text: escaped, line breaks kept, its http(s)
+    // links clickable (in `linkColor`, underlined). Nothing else of the
+    // sender's is markup.
+    function linkified(text, linkColor) {
+        const esc = t => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const re = /https?:\/\/[^\s<>"']+/g;
+        let out = "", last = 0, m;
+        while ((m = re.exec(text)) !== null) {
+            // Not the punctuation a sentence puts after a link.
+            let url = m[0].replace(/[.,;:!?)\]}]+$/, "");
+            out += esc(text.slice(last, m.index));
+            out += `<a href="${esc(url)}" style="color: ${linkColor}; text-decoration: underline">${esc(url)}</a>`;
+            last = m.index + url.length;
+            re.lastIndex = last;
+        }
+        out += esc(text.slice(last));
+        return out.replace(/\n/g, "<br>");
+    }
+
     // Files to send with the next message: [path].
     property var pending: []
     function attach(path) {
@@ -442,6 +461,32 @@ Item {
                             text: Translation.tr("React")
                         }
                     }
+                    RippleButton {
+                        visible: !row.deleted && (row.msg.text ?? "") !== ""
+                        implicitHeight: 26
+                        implicitWidth: 26
+                        buttonRadius: Appearance.rounding.full
+                        property bool copied: false
+                        onClicked: {
+                            Clipboard.copy(row.msg.text);
+                            copied = true;
+                            copiedReset.restart();
+                        }
+                        Timer {
+                            id: copiedReset
+                            interval: 1500
+                            onTriggered: parent.copied = false
+                        }
+                        contentItem: MaterialSymbol {
+                            horizontalAlignment: Text.AlignHCenter
+                            text: parent.copied ? "check" : "content_copy"
+                            iconSize: Appearance.font.pixelSize.normal
+                            color: Appearance.colors.colSubtext
+                        }
+                        StyledToolTip {
+                            text: Translation.tr("Copy the text")
+                        }
+                    }
                     // Delete: a click arms it, a second within 3 s deletes.
                     RippleButton {
                         id: deleteButton
@@ -505,14 +550,42 @@ Item {
                             textColor: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
                             subColor: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext
                         }
-                        StyledText {
+                        // Selectable (drag; Ctrl+C), its links clickable.
+                        TextEdit {
+                            id: messageText
                             visible: row.msg.text !== ""
                             Layout.fillWidth: true
                             Layout.maximumWidth: row.maxWidth - 20
-                            text: row.msg.text
-                            wrapMode: Text.Wrap
-                            textFormat: Text.PlainText
+                            readOnly: true
+                            selectByMouse: true
+                            persistentSelection: false
+                            textFormat: TextEdit.RichText
+                            text: root.linkified(row.msg.text ?? "", row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colPrimary)
+                            wrapMode: TextEdit.Wrap
                             color: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
+                            selectionColor: Appearance.colors.colPrimary
+                            selectedTextColor: Appearance.colors.colOnPrimary
+                            font.family: Appearance.font.family.main
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            font.variableAxes: Appearance.font.variableAxes.main
+                            onLinkActivated: link => AppLaunch.openUrl(link)
+                            Keys.onPressed: event => {
+                                if (event.matches(StandardKey.Copy) && messageText.selectedText !== "") {
+                                    // Through wl-copy: the compositor may ignore a copy
+                                    // from a panel's own clipboard (Clipboard.copy).
+                                    Clipboard.copy(messageText.selectedText);
+                                    event.accepted = true;
+                                } else if (event.text !== "" && event.text.charCodeAt(0) >= 32
+                                        && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
+                                    // Typing after selecting: back to the field.
+                                    input.forceActiveFocus();
+                                    input.insert(input.cursorPosition, event.text);
+                                    event.accepted = true;
+                                }
+                            }
+                            HoverHandler {
+                                cursorShape: messageText.hoveredLink !== "" ? Qt.PointingHandCursor : Qt.IBeamCursor
+                            }
                         }
                         StyledText {
                             Layout.alignment: row.mine ? Qt.AlignRight : Qt.AlignLeft
