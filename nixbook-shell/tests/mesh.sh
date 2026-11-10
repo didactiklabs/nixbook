@@ -203,6 +203,37 @@ again=$(grep -c '"hello everyone"' "$tmp/bob.events" || true)
 expect "after a restart, old messages don't come again" 0 "$again"
 if grep -q 'new after restart' "$tmp/bob.events"; then pass "after a restart, new ones do"; else fail "after a restart, new ones do" "$(cat "$tmp/bob.events")"; fi
 
+# An hour-old status (as if caught up after an absence) is skipped, a
+# message next to it isn't.
+"$py" -P - "$script" "$tmp/alice/config/nixbook-shell/mesh/key" "$server" "${token[alice]}" <<'PY'
+import base64, importlib.machinery, sys, time, urllib.request
+mesh = importlib.machinery.SourceFileLoader("mesh", sys.argv[1]).load_module()
+key = base64.b64decode(open(sys.argv[2]).read())
+topic = mesh.topic_of(key)
+body = mesh.seal(key, topic, {"kind": "presence", "from": "alice", "name": "Alice", "to": "",
+                              "time": int(time.time()) - 3600, "mid": "old-presence", "data": {"state": "away"}})
+req = urllib.request.Request(f"{sys.argv[3]}/{topic}", data=body.encode(), method="POST",
+                             headers={"Authorization": f"Bearer {sys.argv[4]}"})
+urllib.request.urlopen(req).read()
+PY
+mesh alice send "$server" message <<<'{"text": "after the old status"}' >/dev/null
+for _ in $(seq 50); do
+  grep -q 'after the old status' "$tmp/bob.events" && break
+  sleep 0.2
+done
+if grep -q '"old-presence"' "$tmp/bob.events"; then fail "an old status is skipped" "$(cat "$tmp/bob.events")"; else pass "an old status is skipped"; fi
+if grep -q 'after the old status' "$tmp/bob.events"; then pass "the message next to it arrives"; else fail "the message next to it arrives"; fi
+
+# Joining late: the conversation so far comes too (the server keeps it).
+mesh erin accept <<<"$(field .code "$(mesh alice invite "$server" erin)")" >/dev/null
+listen erin
+for _ in $(seq 50); do
+  grep -q 'after the old status' "$tmp/erin.events" 2>/dev/null && break
+  sleep 0.2
+done
+if grep -q '"hello everyone"' "$tmp/erin.events"; then pass "a desktop joining late gets the conversation so far"; else fail "a desktop joining late gets the conversation so far" "$(cat "$tmp/erin.events")"; fi
+if grep -q 'just for carol' "$tmp/erin.events"; then fail "but not others' private messages"; else pass "but not others' private messages"; fi
+
 # A desktop with another mesh's key hears nothing of this one.
 mesh carol mesh create >/dev/null
 r=$(mesh carol mesh code)

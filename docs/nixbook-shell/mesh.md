@@ -10,9 +10,9 @@ The mesh lets a few people talk desktop to desktop over the internet: messages t
 - **Notifications**: each message arrives as a notification named after its sender, with **Reply**, which opens the conversation. On nixbook, a message to you alone gets the Persona cut-in, and every mesh message stays on screen like other chats (`hint:"nixbook-mesh-direct"`, `nixbook-mesh` in the notification rules).
 - **The bar's mesh widget**: how many people are around, and unread messages. Hovering it lists everyone's status; a click opens the conversation that has something new.
 
-**History**: each desktop keeps its last 500 messages (`~/.local/state/quickshell/user/mesh-conversation.json`): scroll up in a conversation. The server keeps messages 72 hours, so a desktop that was off catches up; one that joins gets the last 24 hours. Two computers of the same person don't share their history.
+**History**: each desktop keeps its last 500 messages (`~/.local/state/quickshell/user/mesh-conversation.json`): scroll up in a conversation. The server keeps messages 3 months, so a desktop that was off catches up, and one that joins (or is reinstalled) gets the conversation so far, without others' private messages. Status updates older than 30 minutes are skipped when catching up. Two computers of the same person don't share their history.
 
-Messages written while the computer was off arrive when it comes back (the server keeps them 72 hours). Messages older than two hours then count as unread, without a notification each.
+Messages written while the computer was off arrive when it comes back (the server keeps them 3 months: `cache-duration` in `../atlas`). Messages older than two hours then count as unread, without a notification each.
 
 ## Joining
 
