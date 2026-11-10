@@ -50,6 +50,9 @@ Singleton {
         // Arrived within the cut-in cooldown of another cut-in: a regular
         // popup instead (cutInCooldown).
         property bool cutInCooledDown: false
+        // Arrived while the side panel's Notifications page was on screen:
+        // seen there, so no cut-in (panelShowsNotifications).
+        property bool seenInPanel: false
         // Within that cooldown, a newer copy of the last cut-in: it only
         // updates that cut-in if still up (cutInCooldown).
         property bool cutInUpdateOnly: false
@@ -125,6 +128,10 @@ Singleton {
     // page is the one in view.
     property bool popupInhibited: ((GlobalStates?.sidebarRightOpen ?? false)
         && (!(GlobalStates?.sidebarRightPinned ?? false) || Persistent.states.sidebar.tab === "notifications")) || silent
+    // The side panel's Notifications page on screen (not behind the lock,
+    // the screens on): what arrives is seen there, no popup and no cut-in.
+    readonly property bool panelShowsNotifications: (GlobalStates?.sidebarRightOpen ?? false)
+        && Persistent.states.sidebar.tab === "notifications" && !(GlobalStates?.screenLocked ?? false) && !Idle.screensOff
     property var latestTimeForApp: ({})
     Component {
         id: notifComponent
@@ -294,6 +301,7 @@ Singleton {
             "notification": notification,
             "time": Date.now(),
             "replaces": supersedes,
+            "seenInPanel": root.panelShowsNotifications,
         });
         const replaced = (root.dedupOptions?.history ?? true)
             ? root.recent.filter(r => supersedes.includes(r.notificationId)) : [];
@@ -653,6 +661,7 @@ Singleton {
         const blocked = NotificationUtils.firstMatchingRule(n, rules.blacklist);
         if (blocked) return { cutIn: false, reason: `blacklist "${blocked}"` };
         if (n.cutInCooledDown) return { cutIn: false, reason: "cooldown" };
+        if (n.seenInPanel) return { cutIn: false, reason: "shown in the side panel" };
         if ((rules.critical ?? true) && (n.urgency == NotificationUrgency.Critical || n.urgency === "critical"))
             return { cutIn: true, reason: "critical" };
         const app = (n.appName ?? "").toLowerCase();

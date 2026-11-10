@@ -99,6 +99,10 @@ Singleton {
     // The conversation shown in the Mesh tab.
     property string conversation: ""
     readonly property bool viewing: GlobalStates.sidebarRightOpen && Persistent.states.sidebar.tab === "mesh"
+    // The Mesh tab on screen (not behind the lock, the screens on): what
+    // arrives is seen there, so no notification, whatever conversation is
+    // open (the others show their unread count).
+    readonly property bool inView: root.viewing && !GlobalStates.screenLocked && !Idle.screensOff
 
     // Files moving, by message: { mid: { done, total } } (not saved).
     property var transfers: ({})
@@ -390,7 +394,8 @@ Singleton {
                     }
                     if (m.notifyWhenFetched) {
                         root._update(proc.mid, { notifyWhenFetched: false });
-                        root._notify(root.messageOf(proc.mid));
+                        // The Mesh tab opened meanwhile: seen there.
+                        if (!root.inView) root._notify(root.messageOf(proc.mid));
                     }
                 }
                 proc.destroy();
@@ -688,10 +693,8 @@ Singleton {
         if (file && file.size <= root.autoFetchBytes) root.fetchFile(mid);
         if (m.mine) return;
         const conv = root.conversationOf(m);
-        if (root.viewing && root.conversation === conv) {
-            root.markRead(conv);
-            return;
-        }
+        if (root.viewing && root.conversation === conv) root.markRead(conv);
+        if (root.inView) return;
         // What was said while this desktop was off for long: unread, not a
         // pile of notifications.
         if (Date.now() - time < 2 * 3600 * 1000 && (Config.options?.mesh?.notify ?? true)) {
