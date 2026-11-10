@@ -442,29 +442,48 @@ Item {
                 property real bottomGap: 0
                 property bool autoScrolling: false
                 property int lastCount: 0
+                // Kept at its end until you scroll up: re-pinned when its rows
+                // or its size change (a list built in the background gets its
+                // width late, rows rewrap) and when it shows again (messages
+                // came while it was hidden). It used to open above the end.
+                property bool following: true
                 // How far the end is below what is shown (ListView's contentY
                 // counts from originY, which moves as rows get their height).
                 function gapToEnd() {
                     return Math.max(0, list.originY + list.contentHeight - list.contentY - list.height);
                 }
-                function toEnd() {
+                // `instant`: a jump, not the scroll animation (opening, showing
+                // again, a re-pin).
+                function toEnd(instant) {
                     list.autoScrolling = true;
+                    if (instant) list.animateScroll = false;
                     list.positionViewAtEnd();
+                    list.animateScroll = true;
+                    list.following = true;
                     autoScrollDone.restart();
                 }
+                function pin() {
+                    if (list.following && !list.loadingOlder) list.toEnd(true);
+                }
+                onContentHeightChanged: Qt.callLater(list.pin)
+                onHeightChanged: Qt.callLater(list.pin)
+                onVisibleChanged: if (list.visible) Qt.callLater(list.pin)
                 Timer {
                     id: autoScrollDone
                     interval: 500
                     onTriggered: {
                         list.autoScrolling = false;
                         list.bottomGap = list.gapToEnd();
+                        list.following = list.bottomGap < 80;
                     }
                 }
                 onContentYChanged: {
-                    if (!list.autoScrolling) list.bottomGap = list.gapToEnd();
-                    // Near the top: the older ones (ListView keeps what is shown in
-                    // place when rows come in above it).
-                    if (!list.autoScrolling && list.contentY - list.originY < 300 && list.hasOlder) list.loadOlder();
+                    if (list.autoScrolling) return;
+                    list.bottomGap = list.gapToEnd();
+                    list.following = list.bottomGap < 80;
+                    // Scrolled up near the top: the older ones (ListView keeps
+                    // what is shown in place when rows come in above it).
+                    if (!list.following && list.contentY - list.originY < 300 && list.hasOlder) list.loadOlder();
                 }
                 onCountChanged: {
                     // Older ones loaded above: no following the end for them.
@@ -478,7 +497,7 @@ Item {
                 }
                 Component.onCompleted: {
                     list.lastCount = list.count;
-                    Qt.callLater(list.toEnd);
+                    Qt.callLater(() => list.toEnd(true));
                 }
                 delegate: Item {
                     id: row
