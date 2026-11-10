@@ -108,7 +108,7 @@ ColumnLayout {
                     font.weight: Font.DemiBold
                     color: card.fg
                     text: root.trackText(root.track) || (root.hosting
-                        ? Translation.tr("Nothing is playing in %1 yet: play something and it's shared").arg(MeshListen.serviceName(MeshListen.hostService))
+                        ? Translation.tr("Nothing is playing in %1: play something and it's shared").arg(MeshListen.serviceName(MeshListen.hostService))
                         : root.video ? Translation.tr("Waiting…") : Translation.tr("Waiting for a song…"))
                     wrapMode: Text.Wrap
                     maximumLineCount: 2
