@@ -388,12 +388,8 @@ function seekAt(f, now, pos, target, opts) {
     m.followStep(f, { now, wantId: want.id, want, cur }).act;
   check("opened", step(0, null) === "open");
   check(
-    "YouTube Music went on with its queue: waits",
-    step(5000, other) === "wait",
-  );
-  check(
-    "then a reopen (the shell asks for another version)",
-    step(12500, other) === "open" && f.opens === 2,
+    "YouTube Music went on with its queue: the second try at once",
+    step(5000, other) === "open" && f.opens === 2,
   );
   f.alt = "aaaaaaaaaaa";
   f.altFor = want.id;
@@ -415,6 +411,37 @@ function seekAt(f, now, pos, target, opts) {
     }).act === "open" &&
       f.alt === "" &&
       f.tried.length === 0,
+  );
+}
+
+// -- The open lands on another song: the second try at once -------------------
+{
+  const f = m.fresh();
+  const want = {
+    id: "7wZ_bFmEN5Q",
+    title: "Người Lạ Ơi (Solo Version)",
+    artist: "Orange & Superbrothers",
+  };
+  const was = { id: "MDS9Cp5kmxQ", title: "Vì Yêu Cứ Đâm Đầu", artist: "MIN" };
+  const queue = {
+    id: "qqqqqqqqqqq",
+    title: "Next In Her Queue",
+    artist: "Someone",
+  };
+  const step = (now, cur) =>
+    m.followStep(f, { now, wantId: want.id, want, cur }).act;
+  check("opened", step(0, was) === "open");
+  check(
+    "still loading (the song it played): waits",
+    step(1000, was) === "wait" && step(2500, was) === "wait",
+  );
+  check(
+    "moved to another song: the second try at once",
+    step(3500, queue) === "open" && f.opens === 2,
+  );
+  check(
+    "then no more",
+    step(5000, queue) === "wait" && step(30000, queue) === "wait",
   );
 }
 

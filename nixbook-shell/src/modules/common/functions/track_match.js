@@ -55,7 +55,7 @@ function nearEnd(f) {
 function fresh() {
     return { openedFor: "", openedAt: 0, opens: 0, syncedTo: "", offSince: 0, endSince: 0, pausedSince: 0,
         sawPlaying: false, cmdAt: 0, lastPos: 0, lastLen: 0, seekAt: 0, seekRecv: 0, seekedFor: "",
-        tried: [], alt: "", altFor: "" }
+        tried: [], alt: "", altFor: "", before: "" }
 }
 
 // What to do this tick, about the song: { act: "sync" | "open" | "wait" |
@@ -96,9 +96,14 @@ function followStep(f, x) {
     // 12 s it still isn't on it (YouTube Music: another version of the song,
     // that one not playable here; Spotify: its first open after it starts
     // doesn't take), and that's all: never a retry loop.
-    if (f.opens === 0 || (x.now - f.openedAt > 12000 && f.opens < 2)) {
+    // The open landed on some other song (the player moved off what it
+    // played, not to the host's): that try failed, the second one now
+    // rather than in 12 s.
+    var landedElsewhere = f.opens === 1 && x.cur && x.cur.id && x.cur.id !== f.before && x.now - f.openedAt > 1500
+    if (f.opens === 0 || ((landedElsewhere || x.now - f.openedAt > 12000) && f.opens < 2)) {
         f.opens++
         f.openedAt = x.now
+        f.before = x.cur ? x.cur.id : ""
         f.sawPlaying = false
         f.pausedSince = 0
         return { act: "open" }
