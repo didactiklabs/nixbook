@@ -1,6 +1,8 @@
 { pkgs, config, ... }:
 let
-  inherit (pkgs.customPkgs) moonfin pear-desktop;
+  inherit (pkgs.customPkgs) moonfin;
+  # YouTube Music, readable by the desktop agents (lib/electronA11y.nix).
+  pear-desktop = config.customHomeManagerModules.nixbookShellConfig.electronA11y pkgs.customPkgs.pear-desktop "pear-desktop";
 in
 {
   imports = [
@@ -15,7 +17,7 @@ in
     pkgs.moonlight-qt
     pkgs.anki
     moonfin
-    (config.customHomeManagerModules.nixbookShellConfig.electronA11y pear-desktop "pear-desktop")
+    pear-desktop
   ];
 
   customHomeManagerModules = {
@@ -62,6 +64,10 @@ in
     zenBrowserConfig = {
       enable = true;
       offerToSaveLogins = true;
+      # YouTube Music links (clicked in Zen or opened by other apps) play in
+      # the app: listening along shares and follows the app's player, not
+      # a browser tab.
+      openInApps = pear-desktop.nixbookOpenLinks or { };
     };
 
     # Git (basic, not a dev box but handy)

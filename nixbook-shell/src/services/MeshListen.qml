@@ -193,10 +193,15 @@ Singleton {
         kind = kind ?? "music";
         if (!Mesh.configured) return Translation.tr("The mesh isn't set up");
         const p = root.shareablePlayer(kind);
-        if (!p)
-            return kind === "video"
-                ? Translation.tr("Jellyfin's player isn't running: play something on this computer from Jellyfin first")
-                : Translation.tr("Play something in YouTube Music or Spotify first");
+        if (!p) {
+            if (kind === "video")
+                return Translation.tr("Jellyfin's player isn't running: play something on this computer from Jellyfin first");
+            // Music in a browser tab (YouTube Music's website): it tells no
+            // song id over MPRIS, so it can't be shared.
+            if (root.players().some(x => x.isPlaying && MprisController.playerSource(x) === "browser"))
+                return Translation.tr("Music playing in the browser can't be shared: play it in the YouTube Music (or Spotify) app instead");
+            return Translation.tr("Play something in YouTube Music or Spotify first");
+        }
         if (root.following !== "") root.leave("");
         if (root.hosting) root.stop();
         root.hosting = { sid: root._sid(), to: conv ?? "", bus: p.dbusName, kind: kind, listeners: {} };
