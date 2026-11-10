@@ -805,6 +805,9 @@ def cmd_send(args):
         quick = str(data.pop("quick", "") or "")
         if re.match(r"^[a-z]{1,20}$", quick):
             data["quick"] = quick
+        reply = reply_to(data.pop("reply", None))
+        if reply:
+            data["reply"] = reply
     if kind == "listen":
         data = listen_data(data)
     if kind == "delete":
@@ -829,6 +832,17 @@ def cmd_send(args):
     if kind == "message":
         reply["dh"] = delete_commitment(readers[0], topic_of(key), mid)
     out(reply)
+
+
+def reply_to(r):
+    """What a message answers: {mid, from, text}: the message's id, its
+    sender and a snippet of it (shown even where that message isn't kept);
+    None when it isn't one."""
+    if not isinstance(r, dict) or not MID_RE.match(str(r.get("mid") or "")):
+        return None
+    sender = str(r.get("from") or "")
+    return {"mid": str(r["mid"]), "from": sender if MEMBER_RE.match(sender) else "",
+            "text": str(r.get("text") or "").strip()[:200]}
 
 
 def listen_data(data):
@@ -1120,7 +1134,11 @@ def cmd_sendfile(args):
     readers = readers_or_fail(to, "message")
     meta, local, info = upload(server, token, key, path, st.st_size)
     text = str(data.get("text") or "").strip()[:MAX_TEXT]
-    _, now = publish(server, token, key, "message", to, {"text": text, "file": meta}, mid, name, readers)
+    body = {"text": text, "file": meta}
+    reply = reply_to(data.get("reply"))
+    if reply:
+        body["reply"] = reply
+    _, now = publish(server, token, key, "message", to, body, mid, name, readers)
     out({"ok": True, "mid": mid, "time": now, "text": text, "dh": delete_commitment(readers[0], topic_of(key), mid),
          "file": local_meta(local, meta["sha"], meta["size"], info, meta["exp"])})
 

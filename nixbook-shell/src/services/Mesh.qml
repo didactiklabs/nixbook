@@ -320,26 +320,46 @@ Singleton {
     // -- Sending ----------------------------------------------------------------------------
 
     // `quick`: a nudge's id (sendNudge), for its cut-in on the other side.
-    function sendText(text, to, quick) {
+    // `reply`: the message answered (replyOf), shown quoted above this one.
+    function sendText(text, to, quick, reply) {
         text = (text ?? "").trim();
         if (text === "" || !root.configured) return false;
         const mid = root._mid();
         const m = { mid: mid, from: root.me, name: root.myName, to: to ?? "", time: Date.now(), text: text.slice(0, 1000),
             mine: true, status: "sending" };
         if (quick) m.quick = quick;
+        if (reply) m.reply = reply;
         root.messages = [...root.messages, m].slice(-500);
         root._save();
-        root._send("message", Object.assign({ to: m.to, text: m.text, mid: mid }, quick ? { quick: quick } : {}));
+        root._send("message", root._payload(m));
         return true;
+    }
+    // What goes with a message: its text, a nudge's id, what it answers.
+    function _payload(m) {
+        return Object.assign({ to: m.to, text: m.text, mid: m.mid }, m.quick ? { quick: m.quick } : {}, m.reply ? { reply: m.reply } : {});
+    }
+    // A message, as what a reply to it carries: {mid, from, text}: its
+    // sender and a snippet (its file's label when it has no text), so the
+    // quote shows even where it isn't kept.
+    function replyOf(m) {
+        if (!m) return null;
+        const text = (m.text ?? "") !== "" ? m.text : root.fileLabel(m.file);
+        return { mid: m.mid, from: m.from, text: text.replace(/\s+/g, " ").slice(0, 200) };
+    }
+    // What a received message answers, checked.
+    function _replyIn(r) {
+        if (!r || typeof r !== "object" || !/^[A-Za-z0-9_-]{1,64}$/.test(`${r.mid ?? ""}`)) return null;
+        return { mid: `${r.mid}`, from: /^[A-Za-z0-9._-]{1,64}$/.test(`${r.from ?? ""}`) ? `${r.from}` : "",
+            text: `${r.text ?? ""}`.slice(0, 200) };
     }
     // Files picked, dropped or pasted: one message each, the text with the
     // first.
-    function sendFiles(paths, text, to) {
+    function sendFiles(paths, text, to, reply) {
         paths = (paths ?? []).map(p => FileUtils.trimFileProtocol(`${p}`)).filter(p => p !== "");
         if (paths.length === 0 || !root.configured) return false;
-        const added = paths.map((path, i) => ({ mid: root._mid(), from: root.me, name: root.myName, to: to ?? "",
+        const added = paths.map((path, i) => Object.assign({ mid: root._mid(), from: root.me, name: root.myName, to: to ?? "",
             time: Date.now() + i, text: i === 0 ? (text ?? "").trim().slice(0, 1000) : "", mine: true, status: "sending",
-            file: { source: path, name: path.split("/").pop() } }));
+            file: { source: path, name: path.split("/").pop() } }, i === 0 && reply ? { reply: reply } : {}));
         root.messages = [...root.messages, ...added].slice(-500);
         root._save();
         for (const m of added) root._sendFile(m);
@@ -348,7 +368,8 @@ Singleton {
     function _sendFile(m) {
         fileSender.createObject(root, {
             mid: m.mid,
-            payload: JSON.stringify({ path: m.file.source, to: m.to, text: m.text, mid: m.mid, name: root.myName }),
+            payload: JSON.stringify(Object.assign({ path: m.file.source, to: m.to, text: m.text, mid: m.mid, name: root.myName },
+                m.reply ? { reply: m.reply } : {})),
             command: [root.bin, "sendfile", root.server]
         });
     }
@@ -565,7 +586,7 @@ Singleton {
         if (!m || m.deleted) return;
         root._setStatus(mid, "sending");
         if (m.file?.source && !m.file.sha) root._sendFile(m);
-        else root._send("message", Object.assign({ to: m.to, text: m.text, mid: mid }, m.quick ? { quick: m.quick } : {}));
+        else root._send("message", root._payload(m));
     }
 
     function _send(kind, data) {
@@ -782,6 +803,8 @@ Singleton {
         if (dh !== "") m.dh = dh;
         const quick = `${e.data?.quick ?? ""}`;
         if (/^[a-z]{1,20}$/.test(quick)) m.quick = quick;
+        const reply = root._replyIn(e.data?.reply);
+        if (reply) m.reply = reply;
         // In its place by time, after those of the same second (times are
         // whole seconds): a re-sort is not stable here and reordered them,
         // which rebuilt the Mesh tab's rows and moved its view.
@@ -815,7 +838,8 @@ Singleton {
     function _notify(m) {
         const who = m.name || root.nameOf(m.from);
         const title = m.to === "" ? Translation.tr("%1 · to everyone").arg(who) : who;
-        const body = [root.fileLabel(m.file), m.text].filter(t => t).join("\n");
+        const body = [m.reply ? Translation.tr("↩ %1: %2").arg(root.nameOf(m.reply.from)).arg(m.reply.text.slice(0, 60)) : "",
+            root.fileLabel(m.file), m.text].filter(t => t).join("\n");
         const image = m.file?.image && m.file?.path ? [`--hint=string:image-path:${m.file.path}`] : [];
         notifier.createObject(root, {
             conv: root.conversationOf(m),
@@ -1195,7 +1219,7 @@ Singleton {
         onTriggered: root._save()
     }
 
-    // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|sendFile PATH|sendFileTo MEMBER PATH|open|openConversation MEMBER|deleteMessage MID|react MID EMOJI|nudge MEMBER ID`,
+    // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|sendFile PATH|sendFileTo MEMBER PATH|open|openConversation MEMBER|deleteMessage MID|react MID EMOJI|nudge MEMBER ID|reply MID TEXT`,
     // and listening together: `listenShare MEMBER|watchShare MEMBER|listenStop|listenJoin MEMBER|listenLeave|listenStatus` ("" = everyone).
     // Denied to the desktop agents (desktop-mcp's shellIpcDenyTargets): they
     // would speak in the user's name.
@@ -1265,6 +1289,12 @@ Singleton {
         // A member's conversation ("" = everyone).
         function openConversation(member: string): void {
             root.open(member);
+        }
+        // An answer to a message (its mid), in its conversation.
+        function reply(mid: string, text: string): string {
+            const m = root.messageOf(mid);
+            if (!m || m.deleted) return "error: no such message";
+            return root.sendText(text, root.conversationOf(m), "", root.replyOf(m)) ? "ok" : "error: the mesh isn't set up";
         }
         // A nudge (its id: love, hug, …) to everyone ("") or a member.
         function nudge(member: string, id: string): string {
