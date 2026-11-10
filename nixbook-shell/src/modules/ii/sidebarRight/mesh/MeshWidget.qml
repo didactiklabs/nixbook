@@ -49,7 +49,10 @@ Item {
 
     // The ✨ picker (nudges, quick messages) open.
     property bool picking: false
-    onConvChanged: root.picking = false
+    onConvChanged: {
+        root.picking = false;
+        root.replyTo = null;
+    }
 
     // Files to send with the next message: [path].
     property var pending: []
@@ -59,13 +62,39 @@ Item {
     }
     function send(text) {
         if (root.pending.length > 0) {
-            if (Mesh.sendFiles(root.pending, text, root.conv)) {
+            if (Mesh.sendFiles(root.pending, text, root.conv, root.replyTo)) {
                 root.pending = [];
                 input.text = "";
+                root.replyTo = null;
             }
             return;
         }
-        if (Mesh.sendText(text, root.conv)) input.text = "";
+        if (Mesh.sendText(text, root.conv, "", root.replyTo)) {
+            input.text = "";
+            root.replyTo = null;
+        }
+    }
+
+    // The message answered by the next one (Mesh.replyOf: {mid, from,
+    // text}), shown above the field; null for none.
+    property var replyTo: null
+    function startReply(m) {
+        root.replyTo = Mesh.replyOf(m);
+        input.forceActiveFocus();
+    }
+    // A quote clicked: its message, centred and flashed.
+    property string flashMid: ""
+    function jumpTo(mid) {
+        const at = root.shown.findIndex(m => m.mid === mid);
+        if (at < 0) return;
+        list.positionViewAtIndex(at, ListView.Center);
+        root.flashMid = mid;
+        flashOff.restart();
+    }
+    Timer {
+        id: flashOff
+        interval: 1600
+        onTriggered: root.flashMid = ""
     }
 
     component ShareButton: RippleButton {
@@ -441,17 +470,48 @@ Item {
                     color: Appearance.colors.colSubtext
                 }
 
-                // React and delete, beside the message while hovered.
+                // Reply, react, copy and delete: a small toolbar on the
+                // bubble's top edge while hovered (Discord-like), beside it
+                // when there is room, over its corner when not, never out of
+                // the list.
+                Rectangle {
+                    id: toolbar
+                    z: 2
+                    visible: actions.visible
+                    readonly property real wanted: row.mine ? bubble.x - width - 4 : bubble.x + bubble.width + 4
+                    x: Math.max(0, Math.min(row.width - width, toolbar.wanted))
+                    y: Math.max(0, bubble.y - height / 2 + 4)
+                    width: actions.implicitWidth + 6
+                    height: actions.implicitHeight + 6
+                    radius: Appearance.rounding.full
+                    color: Appearance.colors.colLayer1
+                    border.width: 1
+                    border.color: Appearance.colors.colOutlineVariant
+                }
                 Row {
                     id: actions
+                    z: 3
                     visible: (rowHover.hovered || row.armed || row.picking) && !row.busy
-                    anchors.verticalCenter: bubble.verticalCenter
-                    anchors.right: row.mine ? bubble.left : undefined
-                    anchors.left: row.mine ? undefined : bubble.right
-                    anchors.leftMargin: 4
-                    anchors.rightMargin: 4
+                    x: toolbar.x + 3
+                    y: toolbar.y + 3
                     layoutDirection: row.mine ? Qt.RightToLeft : Qt.LeftToRight
-                    spacing: 2
+                    spacing: 0
+                    RippleButton {
+                        visible: !row.deleted && (row.msg.status ?? "sent") === "sent"
+                        implicitHeight: 26
+                        implicitWidth: 26
+                        buttonRadius: Appearance.rounding.full
+                        onClicked: root.startReply(row.msg)
+                        contentItem: MaterialSymbol {
+                            horizontalAlignment: Text.AlignHCenter
+                            text: "reply"
+                            iconSize: Appearance.font.pixelSize.normal
+                            color: Appearance.colors.colSubtext
+                        }
+                        StyledToolTip {
+                            text: Translation.tr("Reply")
+                        }
+                    }
                     RippleButton {
                         id: reactButton
                         visible: !row.deleted
@@ -537,8 +597,13 @@ Item {
                     implicitHeight: bubbleColumn.implicitHeight + 12
                     radius: Appearance.rounding.normal
                     color: row.deleted ? "transparent" : (row.mine ? Appearance.colors.colPrimaryContainer : Appearance.colors.colLayer2)
-                    border.width: row.deleted ? 1 : 0
-                    border.color: Appearance.colors.colOutlineVariant
+                    // Flashed when a reply's quote jumps to it.
+                    readonly property bool flashed: root.flashMid !== "" && root.flashMid === row.msg.mid
+                    border.width: bubble.flashed ? 2 : row.deleted ? 1 : 0
+                    border.color: bubble.flashed ? Appearance.colors.colPrimary : Appearance.colors.colOutlineVariant
+                    Behavior on border.width {
+                        NumberAnimation { duration: 150 }
+                    }
                     ColumnLayout {
                         id: bubbleColumn
                         anchors.fill: parent
@@ -546,6 +611,62 @@ Item {
                         anchors.leftMargin: 10
                         anchors.rightMargin: 10
                         spacing: 2
+                        // What it answers: the quoted message (live when kept here,
+                        // else the snippet it came with); a click jumps to it.
+                        Rectangle {
+                            id: quote
+                            readonly property var r: row.deleted ? null : row.msg.reply ?? null
+                            readonly property var original: quote.r ? Mesh.byMid[quote.r.mid] ?? null : null
+                            visible: quote.r !== null
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: row.maxWidth - 20
+                            Layout.bottomMargin: 2
+                            implicitWidth: quoteColumn.implicitWidth + 14
+                            implicitHeight: quoteColumn.implicitHeight + 8
+                            radius: Appearance.rounding.small
+                            color: ColorUtils.transparentize(row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2, 0.9)
+                            Rectangle {
+                                width: 3
+                                height: parent.height
+                                radius: 1.5
+                                color: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colPrimary
+                            }
+                            ColumnLayout {
+                                id: quoteColumn
+                                x: 10
+                                y: 4
+                                width: quote.width - 14
+                                spacing: 0
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    text: quote.r ? (quote.r.from === Mesh.me ? Translation.tr("You") : Mesh.nameOf(quote.r.from)) : ""
+                                    elide: Text.ElideRight
+                                    font.pixelSize: Appearance.font.pixelSize.smaller
+                                    font.weight: Font.DemiBold
+                                    color: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colPrimary
+                                }
+                                StyledText {
+                                    Layout.fillWidth: true
+                                    text: quote.original?.deleted ? Translation.tr("Original message was deleted")
+                                        : quote.original ? Mesh.replyOf(quote.original).text : (quote.r?.text ?? "")
+                                    font.italic: !!quote.original?.deleted
+                                    textFormat: Text.PlainText
+                                    elide: Text.ElideRight
+                                    wrapMode: Text.Wrap
+                                    maximumLineCount: 2
+                                    font.pixelSize: Appearance.font.pixelSize.smaller
+                                    color: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
+                                    opacity: 0.85
+                                }
+                            }
+                            TapHandler {
+                                enabled: !!quote.original
+                                onTapped: root.jumpTo(quote.r.mid)
+                            }
+                            HoverHandler {
+                                cursorShape: quote.original ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            }
+                        }
                         StyledText {
                             visible: row.deleted
                             text: row.mine ? Translation.tr("You deleted this message") : Translation.tr("This message was deleted")
@@ -812,6 +933,69 @@ Item {
             }
         }
 
+        // Answering a message: who and what, above the field (✕ or Escape
+        // cancels it).
+        Rectangle {
+            Layout.fillWidth: true
+            visible: root.replyTo !== null
+            implicitHeight: replyRow.implicitHeight + 10
+            radius: Appearance.rounding.small
+            color: Appearance.colors.colLayer2
+            Rectangle {
+                width: 3
+                height: parent.height
+                radius: 1.5
+                color: Appearance.colors.colPrimary
+            }
+            RowLayout {
+                id: replyRow
+                anchors.fill: parent
+                anchors.leftMargin: 12
+                anchors.rightMargin: 4
+                spacing: 8
+                MaterialSymbol {
+                    text: "reply"
+                    iconSize: Appearance.font.pixelSize.normal
+                    color: Appearance.colors.colPrimary
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: root.replyTo ? Translation.tr("Replying to %1").arg(root.replyTo.from === Mesh.me ? Translation.tr("yourself") : Mesh.nameOf(root.replyTo.from)) : ""
+                        elide: Text.ElideRight
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        font.weight: Font.DemiBold
+                        color: Appearance.colors.colPrimary
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: root.replyTo?.text ?? ""
+                        textFormat: Text.PlainText
+                        elide: Text.ElideRight
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                    }
+                }
+                RippleButton {
+                    implicitWidth: 26
+                    implicitHeight: 26
+                    buttonRadius: Appearance.rounding.full
+                    onClicked: root.replyTo = null
+                    contentItem: MaterialSymbol {
+                        horizontalAlignment: Text.AlignHCenter
+                        text: "close"
+                        iconSize: Appearance.font.pixelSize.normal
+                        color: Appearance.colors.colSubtext
+                    }
+                    StyledToolTip {
+                        text: Translation.tr("Don't reply")
+                    }
+                }
+            }
+        }
+
         // The files that go with the next message.
         Flow {
             Layout.fillWidth: true
@@ -914,6 +1098,9 @@ Item {
                         event.accepted = attacher.paste(input);
                     } else if (event.key === Qt.Key_Escape && root.pending.length > 0) {
                         root.pending = [];
+                        event.accepted = true;
+                    } else if (event.key === Qt.Key_Escape && root.replyTo !== null) {
+                        root.replyTo = null;
                         event.accepted = true;
                     }
                 }

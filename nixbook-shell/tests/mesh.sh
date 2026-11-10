@@ -423,6 +423,15 @@ for _ in $(seq 50); do
 done
 expect "bob gets its id" hug "$(field .data.quick "$(grep '"nudge1"' "$tmp/bob.events" | head -1)")"
 expect "a malformed id is dropped" null "$(field .data.quick "$(grep '"nudge2"' "$tmp/bob.events" | head -1)")"
+# A reply carries what it answers (its id, sender, a snippet), checked.
+mesh alice send "$server" message <<<'{"text": "agreed", "mid": "reply1", "reply": {"mid": "nudge1", "from": "alice", "text": "🤗 Sending you a hug", "evil": 1}}' >/dev/null
+mesh alice send "$server" message <<<'{"text": "x", "mid": "reply2", "reply": {"mid": "../bad"}}' >/dev/null
+for _ in $(seq 50); do
+  grep -q '"reply2"' "$tmp/bob.events" && break
+  sleep 0.2
+done
+expect "bob gets what the reply answers, nothing else" '{"from":"alice","mid":"nudge1","text":"🤗 Sending you a hug"}' "$(grep '"reply1"' "$tmp/bob.events" | head -1 | jq -cS .data.reply)"
+expect "a reply to no message is dropped" null "$(field .data.reply "$(grep '"reply2"' "$tmp/bob.events" | head -1)")"
 
 # A read receipt for everyone's conversation: open, to "".
 r=$(mesh bob send "$server" read <<<'{"upTo": 4321}')
