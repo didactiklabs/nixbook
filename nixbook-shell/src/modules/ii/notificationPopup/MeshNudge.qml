@@ -20,8 +20,8 @@ import Quickshell.Wayland
  * keyboard nor the screen: only the card takes clicks. Click: open the
  * conversation. Right click: away. It leaves by itself after 6 s (hovering
  * holds it); several queue up. Mesh decides when one shows
- * (Mesh._nudgeCutInNow): not locked, Do Not Disturb or over a fullscreen
- * window; with the Mesh tab open too.
+ * (Mesh._nudgeCutInNow): not locked or on Do Not Disturb; over a fullscreen
+ * window and with the Mesh tab open too.
  */
 Scope {
     id: root
