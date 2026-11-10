@@ -270,6 +270,8 @@ expect "it is seen as an animated image, its size read" "image/gif true 100x50" 
 if cmp -s "$tmp/cat.gif" "$(field .file.path "$r")"; then pass "the sender keeps a copy"; else fail "the sender keeps a copy" "$r"; fi
 progress=$(mesh alice sendfile "$server" <<<"{\"path\": \"$tmp/report.txt\", \"mid\": \"filemid2\"}" | sed -n 1p)
 expect "sending reports progress" progress "$(field .event "$progress")"
+r=$(NIXBOOK_MESH_COPY_MAX=1000 mesh alice sendfile "$server" <<<"{\"path\": \"$tmp/cat.gif\", \"mid\": \"filemid3\"}" | tail -1)
+expect "a big file isn't copied: the sender's message shows the original" "$tmp/cat.gif" "$(field .file.path "$r")"
 head -c 1100000 /dev/urandom >"$tmp/big.bin"
 r=$(mesh alice sendfile "$server" <<<"{\"path\": \"$tmp/big.bin\"}" | tail -1 || true)
 if grep -q "up to 1.0 MB" <<<"$(field .error "$r")"; then pass "a file over the server's limit is refused, before uploading"; else fail "a file over the server's limit is refused, before uploading" "$r"; fi

@@ -28,6 +28,9 @@ ColumnLayout {
         && (root.file.size ?? 0) <= 60e6 && (root.file.w ?? 0) * (root.file.h ?? 0) <= 80e6
     readonly property bool animated: root.showImage && !!root.file.animated && (root.file.size ?? 0) <= 30e6
     property bool imageFailed: false
+    // A big file: downloaded on a click (Mesh.autoFetchBytes).
+    readonly property bool waitsForClick: !root.here && !root.transfer && !root.file.expired && !root.file.error
+        && !!root.file.k && (root.file.size ?? 0) > Mesh.autoFetchBytes
     property string saved: ""
 
     // The picture's box: its own proportions, within the bubble, ≤ 280 px high.
@@ -93,10 +96,10 @@ ColumnLayout {
             hoverEnabled: true
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             cursorShape: Qt.PointingHandCursor
-            onClicked: mouse => mouse.button === Qt.RightButton ? root.save() : Mesh.openFile(root.file)
+            onClicked: mouse => mouse.button === Qt.RightButton && Mesh.isMeshCopy(root.file) ? root.save() : Mesh.openFile(root.file)
         }
         RippleButton {
-            visible: pictureMouse.containsMouse || hovered
+            visible: (pictureMouse.containsMouse || hovered) && Mesh.isMeshCopy(root.file)
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: 4
@@ -156,9 +159,15 @@ ColumnLayout {
                     if (t && t.total > 0)
                         return Translation.tr("%1 · %2%").arg(root.message.mine && !root.file.sha ? Translation.tr("sending")
                             : Translation.tr("downloading")).arg(Math.floor(100 * t.done / t.total));
-                    if (root.file.expired) return Translation.tr("No longer on the mesh's server: it keeps files a few days");
+                    if (root.file.expired) return Translation.tr("No longer on the mesh's server");
                     if (root.file.error) return Translation.tr("%1 · not downloaded: %2 (click to retry)").arg(size).arg(root.file.error);
                     if (!root.here && root.message.mine && root.message.status !== "sent") return size;
+                    if (!root.here && root.waitsForClick) {
+                        const until = (root.file.exp ?? 0) > 0
+                            ? Translation.tr(" · on the server until %1").arg(Qt.locale().toString(new Date(root.file.exp * 1000), Locale.ShortFormat))
+                            : "";
+                        return size + until;
+                    }
                     if (!root.here) return Translation.tr("%1 · waiting").arg(size);
                     return size;
                 }
@@ -188,6 +197,22 @@ ColumnLayout {
             }
         }
         RippleButton {
+            visible: root.waitsForClick
+            implicitWidth: 30
+            implicitHeight: 30
+            buttonRadius: Appearance.rounding.full
+            onClicked: Mesh.fetchFile(root.message.mid)
+            contentItem: MaterialSymbol {
+                horizontalAlignment: Text.AlignHCenter
+                text: "download"
+                iconSize: Appearance.font.pixelSize.normal
+                color: root.textColor
+            }
+            StyledToolTip {
+                text: Translation.tr("Download")
+            }
+        }
+        RippleButton {
             visible: root.here
             implicitWidth: 30
             implicitHeight: 30
@@ -204,7 +229,7 @@ ColumnLayout {
             }
         }
         RippleButton {
-            visible: root.here
+            visible: root.here && Mesh.isMeshCopy(root.file)
             implicitWidth: 30
             implicitHeight: 30
             buttonRadius: Appearance.rounding.full
