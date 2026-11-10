@@ -64,7 +64,7 @@ BarWidgetSwitcher {
         cursorShape: Qt.PointingHandCursor
         onClicked: {
             // Straight to what is unread, else where it was.
-            const unreadConv = Mesh.messages.filter(m => !m.mine && m.time > (Mesh.readAt[Mesh.conversationOf(m)] ?? 0)).slice(-1)[0];
+            const unreadConv = Mesh.messages.filter(m => !m.mine && !m.deleted && m.time > (Mesh.readAt[Mesh.conversationOf(m)] ?? 0)).slice(-1)[0];
             Mesh.open(unreadConv ? Mesh.conversationOf(unreadConv) : undefined);
         }
 

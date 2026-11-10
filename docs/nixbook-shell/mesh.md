@@ -9,6 +9,7 @@ The mesh lets a few people talk desktop to desktop over the internet: messages t
 - **Listening together**: share what your YouTube Music, Spotify or Jellyfin plays; the others listen (or watch) along, in sync. See [Listening together](#listening-together).
 - **Files**: images and GIFs, shown in the conversation, and any other file (a PDF, an archive…), shown as a card. See [Files](#files).
 - **Read receipts** in a conversation with one person ("seen").
+- **Deleting**: hover a message and click the bin, then again to confirm. See [Deleting a message](#deleting-a-message).
 - **Notifications**: each message arrives as a notification named after its sender, with **Reply**, which opens the conversation. On nixbook, a message to you alone gets the Persona cut-in, and every mesh message stays on screen like other chats (`hint:"nixbook-mesh-direct"`, `nixbook-mesh` in the notification rules).
 - **The bar's mesh widget**: how many people are around, and unread messages. Hovering it lists everyone's status; a click opens the conversation that has something new.
 
@@ -30,12 +31,21 @@ Send files with the **clip button** beside the field (several at once), by **dro
 
 A file is encrypted on your computer before it leaves (AES-256-GCM, with a key of its own) and uploaded as an ntfy attachment under a random name; its key travels inside the message, sealed like any other: for everyone in the mesh, or for one person alone in a private conversation. The server stores ciphertext only, and the downloaded file is checked against the hash the sender gave. A desktop only downloads from its own mesh server's attachments: a message can't make it fetch anything else.
 
+## Deleting a message
+
+Hover a message and click its **bin**, then click again within 3 seconds to confirm.
+
+- **Your own messages** are deleted **for everyone**: each desktop shows "This message was deleted" in its place, and drops its file, its notification (if still on screen) and its entry in the notification history. A desktop that was off does the same when it catches up, and so does someone who joins later and replays the conversation.
+- **Someone else's messages** are deleted **on your computer only**.
+- **Only the sender can delete a message for everyone.** Each message carries a commitment to a proof that only its sender's desktop can make (it comes from that desktop's private key), and deleting it shows the proof; a private conversation's deletion is sealed like its messages, which also proves who sent it. Messages to everyone sent before deleting existed have no commitment, so they can only be deleted on your computer.
+- **What it can't undo**: someone who already read it has read it, the server keeps its encrypted copy (and a file's) until it expires, and a desktop changed to ignore deletions keeps the message. A message you wrote on another computer can only be deleted from that computer.
+
 ## Listening together
 
 Share what your **YouTube Music** or **Spotify** plays in a conversation (everyone, or one person): the **headphones** button in the conversation's header (Listen together, music only). The **film** button next to it is Watch together, for Jellyfin (below). The others see "Khoa is sharing their music" with the song, and a notification with **Listen along**. Listening along opens the same song in their own player, at the same moment, and follows your pauses, seeks and next songs; the bar shows who listens. **Stop** ends it (the session also ends when your player is gone for a minute); **Leave** stops listening along.
 
 - **The other app**: a listener with Spotify follows a YouTube Music host, and the other way round. A Spotify song is found on YouTube Music by its title, artist and length (YouTube Music's own search), and played there. Spotify has no search without an account, so a YouTube Music song opens Spotify's search for the listener to pick.
-- **Which app**: an app already open (the host's, else the other), else one installed (the host's first), started for you.
+- **Which app**: an app already open (the host's, else the other), else one installed (the host's first), started for you on the song. YouTube Music songs always open in the YouTube Music app, never on its website in the browser.
 - **You take over**: a listener who plays something else, or pauses, stops listening along (it says so in the Mesh tab).
 - **Privacy**: nothing is shared until you click the button, and only the song (title, artist, album, cover, length), the position and play/pause. A session with one person is sealed for them alone, like private messages. Nothing is kept.
 - Each listener streams from their own account: everyone needs their own YouTube Music or Spotify.

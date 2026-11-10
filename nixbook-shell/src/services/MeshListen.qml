@@ -82,6 +82,17 @@ Singleton {
             : ["com.github.th-ch.youtube-music", "pear-desktop", "youtube-music"];
         return ids.map(id => DesktopEntries.byId(id)).find(e => !!e) ?? null;
     }
+    // Starts `service`'s app (with `uri` on its command line: a bridged app,
+    // lib/electronA11y.nix's --open-host, opens it itself, in the running
+    // copy or once loaded). False when it isn't installed.
+    function openInApp(service, uri) {
+        const entry = root.installed(service);
+        if (!entry) return false;
+        const argv = entry.command ?? [];
+        if (uri === "" || argv.length === 0) AppLaunch.launchEntry(entry);
+        else AppLaunch.spawn([...argv, uri]);
+        return true;
+    }
     // Where this desktop listens to `service`'s songs: an app already open
     // (the host's, else the other), else one to start (the host's first).
     function localService(service) {
@@ -374,9 +385,16 @@ Singleton {
         if (!p) {
             if (now - f.launchedAt > 20000) {
                 f.launchedAt = now;
-                const entry = root.installed(svc);
-                if (entry) AppLaunch.launchEntry(entry);
-                else AppLaunch.openUrl(root.uriFor(svc, wantId));
+                // YouTube Music starts on the song (the Electron bridge opens
+                // it once the app has loaded); never its website.
+                if (!root.openInApp(svc, svc === "youtube-music" ? root.uriFor(svc, wantId) : "")) {
+                    root.followStatus = "noapp";
+                    return;
+                }
+                if (svc === "youtube-music") {
+                    f.openedFor = wantId;
+                    f.openedAt = now;
+                }
             }
             root.followStatus = "starting";
             return;
@@ -394,6 +412,10 @@ Singleton {
                 const uri = root.uriFor(svc, wantId);
                 const scheme = uri.split(":")[0];
                 if ((p.supportedUriSchemes ?? []).map(x => String(x).toLowerCase()).includes(scheme)) p.openUri(uri);
+                // Its schemes not known yet (just started) or not https: the
+                // app's own command, never xdg-open (a browser, where no link
+                // routing sends music.youtube.com to the app).
+                else if (svc === "youtube-music") root.openInApp(svc, uri);
                 else AppLaunch.openUrl(uri);
                 f.openedAt = now;
                 f.openedFor = wantId;

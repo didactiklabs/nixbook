@@ -25,6 +25,11 @@ import QtQuick
  * soon as their message arrives (`fetch`: the server deletes them after a
  * while) into ~/.local/share/nixbook-shell/mesh/files/.
  *
+ * Deleting: your own messages for everyone (deleteForEveryone: each desktop
+ * puts "deleted" in its place, its file, notification and history entry go;
+ * scripts/mesh.py "Deleting" says why nobody can delete someone else's),
+ * anyone's for this desktop only (deleteForMe).
+ *
  * The conversation is kept in ~/.local/state/quickshell/user/
  * mesh-conversation.json (the last 500 messages). Its view is the right sidebar's
  * Mesh tab; the bar's `mesh` widget shows who is around.
@@ -81,7 +86,9 @@ Singleton {
     // Everyone seen: { id: { id, name, state, seen (ms), readUpTo (ms) } }.
     property var members: ({})
     // The messages, oldest first: { mid, from, name, to, time (ms), text,
-    // mine, status: "sent" | "sending" | "failed", file? }. A file: received
+    // mine, status: "sent" | "sending" | "failed", file?, dh? (what proves
+    // its deletion), deleted? (deleted for everyone: no text, no file),
+    // deleting?, deleteError? }. A file: received
     // and not yet downloaded { u, k, n, name, size, sha, mime, w, h, exp },
     // downloaded { path, name, size, sha, mime, image, animated, w, h },
     // being sent { source, name }; `expired` when it was gone from the
@@ -127,12 +134,12 @@ Singleton {
     }
     function unreadIn(conv) {
         const since = root.readAt[conv] ?? 0;
-        return root.messages.filter(m => !m.mine && m.time > since && root.conversationOf(m) === conv).length;
+        return root.messages.filter(m => !m.mine && !m.deleted && m.time > since && root.conversationOf(m) === conv).length;
     }
     readonly property int unread: {
         let n = 0;
         for (const m of root.messages)
-            if (!m.mine && m.time > (root.readAt[root.conversationOf(m)] ?? 0)) n++;
+            if (!m.mine && !m.deleted && m.time > (root.readAt[root.conversationOf(m)] ?? 0)) n++;
         return n;
     }
     readonly property var memberList: Object.values(root.members)
@@ -210,7 +217,7 @@ Singleton {
 
     // What is shown is read; a private conversation tells its member so.
     function markRead(conv) {
-        const last = root.messagesIn(conv).filter(m => !m.mine).slice(-1)[0];
+        const last = root.messagesIn(conv).filter(m => !m.mine && !m.deleted).slice(-1)[0];
         if (!last || (root.readAt[conv] ?? 0) >= last.time) return;
         root.readAt = Object.assign({}, root.readAt, { [conv]: last.time });
         root._save();
@@ -297,9 +304,9 @@ Singleton {
             onExited: code => {
                 root._doneMoving(proc.mid);
                 const m = root.messageOf(proc.mid);
-                if (m) {
+                if (m && !m.deleted) {
                     if (code === 0 && proc.answer?.ok)
-                        root._update(proc.mid, { status: "sent", error: "",
+                        root._update(proc.mid, { status: "sent", error: "", dh: root._dh(proc.answer.dh),
                             file: Object.assign({ source: m.file?.source ?? "" }, proc.answer.file) });
                     else
                         root._update(proc.mid, { status: "failed",
@@ -368,7 +375,9 @@ Singleton {
                 root._fetching--;
                 root._doneMoving(proc.mid);
                 const m = root.messageOf(proc.mid);
-                if (m) {
+                // Deleted while it came: what landed goes too.
+                if (m?.deleted) root._pruneFiles();
+                if (m && !m.deleted) {
                     if (code === 0 && proc.answer?.ok) {
                         root._update(proc.mid, { file: proc.answer.file });
                     } else if (proc.answer?.expired) {
@@ -460,7 +469,7 @@ Singleton {
     }
     function retry(mid) {
         const m = root.messages.find(x => x.mid === mid && x.mine);
-        if (!m) return;
+        if (!m || m.deleted) return;
         root._setStatus(mid, "sending");
         if (m.file?.source && !m.file.sha) root._sendFile(m);
         else root._send("message", { to: m.to, text: m.text, mid: mid });
@@ -471,6 +480,7 @@ Singleton {
         sender.createObject(root, {
             kind: kind,
             mid: data.mid ?? "",
+            target: data.target ?? "",
             payload: JSON.stringify(Object.assign({ name: root.myName }, data)),
             command: [root.bin, "send", root.server, kind]
         });
@@ -481,6 +491,7 @@ Singleton {
             id: proc
             property string kind
             property string mid
+            property string target
             property string payload
             stdinEnabled: true
             stdout: StdioCollector { id: sendOut }
@@ -495,9 +506,18 @@ Singleton {
                 try {
                     answer = JSON.parse(sendOut.text);
                 } catch (e) {}
-                if (proc.kind === "message" && proc.mid !== "")
+                if (proc.kind === "message" && proc.mid !== "") {
                     root._setStatus(proc.mid, code === 0 && answer?.ok ? "sent" : "failed",
                         code === 0 && answer?.ok ? "" : (answer?.error ?? ""));
+                    const dh = root._dh(answer?.dh);
+                    if (code === 0 && dh !== "" && root.messageOf(proc.mid)?.dh !== dh) root._update(proc.mid, { dh: dh });
+                }
+                if (proc.kind === "delete" && proc.target !== "") {
+                    if (code === 0 && answer?.ok) root._tombstone(proc.target);
+                    else if (root.messageOf(proc.target) && !root.messageOf(proc.target).deleted)
+                        root._update(proc.target, { deleting: false,
+                            deleteError: answer?.error ?? Translation.tr("Couldn't run the mesh helper") });
+                }
                 // The server took it but the listener says it's cut off (a
                 // refusal it waits a minute after): listen again now.
                 if (code === 0 && answer?.ok && !root.connected) root._kick();
@@ -632,6 +652,7 @@ Singleton {
             root.members = Object.assign({}, root.members, { [id]: member });
         if (!root.keys[id]) keysSoon.restart();
         if (e.kind === "message") root._receive(e, time);
+        else if (e.kind === "delete") root._applyDelete(e);
         else root._saveSoon();
         // Listening together (services/MeshListen.qml).
         if (e.kind === "listen") MeshListen.receive(e);
@@ -647,15 +668,19 @@ Singleton {
             w: Number(f.w ?? 0), h: Number(f.h ?? 0), exp: Number(f.exp ?? 0)
         } : null;
         if (text === "" && !file) return;
+        const dh = root._dh(e.data?.dh);
         // Mine, from this desktop: already here (now sent).
         const known = root.messages.find(m => m.mid === mid);
         if (known) {
+            if (known.deleted) return;
             if (known.status !== "sent") root._setStatus(mid, "sent");
+            if (e.mine && dh !== "" && known.mine && known.dh !== dh) root._update(mid, { dh: dh });
             return;
         }
         const m = { mid: mid, from: e.from, name: e.name ?? "", to: e.to ?? "", time: time, text: text,
             mine: !!e.mine, status: "sent" };
         if (file) m.file = file;
+        if (dh !== "") m.dh = dh;
         const list = [...root.messages, m].sort((a, b) => a.time - b.time).slice(-500);
         root.messages = list;
         root._saveSoon();
@@ -685,6 +710,7 @@ Singleton {
             conv: root.conversationOf(m),
             command: ["notify-send", `--app-name=${who}`, "--icon=avatar-default", ...image,
                 `--hint=string:x-nixbook-mesh:${m.to === "" ? "nixbook-mesh-everyone" : "nixbook-mesh-direct"}`,
+                `--hint=string:x-nixbook-mesh-mid:${m.mid}`,
                 "--wait", `--action=reply=${Translation.tr("Reply")}`, "--", title, body]
         });
     }
@@ -700,6 +726,83 @@ Singleton {
                 notify.destroy();
             }
         }
+    }
+
+    // -- Deleting ----------------------------------------------------------------------------
+
+    function _dh(v) {
+        return /^[0-9a-f]{64}$/.test(`${v ?? ""}`) ? `${v}` : "";
+    }
+    // For everyone: your own sent messages; to everyone only those that
+    // carry their proof (dh: sent since deleting exists).
+    function canDeleteForEveryone(m) {
+        if (!m?.mine || m.deleted || m.deleting || m.status === "sending") return false;
+        return m.status === "failed" || (m.to ?? "") !== "" || !!m.dh;
+    }
+    function deleteForEveryone(mid) {
+        const m = root.messageOf(mid);
+        if (!root.canDeleteForEveryone(m)) return false;
+        if (m.status === "failed") {
+            // It may have left all the same: told to go, and gone from here.
+            root._send("delete", { to: m.to, target: mid });
+            root._tombstone(mid);
+            return true;
+        }
+        root._update(mid, { deleting: true, deleteError: "" });
+        root._send("delete", { to: m.to, target: mid });
+        return true;
+    }
+    // From this desktop only; the others keep theirs.
+    function deleteForMe(mid) {
+        const m = root.messageOf(mid);
+        if (!m || m.status === "sending") return false;
+        root.messages = root.messages.filter(x => x.mid !== mid);
+        root._save();
+        root._dropFile(mid);
+        root._forgetNotification(mid);
+        return true;
+    }
+    // A deletion from the listener ({from, to, private, data: {target,
+    // proofHash}}): applied when it comes from the message's sender — sealed
+    // (a private conversation: the envelope proves who sent it), or showing
+    // the proof the message's `dh` commits to.
+    function _applyDelete(e) {
+        const target = `${e.data?.target ?? ""}`;
+        const proof = `${e.data?.proofHash ?? ""}`;
+        const to = `${e.to ?? ""}`;
+        const from = `${e.from ?? ""}`;
+        if (target === "" || from === "") return;
+        const victims = root.messages.filter(m => m.mid === target && m.from === from && !m.deleted && (m.to ?? "") === to
+            && ((e.private && to !== "") || (!!m.dh && m.dh === proof)));
+        // Nothing here (no longer kept, or not the sender's): nothing to do.
+        // The server keeps the order, so a message always comes before its
+        // deletion.
+        if (victims.length === 0) {
+            root._saveSoon();
+            return;
+        }
+        root._tombstone(target);
+    }
+    function _tombstone(mid) {
+        root.messages = root.messages.map(m => m.mid !== mid ? m
+            : { mid: m.mid, from: m.from, name: m.name, to: m.to, time: m.time, mine: m.mine, status: "sent", text: "",
+                deleted: true });
+        root._save();
+        root._dropFile(mid);
+        root._forgetNotification(mid);
+    }
+    function _dropFile(mid) {
+        root._fetchQueue = root._fetchQueue.filter(x => x !== mid);
+        root._pruneFiles();
+    }
+    function _pruneFiles() {
+        root.run(["prune"], JSON.stringify({ keep: root.messages.map(m => m.file?.sha ?? "").filter(s => s !== "") }));
+    }
+    // Its notification: off the screen and out of the history.
+    function _forgetNotification(mid) {
+        const live = Notifications.list.filter(n => n.hints?.["x-nixbook-mesh-mid"] === mid);
+        if (live.length > 0) Notifications.discardNotifications(live.map(n => n.notificationId), true, false);
+        NotificationHistory.forgetMeshMessage(mid);
     }
 
     // -- Setting up (Settings > General > Mesh) ----------------------------------------
@@ -827,7 +930,8 @@ Singleton {
                 root.members = data.members ?? {};
                 root.readAt = data.readAt ?? {};
                 // Still sending when the shell stopped: it may not have gone.
-                root.messages = root.messages.map(m => m.status === "sending" ? Object.assign({}, m, { status: "failed" }) : m);
+                root.messages = root.messages.map(m => m.status === "sending" ? Object.assign({}, m, { status: "failed" })
+                    : m.deleting ? Object.assign({}, m, { deleting: false }) : m);
                 root._storeRead = true;
                 root._resumeFiles();
             } catch (e) {}
@@ -840,7 +944,7 @@ Singleton {
     function _resumeFiles() {
         if (root._filesResumed || !root._storeRead || !root._loaded) return;
         root._filesResumed = true;
-        root.run(["prune"], JSON.stringify({ keep: root.messages.map(m => m.file?.sha ?? "").filter(s => s !== "") }));
+        root._pruneFiles();
         for (const m of root.messages)
             if (root._needsFetch(m) && !m.file.error && m.file.size <= root.autoFetchBytes) root.fetchFile(m.mid);
     }
@@ -862,7 +966,7 @@ Singleton {
         onTriggered: root._save()
     }
 
-    // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|sendFile PATH|sendFileTo MEMBER PATH|open|openConversation MEMBER`,
+    // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|sendFile PATH|sendFileTo MEMBER PATH|open|openConversation MEMBER|deleteMessage MID`,
     // and listening together: `listenShare MEMBER|watchShare MEMBER|listenStop|listenJoin MEMBER|listenLeave|listenStatus` ("" = everyone).
     // Denied to the desktop agents (desktop-mcp's shellIpcDenyTargets): they
     // would speak in the user's name.
@@ -932,6 +1036,13 @@ Singleton {
         // A member's conversation ("" = everyone).
         function openConversation(member: string): void {
             root.open(member);
+        }
+        // A message (its mid): yours for everyone, anyone else's here only.
+        function deleteMessage(mid: string): string {
+            const m = root.messageOf(mid);
+            if (!m) return "error: no such message";
+            if (root.canDeleteForEveryone(m)) return root.deleteForEveryone(mid) ? "ok: deleting for everyone" : "error: can't delete it";
+            return root.deleteForMe(mid) ? "ok: deleted here" : "error: can't delete it";
         }
     }
 }
