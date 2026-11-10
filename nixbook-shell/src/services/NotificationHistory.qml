@@ -25,10 +25,11 @@ Singleton {
     readonly property int maxEntries: 5000
     readonly property real dayMs: 24 * 60 * 60 * 1000
 
-    // { id, time, appName, appIcon, summary, body, urgency, cutIn }
+    // { id, time, appName, appIcon, summary, body, urgency, cutIn, meshMid? }
     property var entries: []
     property bool loaded: false
     property var pending: [] // recorded before the file finished loading
+    property var forgetOnLoad: [] // mesh messages deleted before that
 
     function countOlderThan(days) {
         const cutoff = Date.now() - days * root.dayMs;
@@ -52,6 +53,9 @@ Singleton {
             urgency: notif.urgency,
             cutIn: cutIn ?? "",
         };
+        // A mesh message's (services/Mesh.qml): forgotten when it is deleted.
+        const meshMid = notif.hints?.["x-nixbook-mesh-mid"];
+        if (typeof meshMid === "string" && meshMid !== "") entry.meshMid = meshMid;
         const isReplaced = e => (replaced ?? []).some(r => r.id === e.id && r.time === e.time);
         if (!root.loaded) {
             root.pending = [...root.pending.filter(e => !isReplaced(e)), entry];
@@ -120,6 +124,16 @@ Singleton {
     function clear() {
         root.save([]);
     }
+    // A mesh message deleted (for everyone, or here): its entries go.
+    function forgetMeshMessage(mid) {
+        if (!mid) return;
+        if (!root.loaded) {
+            root.pending = root.pending.filter(e => e.meshMid !== mid);
+            root.forgetOnLoad = [...root.forgetOnLoad, mid];
+            return;
+        }
+        if (root.entries.some(e => e.meshMid === mid)) root.save(root.entries.filter(e => e.meshMid !== mid));
+    }
 
     function pruned(list) {
         let kept = list;
@@ -174,8 +188,11 @@ Singleton {
         path: Qt.resolvedUrl(Directories.notificationHistoryPath)
         function finishLoad(list) {
             root.loaded = true;
+            const forget = new Set(root.forgetOnLoad);
+            root.forgetOnLoad = [];
             root.entries = list;
-            const merged = root.deduplicated(root.pruned([...list, ...root.pending]));
+            const merged = root.deduplicated(root.pruned([...list, ...root.pending]))
+                .filter(e => !forget.has(e.meshMid));
             root.pending = [];
             if (merged.length !== list.length || merged.some((e, i) => e !== list[i])) root.save(merged);
         }

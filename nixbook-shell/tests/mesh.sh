@@ -324,6 +324,49 @@ expect "save only copies the mesh's files" false "$(field .ok "$r")"
 r=$(mesh carol prune <<<'{"keep": []}')
 expect "prune: the files of messages gone are deleted" "1 0" "$(field .removed "$r") $(find "$tmp/carol/data/nixbook-shell/mesh/files" -type f | wc -l)"
 
+# -- Deleting --------------------------------------------------------------------
+
+# A message carries `dh`, the hash of a proof only its sender can make; the
+# deletion shows the proof, the listener gives its hash.
+r=$(mesh alice send "$server" message <<<'{"text": "oops, wrong chat", "mid": "delmid1", "name": "Alice"}')
+dh=$(field .dh "$r")
+if [[ $dh =~ ^[0-9a-f]{64}$ ]]; then pass "a message's sender gets its deletion commitment"; else fail "a message's sender gets its deletion commitment" "$r"; fi
+r=$(mesh alice send "$server" delete <<<'{"target": "delmid1", "name": "Alice"}')
+expect "alice deletes it for everyone" true "$(field .ok "$r")"
+# Bob poses as alice to delete it (no key of his in it, so nobody's pin of
+# alice changes): he can't make her proof.
+"$py" -P - "$script" "$tmp/bob/config/nixbook-shell/mesh/key" "$server" "${token[bob]}" <<'PY2'
+import base64, importlib.machinery, secrets, sys, time, urllib.request
+mesh = importlib.machinery.SourceFileLoader("mesh", sys.argv[1]).load_module()
+key = base64.b64decode(open(sys.argv[2]).read())
+topic = mesh.topic_of(key)
+body = mesh.seal(key, topic, {"kind": "delete", "from": "alice", "name": "Alice", "to": "", "time": int(time.time()),
+                              "mid": "forged-delete", "data": {"target": "delmid1", "proof": secrets.token_hex(32)}})
+urllib.request.urlopen(urllib.request.Request(f"{sys.argv[3]}/{topic}", data=body.encode(), method="POST",
+                       headers={"Authorization": f"Bearer {sys.argv[4]}"})).read()
+PY2
+r=$(mesh alice send "$server" delete <<<'{"target": "../x"}' || true)
+expect "a deletion names a message" false "$(field .ok "$r")"
+r=$(mesh alice send "$server" message <<<'{"text": "only carol may see this", "mid": "delmid2", "to": "carol"}')
+expect "alice writes carol privately" true "$(field .ok "$r")"
+r=$(mesh alice send "$server" delete <<<'{"target": "delmid2", "to": "carol"}')
+expect "and deletes it in their conversation" true "$(field .ok "$r")"
+for _ in $(seq 50); do
+  [ "$(grep -c '"kind": "delete"' "$tmp/bob.events" 2>/dev/null)" -ge 2 ] && grep -q '"delmid2"' "$tmp/carol.events" &&
+    [ "$(grep -c '"kind": "delete"' "$tmp/carol.events" 2>/dev/null)" -ge 3 ] && break
+  sleep 0.2
+done
+got=$(grep '"delmid1"' "$tmp/bob.events" | grep '"kind": "message"' | head -1)
+expect "bob gets the message with its commitment" "$dh" "$(field .data.dh "$got")"
+dels=$(grep '"kind": "delete"' "$tmp/bob.events" || true)
+expect "bob gets both deletions of it" 2 "$(grep -c '"delmid1"' <<<"$dels" || true)"
+expect "the real one proves it: its hash is the commitment" 1 "$(jq -r --arg dh "$dh" 'select(.data.proofHash == $dh) | .from' <<<"$dels" | grep -c alice || true)"
+expect "the one bob forged doesn't" 1 "$(jq -r --arg dh "$dh" 'select(.data.proofHash != $dh) | .from' <<<"$dels" | grep -c alice || true)"
+if grep -q '"proof"' "$tmp/bob.events" "$tmp/carol.events"; then fail "the shell never gets the proof itself"; else pass "the shell never gets the proof itself"; fi
+priv=$(grep '"kind": "delete"' "$tmp/carol.events" | grep '"delmid2"' | head -1)
+expect "carol's private deletion comes sealed, from alice" "alice carol true" "$(field .from "$priv") $(field .to "$priv") $(field .private "$priv")"
+if grep -q '"delmid2"' "$tmp/bob.events"; then fail "bob doesn't see the private deletion" "$(grep delmid2 "$tmp/bob.events")"; else pass "bob doesn't see the private deletion"; fi
+
 # -- Listening together ---------------------------------------------------------
 
 state='{"op": "state", "sid": "0123456789abcdef", "service": "spotify", "track": {"id": "4uLU6hMCjMI75M1A2tKUQC", "title": "Song", "artist": "Band", "length": 200, "art": "http://plain/x.jpg"}, "position": 12.5, "playing": true, "name": "Alice"}'

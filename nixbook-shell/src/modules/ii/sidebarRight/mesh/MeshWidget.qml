@@ -13,7 +13,9 @@ import QtQuick.Layouts
  * (everyone, then each member, with their status and unread count), the one
  * picked, quick messages and a field to write. Files (the clip button, a
  * drop, or Ctrl+V of a copied image or file) wait above the field and go
- * when it is sent, the text with the first.
+ * when it is sent, the text with the first. Hovering a message shows its
+ * delete button (a second click confirms): your own for everyone, anyone's
+ * for this desktop only.
  */
 Item {
     id: root
@@ -313,8 +315,68 @@ Item {
                 readonly property bool mine: row.modelData.mine
                 readonly property var prev: row.index > 0 ? root.shown[row.index - 1] : null
                 readonly property bool showName: !row.mine && root.conv === "" && (row.prev?.from !== row.modelData.from)
+                readonly property bool deleted: !!row.modelData.deleted
+                // Your own: for everyone; anyone's (or yours from before
+                // deleting existed, to everyone): for this desktop.
+                readonly property bool forEveryone: Mesh.canDeleteForEveryone(row.modelData)
+                property bool armed: false
                 width: list.width
                 implicitHeight: bubble.implicitHeight + (row.showName ? nameText.implicitHeight + 2 : 0)
+
+                HoverHandler {
+                    id: rowHover
+                }
+                Timer {
+                    id: disarm
+                    interval: 3000
+                    onTriggered: row.armed = false
+                }
+                // Delete: a click arms it, a second within 3 s deletes.
+                RippleButton {
+                    id: deleteButton
+                    visible: (rowHover.hovered || row.armed) && !row.modelData.deleting && row.modelData.status !== "sending"
+                    anchors.verticalCenter: bubble.verticalCenter
+                    anchors.right: row.mine ? bubble.left : undefined
+                    anchors.left: row.mine ? undefined : bubble.right
+                    anchors.leftMargin: 4
+                    anchors.rightMargin: 4
+                    implicitHeight: 26
+                    implicitWidth: row.armed ? armedText.implicitWidth + 16 : 26
+                    buttonRadius: Appearance.rounding.full
+                    colBackground: row.armed ? Appearance.m3colors.m3error : ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 1)
+                    colBackgroundHover: row.armed ? Appearance.m3colors.m3error : Appearance.colors.colLayer1Hover
+                    onClicked: {
+                        if (!row.armed) {
+                            row.armed = true;
+                            disarm.restart();
+                            return;
+                        }
+                        row.armed = false;
+                        disarm.stop();
+                        if (row.forEveryone) Mesh.deleteForEveryone(row.modelData.mid);
+                        else Mesh.deleteForMe(row.modelData.mid);
+                    }
+                    contentItem: Item {
+                        MaterialSymbol {
+                            visible: !row.armed
+                            anchors.centerIn: parent
+                            text: "delete"
+                            iconSize: Appearance.font.pixelSize.normal
+                            color: Appearance.colors.colSubtext
+                        }
+                        StyledText {
+                            id: armedText
+                            visible: row.armed
+                            anchors.centerIn: parent
+                            text: row.forEveryone ? Translation.tr("Delete for everyone?") : Translation.tr("Delete for me?")
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: Appearance.m3colors.m3onError
+                        }
+                    }
+                    StyledToolTip {
+                        text: row.forEveryone ? Translation.tr("Delete for everyone") : Translation.tr("Delete on this computer")
+                    }
+                }
 
                 StyledText {
                     id: nameText
@@ -332,7 +394,9 @@ Item {
                     width: Math.min(list.width * 0.82, bubbleColumn.implicitWidth + 20)
                     implicitHeight: bubbleColumn.implicitHeight + 12
                     radius: Appearance.rounding.normal
-                    color: row.mine ? Appearance.colors.colPrimaryContainer : Appearance.colors.colLayer2
+                    color: row.deleted ? "transparent" : (row.mine ? Appearance.colors.colPrimaryContainer : Appearance.colors.colLayer2)
+                    border.width: row.deleted ? 1 : 0
+                    border.color: Appearance.colors.colOutlineVariant
                     ColumnLayout {
                         id: bubbleColumn
                         anchors.fill: parent
@@ -340,6 +404,12 @@ Item {
                         anchors.leftMargin: 10
                         anchors.rightMargin: 10
                         spacing: 2
+                        StyledText {
+                            visible: row.deleted
+                            text: row.mine ? Translation.tr("You deleted this message") : Translation.tr("This message was deleted")
+                            font.italic: true
+                            color: Appearance.colors.colSubtext
+                        }
                         MeshAttachment {
                             visible: !!row.modelData.file
                             message: row.modelData
@@ -360,7 +430,10 @@ Item {
                             Layout.alignment: row.mine ? Qt.AlignRight : Qt.AlignLeft
                             text: {
                                 const when = Qt.locale().toString(new Date(row.modelData.time), Config.options?.time.format ?? "hh:mm");
-                                if (!row.mine) return when;
+                                if (!row.mine || row.deleted) return when;
+                                if (row.modelData.deleting) return Translation.tr("%1 · deleting…").arg(when);
+                                if (row.modelData.deleteError)
+                                    return Translation.tr("%1 · couldn't delete: %2").arg(when).arg(row.modelData.deleteError);
                                 if (row.modelData.status === "failed")
                                     return row.modelData.error ? Translation.tr("%1 · not sent: %2 (click to retry)").arg(when).arg(row.modelData.error)
                                         : Translation.tr("%1 · not sent, click to retry").arg(when);
@@ -369,8 +442,8 @@ Item {
                                 return seen ? Translation.tr("%1 · seen").arg(when) : when;
                             }
                             font.pixelSize: Appearance.font.pixelSize.smallest
-                            color: row.modelData.status === "failed" ? Appearance.m3colors.m3error
-                                : (row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext)
+                            color: row.modelData.status === "failed" || (!!row.modelData.deleteError && !row.deleted) ? Appearance.m3colors.m3error
+                                : (row.mine && !row.deleted ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext)
                             opacity: 0.8
                         }
                     }

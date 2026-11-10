@@ -40,6 +40,8 @@ Commands (JSON on stdout; secrets only ever on stdin):
   save | prune                  a copy in Downloads (stdin: {path}) / delete the
                                 files of messages gone (stdin: {keep: [sha…]})
   limits SERVER                 the largest file the server takes, and expiry
+  send SERVER delete            delete one of your messages for everyone
+                                (stdin: {target: its mid, to}): see "Deleting"
   match                         a song on YouTube Music like a Spotify one
                                 (stdin: {title, artist, album, length}), for
                                 listening together: {videoId, title, …}
@@ -62,6 +64,7 @@ import binascii
 import contextlib
 import fcntl
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -89,7 +92,10 @@ VERSION = "m1"
 TOPIC_PREFIX = "mesh-"
 TOKEN_RE = re.compile(r"^tk_[A-Za-z0-9]{29}$")
 MEMBER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
-KINDS = ("message", "presence", "read", "listen")
+KINDS = ("message", "presence", "read", "listen", "delete")
+# What travels sealed when it is for one member.
+PRIVATE_KINDS = ("message", "read", "listen", "delete")
+MID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 MAX_TEXT = 1000
 # ntfy sends a keepalive every 45s: nothing for this long means the
 # connection is dead.
@@ -447,6 +453,29 @@ def open_private(sk, my_pk, outer, topic):
     return None, None
 
 
+# Deleting. A message can be deleted for everyone by its sender only. Each
+# message carries `dh`, the SHA-256 of a proof only its sender can make: an
+# HMAC of the message's id under the sender's private key. Deleting it
+# (kind `delete`, {target, proof}) shows the proof; the listener gives the
+# shell its hash (`proofHash`), which must be the message's `dh`. So no
+# member can delete someone else's message (the `from` of a message to
+# everyone isn't proven), and a member joining later, who replays the
+# history, sees the deletion too. A deletion in a private conversation is
+# sealed like the message (which also proves its sender: messages from
+# before `dh` can be deleted there). It is the desktops that delete: the
+# server keeps its ciphertext until it expires, and a desktop that already
+# showed the message can't be made to forget it.
+
+
+def delete_proof(sk, topic, mid):
+    raw = sk.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption())
+    return hmac.new(raw, b"nixbook-mesh delete v1\0" + topic.encode() + b"\0" + mid.encode(), hashlib.sha256).digest()
+
+
+def delete_commitment(sk, topic, mid):
+    return hashlib.sha256(delete_proof(sk, topic, mid)).hexdigest()
+
+
 # -- The server ----------------------------------------------------------------------
 
 
@@ -766,13 +795,21 @@ def cmd_send(args):
         data["text"] = text[:MAX_TEXT]
     if kind == "listen":
         data = listen_data(data)
+    if kind == "delete":
+        target = str(data.get("target") or "")
+        if not MID_RE.match(target):
+            fail("which message to delete?")
+        data = {"target": target, "mid": data.get("mid"), "name": data.get("name")}
     token = token_or_fail()
     key = key_or_fail()
     mid = str(data.pop("mid", "") or secrets.token_hex(8))
     name = str(data.pop("name", "") or "")[:64]
     readers = readers_or_fail(to, kind)
     answer, now = publish(server, token, key, kind, to, data, mid, name, readers)
-    out({"ok": True, "id": answer.get("id"), "mid": mid, "time": now})
+    reply = {"ok": True, "id": answer.get("id"), "mid": mid, "time": now}
+    if kind == "message":
+        reply["dh"] = delete_commitment(readers[0], topic_of(key), mid)
+    out(reply)
 
 
 def listen_data(data):
@@ -832,7 +869,7 @@ def readers_or_fail(to, kind):
     their keys), checked before anything leaves (a file is uploaded first).
     None for what goes to everyone."""
     sk, my_pk = load_identity()
-    if not (to and kind in ("message", "read", "listen")):
+    if not (to and kind in PRIVATE_KINDS):
         return sk, my_pk, None
     myself = me()
     # Sealed: for the recipient's key alone (and the sender's own copy).
@@ -850,6 +887,10 @@ def publish(server, token, key, kind, to, data, mid, name, readers):
     sk, my_pk, sealed_for = readers
     myself = me()
     now = int(time.time())
+    if kind == "message":
+        data = dict(data, dh=delete_commitment(sk, topic, mid))
+    if kind == "delete":
+        data = dict(data, proof=delete_proof(sk, topic, data["target"]).hex())
     if sealed_for:
         inner = {"kind": kind, "from": myself, "name": name, "to": to, "time": now, "mid": mid, "data": data}
         payload = seal_private(sk, my_pk, sealed_for, inner, topic)
@@ -1105,7 +1146,8 @@ def cmd_sendfile(args):
             "exp": int(attachment.get("expires") or 0)}
     text = str(data.get("text") or "").strip()[:MAX_TEXT]
     _, now = publish(server, token, key, "message", to, {"text": text, "file": meta}, mid, name, readers)
-    out({"ok": True, "mid": mid, "time": now, "text": text, "file": local_meta(local, sha, size, info, meta["exp"])})
+    out({"ok": True, "mid": mid, "time": now, "text": text, "dh": delete_commitment(readers[0], topic_of(key), mid),
+         "file": local_meta(local, sha, size, info, meta["exp"])})
 
 
 def local_meta(path, sha, size, info, exp=0):
@@ -1399,7 +1441,7 @@ def receive(payload, topic, sk, my_pk, myself, told):
             return None
         sender = str(inner.get("from") or "")
         to = str(inner.get("to") or "")
-        if inner.get("kind") not in ("message", "read", "listen") or not MEMBER_RE.match(sender) \
+        if inner.get("kind") not in PRIVATE_KINDS or not MEMBER_RE.match(sender) \
                 or not MEMBER_RE.match(to) or myself not in (sender, to):
             return None
         if sender == myself:
@@ -1414,6 +1456,10 @@ def receive(payload, topic, sk, my_pk, myself, told):
         data = inner.get("data") if isinstance(inner.get("data"), dict) else {}
         if inner["kind"] == "listen" and time.time() - float(inner.get("time") or 0) > STALE_LISTEN:
             return None
+        if inner["kind"] == "delete":
+            data = deletion(data)
+            if data is None:
+                return None
         event = {"kind": inner["kind"], "from": sender, "name": str(inner.get("name") or "")[:64], "to": to,
                  "time": inner.get("time"), "mid": str(inner.get("mid") or ""), "data": data,
                  "private": True, "event": "message", "mine": sender == myself}
@@ -1435,10 +1481,29 @@ def receive(payload, topic, sk, my_pk, myself, told):
         # Private messages and receipts only travel sealed: an open one is a
         # forgery or an old client.
         return None
+    if kind == "delete":
+        payload["data"] = deletion(payload.get("data"))
+        if payload["data"] is None:
+            return None
     payload.pop("pk", None)
     payload["event"] = "message"
     payload["mine"] = sender == myself
     return payload
+
+
+def deletion(data):
+    """A deletion for the shell: {target, proofHash} (see "Deleting"), the
+    proof itself kept back; None when it isn't one."""
+    if not isinstance(data, dict):
+        return None
+    target = str(data.get("target") or "")
+    proof = str(data.get("proof") or "")
+    if not MID_RE.match(target):
+        return None
+    clean = {"target": target, "proofHash": ""}
+    if re.match(r"^[0-9a-f]{64}$", proof):
+        clean["proofHash"] = hashlib.sha256(bytes.fromhex(proof)).hexdigest()
+    return clean
 
 
 def cmd_keys(args):
