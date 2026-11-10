@@ -44,6 +44,9 @@ Item {
         return out.replace(/\n/g, "<br>");
     }
 
+    // Your last message here (Everyone's "seen by" goes under it).
+    readonly property string lastMineMid: root.shown.filter(m => m.mine && !m.deleted).slice(-1)[0]?.mid ?? ""
+
     // The ✨ picker (nudges, quick messages) open.
     property bool picking: false
     onConvChanged: root.picking = false
@@ -610,8 +613,13 @@ Item {
                                     return row.msg.error ? Translation.tr("%1 · not sent: %2 (click to retry)").arg(when).arg(row.msg.error)
                                         : Translation.tr("%1 · not sent, click to retry").arg(when);
                                 if (row.msg.status === "sending") return Translation.tr("%1 · sending…").arg(when);
-                                const seen = row.msg.to !== "" && (Mesh.members[row.msg.to]?.readUpTo ?? 0) >= row.msg.time;
-                                return seen ? Translation.tr("%1 · seen").arg(when) : when;
+                                if (row.msg.to !== "") return Mesh.seen(row.msg) ? Translation.tr("%1 · seen").arg(when) : when;
+                                // Everyone's: who read it, under your last message only.
+                                if (row.msg.mid !== root.lastMineMid) return when;
+                                const by = Mesh.seenBy(row.msg);
+                                if (by.length === 0) return when;
+                                return by.length === 1 ? Translation.tr("%1 · seen by %2").arg(when).arg(Mesh.nameOf(by[0]))
+                                    : Translation.tr("%1 · seen by %2").arg(when).arg(by.length);
                             }
                             font.pixelSize: Appearance.font.pixelSize.smallest
                             color: row.msg.status === "failed" || (!!row.msg.deleteError && !row.deleted) ? Appearance.m3colors.m3error

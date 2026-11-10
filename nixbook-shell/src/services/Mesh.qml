@@ -300,7 +300,19 @@ Singleton {
         if (!last || (root.readAt[conv] ?? 0) >= last.time) return;
         root.readAt = Object.assign({}, root.readAt, { [conv]: last.time });
         root._save();
-        if (conv !== "") root._send("read", { to: conv, upTo: last.time });
+        // Everyone's conversation too: "seen by" under your last message
+        // there (seenBy); the receipt then goes open to the mesh.
+        root._send("read", { to: conv, upTo: last.time });
+    }
+    // Who read your message `m`: a private one, its member (seen); one to
+    // everyone, the members who read the conversation up to it (seenBy).
+    // A second's slack: the reader's copy of its time is in whole seconds.
+    function seen(m) {
+        return !!m && m.to !== "" && (root.members[m.to]?.readUpTo ?? 0) + 999 >= m.time;
+    }
+    function seenBy(m) {
+        if (!m || m.to !== "") return [];
+        return root.memberList.filter(x => (x.readEveryoneUpTo ?? 0) + 999 >= m.time).map(x => x.id);
     }
     onViewingChanged: if (root.viewing) root.markRead(root.conversation)
     onConversationChanged: if (root.viewing) root.markRead(root.conversation)
@@ -730,6 +742,8 @@ Singleton {
         }
         if (e.kind === "read" && !e.mine && (e.to ?? "") === root.me)
             member.readUpTo = Math.max(prev.readUpTo ?? 0, Number(e.data?.upTo ?? 0));
+        if (e.kind === "read" && !e.mine && (e.to ?? "") === "")
+            member.readEveryoneUpTo = Math.max(prev.readEveryoneUpTo ?? 0, Number(e.data?.upTo ?? 0));
         if (!e.mine || id === root.me)
             root.members = Object.assign({}, root.members, { [id]: member });
         if (!root.keys[id]) keysSoon.restart();
