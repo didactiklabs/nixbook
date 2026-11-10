@@ -55,7 +55,6 @@ ContentPage {
         { id: "vpnStatus",         name: Translation.tr("VPN"),                   icon: "vpn_lock" },
         { id: "anthropicUsage",    name: Translation.tr("Claude Usage"),          icon: "data_usage" },
         { id: "desktopControl",    name: Translation.tr("Desktop Control"),       icon: "smart_toy" },
-        { id: "musicRecognition",  name: Translation.tr("Music Recognition"),     icon: "music_cast" },
         { id: "kdeConnect",        name: Translation.tr("Phone Connect"),         icon: "devices" },
         { id: "mesh",              name: Translation.tr("Mesh"),                  icon: "hub" },
         { id: "docktoPanel",       name: Translation.tr("Dock to Panel"),        icon: "apps" },

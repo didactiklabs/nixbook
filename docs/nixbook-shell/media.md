@@ -20,10 +20,6 @@ For calls: what plays on the computer (music, a film, the other side of the call
 
 It is PipeWire's own WebRTC echo canceller (`module-echo-cancel`, with noise suppression), in the `nixbook-echo-cancel` user service: what the default output plays is the reference it removes, so nothing is rerouted, and switching to headphones keeps working. It works with EasyEffects (your microphone's effects come first). No AI. `programs.nixbook-shell.echoCancel.enable` (on by default) installs it; `nixbook-shell ipc call echoCancel on|off|toggle|status`.
 
-## Music recognition
-
-The music-recognition toggle and widget listen to what is playing and identify it with **songrec** (Shazam), keeping a list of the songs found.
-
 ## Phone Connect
 
 The **Phone Connect** bar widget brings KDE Connect into the bar:

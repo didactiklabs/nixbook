@@ -44,7 +44,7 @@ ShellRoot {
         Projects.load()
         AppTheming.load()
         // Their IPC targets (widgets, notes, todo, contacts, timers,
-        // musicRecognition, equalizer) exist once they are loaded.
+        // equalizer) exist once they are loaded.
         DesktopWidgets.load()
         Notes.load()
         KeepSync.load()
@@ -52,7 +52,6 @@ ShellRoot {
         Todo.load()
         Contacts.load()
         TimerService.load()
-        SongRec.load()
         EqualizerAutoService.load()
     }
     

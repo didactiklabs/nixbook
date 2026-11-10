@@ -17,7 +17,7 @@ SWITCHWALL="$SCRIPT_DIR/colors/switchwall.sh"
 
 mkdir -p "$LOCAL_PRESETS_DIR" "$ONLINE_PRESETS_DIR" "$IMPORTED_PRESETS_DIR"
 
-# Blacklist: General (time/battery/audio/sounds/language/workSafety) + Services (ai/networking/musicRecognition/search/screenRecord/screenSnip/updates/bar.weather)
+# Blacklist: General (time/battery/audio/sounds/language/workSafety) + Services (ai/networking/search/screenRecord/screenSnip/updates/bar.weather)
 # Keep: appearance/background/bar(non-weather)/dock/lock/overview/panelFamily etc.
 # Note: profile/wallpaperSelector are NOT blacklisted here (would make preset look empty) - only General+Services per Settings tabs
 # .apps is: its values are commands the shell runs (terminal, network, volume
@@ -26,7 +26,7 @@ mkdir -p "$LOCAL_PRESETS_DIR" "$ONLINE_PRESETS_DIR" "$IMPORTED_PRESETS_DIR"
 # prefix go with their sections.)
 BLACKLIST_FILTER='del(._presetMeta)
   | del(.time, .battery, .audio, .sounds, .language, .workSafety)
-  | del(.ai, .networking, .musicRecognition, .search, .screenRecord, .screenSnip, .updates)
+  | del(.ai, .networking, .search, .screenRecord, .screenSnip, .updates)
   | del(.apps)
   | del(.bar.weather)'
 

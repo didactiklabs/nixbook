@@ -225,7 +225,6 @@ let
       translate-shell # trans
       kdePackages.kdialog
 
-      songrec # Shazam CLI behind scripts/musicRecognition + its quick toggle
       easyeffects # EasyEffects quick toggle and the shell's EQ panel
       lm_sensors # `sensors` — temperatures in ResourceUsage
       file # MIME sniffing for chat attachments and directory icons

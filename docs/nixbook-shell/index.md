@@ -14,7 +14,7 @@ It started as a fork of [pctrade/end4-pC](https://github.com/pctrade/end4-pC), i
 | [Notifications](./notifications)                         | Inline replies, cut-ins for important messages, de-duplication, quiet rules, a searchable history                       |
 | [Calendar & tasks](./calendar)                           | Your accounts' calendars, reminders and tasks: the Calendar window, the bar, sidebar and desktop                        |
 | [Desktop widgets & wallpapers](./desktop-and-wallpapers) | Clock, weather, notes, to-do, timers, visualiser… per monitor; live video wallpapers                                    |
-| [Media & phone](./media)                                 | Player selection, per-player volume, equalizer, music recognition, KDE Connect                                          |
+| [Media & phone](./media)                                 | Player selection, per-player volume, equalizer, KDE Connect                                                             |
 | [Screenshots & recording](./screenshots)                 | Rectangle, circle, window or screen selection; annotation; recording with audio                                         |
 | [Window layouts](./window-layouts)                       | Save where every window is and restore it in one key                                                                    |
 | [Lock & login screens](./lock-and-login)                 | Themed lock screen and greeter, security-key cues, a seamless loading screen                                            |
@@ -59,7 +59,7 @@ nixbook-shell ipc call search themeToggle     # theme switcher
 nixbook-shell ipc call lock activate          # lock the screen
 ```
 
-The IPC targets include `ai`, `bar`, `background`, `brightness`, `calendar`, `desktopControl`, `equalizer`, `images`, `layouts`, `lock`, `mediaControls`, `mpris`, `musicRecognition`, `notes`, `notificationHistory`, `osk`, `overlay`, `region`, `screenTranslator`, `search`, `session`, `settings`, `sidebarLeft`, `sidebarRight`, `theme`, `timers`, `todo`, `wallpaper`, `wallpaperSelector`, `widgets`.
+The IPC targets include `ai`, `bar`, `background`, `brightness`, `calendar`, `desktopControl`, `equalizer`, `images`, `layouts`, `lock`, `mediaControls`, `mpris`, `notes`, `notificationHistory`, `osk`, `overlay`, `region`, `screenTranslator`, `search`, `session`, `settings`, `sidebarLeft`, `sidebarRight`, `theme`, `timers`, `todo`, `wallpaper`, `wallpaperSelector`, `widgets`.
 
 See the [keybindings](/desktop/keybindings#applications-shell) for what is bound by default.
 

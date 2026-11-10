@@ -173,22 +173,6 @@ DelegateChooser {
         onOpenMenu: root.openAudioInputDialog()
     } }
 
-    DelegateChoice { roleValue: "musicRecognition"; AndroidMusicRecognition {
-        required property int index
-        required property var modelData
-        buttonIndex: root.startingIndex + index
-        buttonData: modelData
-        editMode: root.editMode
-        gridRef: root.gridRef
-        expandedSize: modelData.size > 1
-        baseCellWidth: root.baseCellWidth
-        baseCellHeight: root.baseCellHeight
-        cellSpacing: root.spacing
-        cellSize: modelData.size
-        dropIndicatorRef: root.dropIndicatorRef
-        isUnused: root.isUnused
-    } }
-
     DelegateChoice { roleValue: "network"; AndroidNetworkToggle {
         required property int index
         required property var modelData

@@ -13350,19 +13350,11 @@ WIDGET_ACTIONS = {
         "recenter": ("images", "recenter", ("image",), True),
         "monitors": ("images", "monitors", ("image", "monitors"), True),
     },
-    "music": {
-        "status": ("musicRecognition", "status", (), False),
-        "listen": ("musicRecognition", "listen", (), True),
-        "stop": ("musicRecognition", "stop", (), True),
-        "use_system_sound": ("musicRecognition", "useSystemSound", (), True),
-        "use_microphone": ("musicRecognition", "useMicrophone", (), True),
-    },
 }
 WIDGET_NAMES = {"note": "notes", "todos": "todo", "todolist": "todo", "task": "todo", "tasks": "todo",
                 "timer": "timers", "pomodoro": "timers", "stopwatch": "timers", "countdown": "timers", "alarm": "timers",
                 "image": "images", "customimage": "images", "customimages": "images", "picture": "images",
-                "pictures": "images", "photo": "images", "photos": "images",
-                "musicrecognition": "music", "songrec": "music", "shazam": "music", "song": "music"}
+                "pictures": "images", "photo": "images", "photos": "images"}
 
 
 # The notes' functions that take a transfer file (services/Notes.qml): only
@@ -13738,13 +13730,9 @@ def arrange_widget(ctx, action, want, args):
     "{image, key, value} (key: path, shape, size 80-1000, zoom 1-4, offsetX / "
     "offsetY -1..1 (which part of the picture shows, 0 = centre), rotation, "
     "opacity 0.1-1, mirror, grayscale), recenter {image}, monitors {image, "
-    "monitors: all, none, or names}; `image` is a number from list. music "
-    "(recognize the song playing, "
-    "Shazam): listen (up to the timeout; the song comes in status a few "
-    "seconds later, and as a notification), stop, status (the last songs "
-    "found), use_system_sound, use_microphone.",
+    "monitors: all, none, or names}; `image` is a number from list.",
     obj({
-        "widget": {"type": "string", "description": "notes, todo, timers, images, music, or a widget name from list"},
+        "widget": {"type": "string", "description": "notes, todo, timers, images, or a widget name from list"},
         "action": {"type": "string"},
         "text": {"type": "string", "description": "A note's or task's text"},
         "id": {"type": "string", "description": "A note's id (from list)"},

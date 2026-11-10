@@ -30,7 +30,6 @@ The bar's layout (left, centre, right) is edited in **Settings → Bar** (or pin
 | Phone Connect       | KDE Connect devices ([Media & phone](./media#phone-connect))                                              |
 | Claude usage        | Remaining Claude quota in the 5-hour and weekly windows                                                   |
 | Desktop control     | AI agents' activity and the pause button ([Desktop control](./desktop-agents#the-desktop-control-widget)) |
-| Music recognition   | Identify the song playing (songrec)                                                                       |
 | Dock to panel       | The dock's apps inside the bar                                                                            |
 | Dynamic island      | A compact pill that expands for media, notifications, volume/brightness, timers and the session           |
 | Power button        | Session menu                                                                                              |
@@ -76,7 +75,7 @@ Besides their shortcuts and bar buttons, both open from the middle of their scre
 Quick settings on top, and one page at a time below them, so each gets the whole height:
 
 - **the header** — who you are and the uptime, over your wallpaper, with the buttons to edit the toggles, reload, pin the panel, open Settings and open the session menu. Click the picture to choose another, right-click to go back to the wallpaper (`sidebar.banner` off: no picture);
-- **quick toggles** — network, Bluetooth, sound and microphone mute, dark mode, night light, idle inhibitor, Do Not Disturb, power profile, EasyEffects, on-screen keyboard, screenshot, colour picker, music recognition — in a classic or Android-style panel, with details pages for **Wi-Fi networks**, **Bluetooth devices** and the **volume mixer**;
+- **quick toggles** — network, Bluetooth, sound and microphone mute, dark mode, night light, idle inhibitor, Do Not Disturb, power profile, EasyEffects, on-screen keyboard, screenshot, colour picker — in a classic or Android-style panel, with details pages for **Wi-Fi networks**, **Bluetooth devices** and the **volume mixer**;
 - **sliders** for brightness, volume and microphone, each with its value;
 - **the pages**, picked in the tab strip or with Ctrl+Page Up/Down: the **notification centre** with its [history](./notifications#history), a **calendar** with the day's events under the month (click a day to list its events, click it again to go back to today), the **to-do list** and a **pomodoro timer**.
 
