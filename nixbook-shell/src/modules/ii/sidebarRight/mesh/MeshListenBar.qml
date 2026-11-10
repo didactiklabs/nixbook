@@ -9,7 +9,8 @@ import QtQuick.Layouts
 /**
  * Listening together in a Mesh conversation (services/MeshListen.qml): what
  * you share (Stop), what someone shares (Listen along), how following goes
- * (Leave), and why it stopped.
+ * (Leave), and why it stopped; where the song is (the host's position,
+ * as the listeners follow it).
  */
 ColumnLayout {
     id: root
@@ -24,6 +25,30 @@ ColumnLayout {
     readonly property bool video: (root.hosting ? MeshListen.hostService : root.session?.service ?? "") === "jellyfin"
     spacing: 4
     visible: root.hosting || !!root.session || MeshListen.notice !== ""
+
+    // Where the shared song is: the host's last state, moved on by the time
+    // since (as listeners follow it, MeshListen._followTick).
+    readonly property var shared: root.hosting ? MeshListen._lastState : root.session
+    readonly property real length: root.shared?.track?.length > 0 ? root.shared.track.length : 0
+    property real now: Date.now()
+    readonly property real position: {
+        const st = root.shared;
+        if (!st) return 0;
+        const at = st.playing ? st.position + (root.now - st.at) / 1000 : st.position;
+        return Math.max(0, root.length > 0 ? Math.min(root.length, at) : at);
+    }
+    Timer {
+        interval: 1000
+        repeat: true
+        running: root.visible && root.length > 0 && !!root.shared?.playing
+        onTriggered: root.now = Date.now()
+    }
+    function clock(seconds) {
+        const t = Math.floor(seconds);
+        const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), sec = t % 60;
+        const mm = h > 0 ? `${h}:${String(m).padStart(2, "0")}` : `${m}`;
+        return `${mm}:${String(sec).padStart(2, "0")}`;
+    }
 
     function trackText(t) {
         return t ? [t.title, t.artist].filter(x => x).join(" — ") : "";
@@ -125,6 +150,43 @@ ColumnLayout {
                             : (root.video ? Translation.tr("Watching: %1") : Translation.tr("Listening: %1")).arg(names.join(", "));
                         const paused = root.session && !root.session.playing ? Translation.tr("Paused") : "";
                         return [root.followingThis ? root.statusText() : "", paused, who].filter(x => x).join(" · ");
+                    }
+                }
+                // How far into the song (or the film) the host is.
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 4
+                    visible: root.length > 0 && !!root.track
+                    spacing: 6
+                    StyledText {
+                        text: root.clock(root.position)
+                        font.pixelSize: Appearance.font.pixelSize.smallest
+                        font.features: { "tnum": 1 }
+                        color: card.fg
+                        opacity: 0.8
+                    }
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: 4
+                        radius: 2
+                        color: Qt.rgba(card.fg.r, card.fg.g, card.fg.b, 0.2)
+                        Rectangle {
+                            width: parent.width * (root.length > 0 ? root.position / root.length : 0)
+                            height: parent.height
+                            radius: 2
+                            color: card.fg
+                            Behavior on width {
+                                enabled: root.visible
+                                NumberAnimation { duration: 900; easing.type: Easing.Linear }
+                            }
+                        }
+                    }
+                    StyledText {
+                        text: root.clock(root.length)
+                        font.pixelSize: Appearance.font.pixelSize.smallest
+                        font.features: { "tnum": 1 }
+                        color: card.fg
+                        opacity: 0.8
                     }
                 }
             }
