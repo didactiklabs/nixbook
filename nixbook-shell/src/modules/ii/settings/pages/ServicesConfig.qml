@@ -159,6 +159,41 @@ ContentPage {
             }
         }
 
+        // Echo cancellation (services/EchoCancel.qml): the microphone, for
+        // every app (also the quick toggle, the audio input dialog and the
+        // Mesh's listening-together bar).
+        ContentSection {
+            icon: "noise_aware"
+            shape: MaterialShape.Shape.Oval
+            title: Translation.tr("Echo cancellation")
+            shown: EchoCancel.available
+
+            ConfigSwitch {
+                id: echoSwitch
+                buttonIcon: EchoCancel.active ? "noise_aware" : "noise_control_off"
+                text: Translation.tr("Keep the computer's sound out of the microphone")
+                checked: EchoCancel.active
+                enabled: !EchoCancel.busy
+                onCheckedChanged: if (checked !== EchoCancel.active) EchoCancel.set(checked)
+                Connections {
+                    target: EchoCancel
+                    function onActiveChanged() {
+                        echoSwitch.checked = EchoCancel.active
+                    }
+                    function onBusyChanged() {
+                        if (!EchoCancel.busy) echoSwitch.checked = EchoCancel.active
+                    }
+                }
+            }
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: EchoCancel.error !== "" ? EchoCancel.error
+                    : Translation.tr("For calls in any app: what plays on this computer (music, a film, the other side of the call) isn't heard through your microphone, and background noise is reduced. While on, the \"Echo-cancelled microphone\" is your default input; off, your microphone comes back. It stays on across logins.")
+            }
+        }
+
         // Jellyfin on this computer (services/Jellyfin.qml): a plain service,
         // used by watching along in the Mesh and by DAI when it is on.
         ContentSection {
