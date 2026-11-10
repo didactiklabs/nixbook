@@ -68,11 +68,17 @@ in
       # app) and packs background work onto fewer cores. Falls back to the
       # kernel's EEVDF scheduler if it stops. --autopower follows
       # power-profiles-daemon (performance / balanced / power-saver).
-      scx = {
+      # Run by scx_loader (nixpkgs replaced `services.scx` with it): it starts
+      # `default_sched` in `default_mode` with that mode's flags from
+      # /etc/scx_loader.toml; a mode left out keeps scx_loader's own flags.
+      scx-loader = {
         enable = true;
-        package = pkgs.scx.rustscheds;
-        scheduler = "scx_lavd";
-        extraArgs = [ "--autopower" ];
+        schedsPackages = [ pkgs.scx.rustscheds ];
+        config = {
+          default_sched = "scx_lavd";
+          default_mode = "Auto";
+          scheds.scx_lavd.auto_mode = [ "--autopower" ];
+        };
       };
 
       # Set SATA link power management to the most aggressive power-saving policy
