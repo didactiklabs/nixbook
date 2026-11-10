@@ -164,7 +164,8 @@ Singleton {
     // This desktop's own: { sid, to, bus, listeners } or null.
     property var hosting: null
     // The session followed ("" = none), and how it goes: "synced",
-    // "opening", "starting", "matching", "search", "nomatch", "noapp".
+    // "opening", "starting", "matching", "search", "nomatch", "unavailable",
+    // "noapp".
     property string following: ""
     property string followStatus: ""
     // Why the last session followed ended, for the Mesh tab.
@@ -393,6 +394,20 @@ Singleton {
             }
         }
         const p = root.playerFor(svc);
+        // The app closed while listening along (it was there): the listener
+        // closed it, so they stop (5 s: an app restarting itself comes back);
+        // only an app not started yet is started.
+        if (p) {
+            if (!f.hadPlayer) f.playerSince = now;
+            f.hadPlayer = true;
+            f.goneSince = 0;
+        } else if (f.hadPlayer) {
+            if (!f.goneSince) f.goneSince = now;
+            if (now - f.goneSince >= 5000)
+                root.leave(Translation.tr("You closed %1, so you stopped listening along with %2").arg(root.serviceName(svc)).arg(s.hostName || Mesh.nameOf(s.host)));
+            else root.followStatus = "starting";
+            return;
+        }
         if (!p) {
             if (now - f.launchedAt > 20000) {
                 f.launchedAt = now;
@@ -416,6 +431,13 @@ Singleton {
         // it (three times at most), wait (loading; the song ended here and
         // the host's next one is coming), or leave (something else played
         // here for 3 s). TrackMatch (track_match.js, tested under node).
+        // A player that just appeared (the app starting): a moment to settle,
+        // so the one open takes (Spotify's first, right after it starts,
+        // didn't).
+        if (f.opens === 0 && f.playerSince && now - f.playerSince < 2500 && root.trackOf(p)?.id !== wantId) {
+            root.followStatus = "starting";
+            return;
+        }
         const step = TrackMatch.followStep(f, { now: now, wantId: wantId, want: s.track, cur: root.trackOf(p) });
         if (step.act === "leave") {
             root.leave(Translation.tr("You played something else, so you stopped listening along with %1").arg(s.hostName || Mesh.nameOf(s.host)));
@@ -423,21 +445,53 @@ Singleton {
         }
         if (step.act !== "sync") {
             if (step.act === "open") {
-                const uri = root.uriFor(svc, wantId, target + 1);
-                const scheme = uri.split(":")[0];
-                if ((p.supportedUriSchemes ?? []).map(x => String(x).toLowerCase()).includes(scheme)) p.openUri(uri);
-                // Its schemes not known yet (just started) or not https: the
-                // app's own command, never xdg-open (a browser, where no link
-                // routing sends music.youtube.com to the app).
-                else if (svc === "youtube-music") root.openInApp(svc, uri);
-                else AppLaunch.openUrl(uri);
+                // A reopen of YouTube Music: the link played something else
+                // there (that version isn't available to this account or
+                // country: YouTube Music goes on with its queue), so another
+                // version of the same song, from its search, not the same id.
+                if (svc === "youtube-music" && f.opens >= 2) root._openAlternative(s, f, svc, wantId);
+                else root._openSong(svc, wantId, target + 1, f);
             }
-            root.followStatus = "opening";
+            // Tried twice: not playable here; waits for the next song.
+            root.followStatus = f.opens >= 2 && now - f.openedAt > 12000 ? "unavailable" : "opening";
             return;
         }
         root._keepInSync(p, s, f, now, target, wantId);
     }
-    // The song (or film) is the host's: the same play/pause and position.
+    // Opens `id` in the listener's app, at `at` (seconds).
+    function _openSong(svc, id, at, f) {
+        const p = root.playerFor(svc);
+        if (!p) return;
+        const uri = root.uriFor(svc, id, at);
+        const scheme = uri.split(":")[0];
+        f.tried = [...(f.tried ?? []).filter(x => x !== id), id];
+        if ((p.supportedUriSchemes ?? []).map(x => String(x).toLowerCase()).includes(scheme)) p.openUri(uri);
+        // Its schemes not known yet (just started) or not https: the app's
+        // own command, never xdg-open (a browser, where no link routing sends
+        // music.youtube.com to the app).
+        else if (svc === "youtube-music") root.openInApp(svc, uri);
+        else AppLaunch.openUrl(uri);
+    }
+    // Another version of the host's song on YouTube Music (`nixbook-mesh
+    // match`, the versions tried left out), opened in place of the one that
+    // didn't play here.
+    function _openAlternative(s, f, svc, wantId) {
+        if (f.altAsking) return;
+        f.altAsking = true;
+        const t = s.track ?? {};
+        Mesh.run(["match"], JSON.stringify({ title: t.title, artist: t.artist, album: t.album, length: t.length,
+            exclude: [...(f.tried ?? []), wantId] }), (ok, answer) => {
+            if (root._f !== f) return;
+            f.altAsking = false;
+            if (f.openedFor !== wantId) return;
+            const id = ok ? `${answer.videoId ?? ""}` : "";
+            if (id === "") return;
+            f.alt = id;
+            f.altFor = wantId;
+            f.openedAt = Date.now();
+            root._openSong(svc, id, root.positionOf(root.sessions[root.following], Date.now()) + 1, f);
+        });
+    }
     // Where the host is now: its position, moved on by the time since its
     // state, by the host's clock (right when a state arrives late), or by
     // when it arrived here when the host's clock is ahead (a state from
@@ -448,6 +502,7 @@ Singleton {
         const at = s.position + (s.playing ? (now - since) / 1000 : 0);
         return Math.max(0, s.track?.length > 0 ? Math.min(s.track.length, at) : at);
     }
+    // The song (or film) is the host's: the same play/pause and position.
     function _keepInSync(p, s, f, now, target, wantId) {
         f.syncedTo = wantId;
         f.lastPos = p.position ?? 0;

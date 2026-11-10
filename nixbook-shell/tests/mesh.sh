@@ -492,6 +492,23 @@ print(a["videoId"], b["videoId"], c)
 PY2
 )
 expect "a Spotify song is matched on YouTube Music by title, artist and length" "album000000 radio000000 None" "$best"
+# Another version, for a listener whose YouTube Music can't play the host's:
+# by the same artist, never someone else's cover.
+alt=$(
+  "$py" -P - "$script" <<'PY2'
+import importlib.machinery, sys
+mesh = importlib.machinery.SourceFileLoader("mesh", sys.argv[1]).load_module()
+results = [
+    {"videoId": "cover000000", "title": "Người lạ ơi (Rock version)", "line": "Jason Doan • Người lạ ơi • 3:43", "length": 223},
+    {"videoId": "other000000", "title": "Người Lạ Ơi (Liên Quân Version)", "line": "Karik, Orange • Người Lạ Ơi • 3:26", "length": 206},
+]
+want = {"title": "Người Lạ Ơi", "artist": "Orange & Superbrothers", "length": 224}
+a, _ = mesh.best_match(want, results, same_artist=True)
+b, _ = mesh.best_match(want, results[:1], same_artist=True)
+print(a["videoId"], b)
+PY2
+)
+expect "another version is by the same artist, never a cover" "other000000 None" "$alt"
 
 # Resuming: a restarted listener doesn't get the same messages again.
 kill "${listener[bob]}" 2>/dev/null || true
