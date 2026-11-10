@@ -20,6 +20,10 @@ pkgs.rustPlatform.buildRustPackage rec {
   # available in the isolated build environment
   doCheck = false;
 
+  # libsqlite3-sys links the system sqlite on this nixpkgs.
+  nativeBuildInputs = [ pkgs.pkg-config ];
+  buildInputs = [ pkgs.sqlite ];
+
   meta = with pkgs.lib; {
     homepage = "https://github.com/rtk-ai/rtk";
     description = "CLI proxy that reduces LLM token consumption by 60-90% on common dev commands";
