@@ -130,6 +130,25 @@ Item {
             }
         }
 
+        // How the others see you.
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+            Rectangle {
+                implicitWidth: 8
+                implicitHeight: 8
+                radius: 4
+                color: Mesh.stateColor(Mesh.myState)
+            }
+            StyledText {
+                Layout.fillWidth: true
+                text: Translation.tr("You (%1): %2").arg(Mesh.myName).arg(Mesh.myStateText)
+                elide: Text.ElideRight
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+            }
+        }
+
         // Who it is with, and how they are.
         RowLayout {
             Layout.fillWidth: true

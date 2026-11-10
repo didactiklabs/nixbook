@@ -87,6 +87,29 @@ BarWidgetSwitcher {
                     text: Mesh.lastError || Translation.tr("Not connected to the mesh's server")
                     color: Appearance.m3colors.m3error
                 }
+                // How the others see you.
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    Rectangle {
+                        implicitWidth: 10
+                        implicitHeight: 10
+                        radius: 5
+                        color: Mesh.stateColor(Mesh.myState)
+                    }
+                    StyledText {
+                        text: Translation.tr("You")
+                        font.weight: Font.DemiBold
+                        color: Appearance.colors.colOnLayer1
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: Mesh.myStateText
+                        elide: Text.ElideRight
+                        color: Appearance.colors.colOnSurfaceVariant
+                    }
+                }
+
                 StyledText {
                     visible: Mesh.memberList.length === 0
                     Layout.fillWidth: true
