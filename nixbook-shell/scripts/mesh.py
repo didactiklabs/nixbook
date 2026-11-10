@@ -71,6 +71,8 @@ MAX_TEXT = 1000
 # ntfy sends a keepalive every 45s: nothing for this long means the
 # connection is dead.
 READ_TIMEOUT = 120
+# Catching up, status updates older than this are skipped.
+STALE_PRESENCE = 30 * 60
 USER_AGENT = "nixbook-mesh/1"
 
 
@@ -608,9 +610,9 @@ def cmd_listen(args):
     cursor, seen = read_position()
     seen_set = set(seen)
     while True:
-        # Resume where the last connection stopped; the first time, the last
-        # day (what was said while this desktop was off).
-        since = cursor or "24h"
+        # Resume where the last connection stopped; the first time, all the
+        # server still has (3 months on nixbook's server).
+        since = cursor or "all"
         url = f"{server}/{topic}/json?since={urllib.parse.quote(since)}"
         try:
             with request(url, token, timeout=READ_TIMEOUT) as r:
@@ -632,6 +634,11 @@ def cmd_listen(args):
                             out({"event": "error",
                                  "error": "a message couldn't be read: was the mesh code changed?"})
                             warned = True
+                    elif payload.get("kind") == "presence" and time.time() - float(payload.get("time") or 0) > STALE_PRESENCE:
+                        # Catching up: an old status says nothing about now
+                        # (members count as offline after 25 min), and months
+                        # of them would only flood the shell.
+                        pass
                     elif payload.get("kind") in KINDS and MEMBER_RE.match(str(payload.get("from") or "")):
                         to = str(payload.get("to") or "")
                         # Someone else's private message: not for this screen.
