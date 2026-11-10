@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 
 import qs
 import qs.modules.common
+import qs.modules.common.functions
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Mpris
@@ -325,7 +326,8 @@ Singleton {
         root.following = sid;
         root.notice = "";
         root.followStatus = "";
-        root._f = { jfFor: "", jfLocal: "", jfBusy: false, jfError: "", syncedTo: "", openedFor: "", stateRecv: 0, openedAt: 0, cmdAt: 0, seekAt: 0, launchedAt: 0, sawPlaying: false, lastPos: 0, lastLen: 0, searched: "" };
+        root._f = Object.assign(TrackMatch.fresh(), { jfFor: "", jfLocal: "", jfBusy: false, jfError: "", stateRecv: 0, seekAt: 0,
+            launchedAt: 0, searched: "" });
         root._send({ to: s.to === "" ? "" : s.host, op: "join", sid: sid });
         root._followTick();
     }
@@ -394,21 +396,24 @@ Singleton {
                 if (svc === "youtube-music") {
                     f.openedFor = wantId;
                     f.openedAt = now;
+                    f.opens = 1;
                 }
             }
             root.followStatus = "starting";
             return;
         }
-        const cur = root.trackOf(p)?.id ?? "";
-        if (cur !== wantId) {
-            // Synced on this very song, and it changed here while the host
-            // stayed on it, not at its end: the listener played something else.
-            if (f.syncedTo === wantId && cur !== "" && !(f.lastLen > 0 && f.lastPos > f.lastLen - 8)) {
-                root.leave(Translation.tr("You played something else, so you stopped listening along with %1").arg(s.hostName || Mesh.nameOf(s.host)));
-                return;
-            }
-            // Once per song (again after 8 s, if it didn't take).
-            if (f.openedFor !== wantId || now - f.openedAt > 8000) {
+        // On the host's song (the same id, or the same title and artist:
+        // YouTube Music often plays a song under another id), or not: open
+        // it (three times at most), wait (loading; the song ended here and
+        // the host's next one is coming), or leave (something else played
+        // here for 3 s). TrackMatch (track_match.js, tested under node).
+        const step = TrackMatch.followStep(f, { now: now, wantId: wantId, want: s.track, cur: root.trackOf(p) });
+        if (step.act === "leave") {
+            root.leave(Translation.tr("You played something else, so you stopped listening along with %1").arg(s.hostName || Mesh.nameOf(s.host)));
+            return;
+        }
+        if (step.act !== "sync") {
+            if (step.act === "open") {
                 const uri = root.uriFor(svc, wantId);
                 const scheme = uri.split(":")[0];
                 if ((p.supportedUriSchemes ?? []).map(x => String(x).toLowerCase()).includes(scheme)) p.openUri(uri);
@@ -417,9 +422,6 @@ Singleton {
                 // routing sends music.youtube.com to the app).
                 else if (svc === "youtube-music") root.openInApp(svc, uri);
                 else AppLaunch.openUrl(uri);
-                f.openedAt = now;
-                f.openedFor = wantId;
-                f.sawPlaying = false;
             }
             root.followStatus = "opening";
             return;
@@ -436,21 +438,16 @@ Singleton {
         }
         f.lastPos = p.position ?? 0;
         f.lastLen = p.length > 0 ? p.length : 0;
-        if (s.playing) {
-            if (p.isPlaying) {
-                f.sawPlaying = true;
-            } else if (f.sawPlaying && now - f.cmdAt > 3000 && now - f.openedAt > 6000 && now - s.recv > 2000) {
-                root.leave(Translation.tr("You paused, so you stopped listening along with %1").arg(s.hostName || Mesh.nameOf(s.host)));
-                return;
-            } else if (now - f.cmdAt > 2000 && p.canPlay) {
-                p.play();
-                f.cmdAt = now;
-            }
-        } else if (p.isPlaying && now - f.cmdAt > 1500 && p.canPause) {
-            p.pause();
-            f.cmdAt = now;
-            f.sawPlaying = false;
+        // Play and pause as the host; a pause here that lasts 5 s (not at
+        // the song's end, nor right after an open or the host's news) is
+        // the listener's: they stop listening along.
+        const act = TrackMatch.playStep(f, { now: now, hostPlaying: s.playing, localPlaying: p.isPlaying, hostRecv: s.recv });
+        if (act === "leave") {
+            root.leave(Translation.tr("You paused, so you stopped listening along with %1").arg(s.hostName || Mesh.nameOf(s.host)));
+            return;
         }
+        if (act === "play" && p.canPlay) p.play();
+        if (act === "pause" && p.canPause) p.pause();
         const len = p.length > 0 ? p.length : s.track.length;
         if (p.canSeek && now - f.openedAt > 2500 && now - f.seekAt > 4000 && Math.abs((p.position ?? 0) - target) > 2.5
                 && (len <= 0 || target < len - 2)) {

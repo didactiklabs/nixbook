@@ -4,6 +4,7 @@ import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
 import qs.services
+import Quickshell
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -310,31 +311,79 @@ Item {
             Layout.fillHeight: true
             clip: true
             spacing: 6
-            model: root.shown
-            // The newest at the bottom, in view.
-            onCountChanged: Qt.callLater(list.positionViewAtEnd)
-            Component.onCompleted: Qt.callLater(list.positionViewAtEnd)
+            // One row per message id, diffed (ScriptModel compares the ids):
+            // a new message adds its row, a reaction or a status only updates
+            // its own (row.msg follows Mesh.byMid). A plain array rebuilt every
+            // row on each change, flickering and jumping to the end.
+            model: ScriptModel {
+                values: root.shown.map(m => m.mid)
+            }
+            // Every row built (a conversation keeps 500 at most): ListView
+            // otherwise guesses the height of the rows not built yet, and a
+            // new message changing that guess clamped the view to its end
+            // while you were reading higher up.
+            cacheBuffer: 1000000
+            // The newest at the bottom, in view: when the list was left at
+            // (or near) its end, or the new message is yours. Scrolled up to
+            // read, it stays where it is.
+            property real bottomGap: 0
+            property bool autoScrolling: false
+            property int lastCount: 0
+            // How far the end is below what is shown (ListView's contentY
+            // counts from originY, which moves as rows get their height).
+            function gapToEnd() {
+                return Math.max(0, list.originY + list.contentHeight - list.contentY - list.height);
+            }
+            function toEnd() {
+                list.autoScrolling = true;
+                list.positionViewAtEnd();
+                autoScrollDone.restart();
+            }
+            Timer {
+                id: autoScrollDone
+                interval: 500
+                onTriggered: {
+                    list.autoScrolling = false;
+                    list.bottomGap = list.gapToEnd();
+                }
+            }
+            onContentYChanged: if (!list.autoScrolling) list.bottomGap = list.gapToEnd()
+            onCountChanged: {
+                const grew = list.count > list.lastCount;
+                list.lastCount = list.count;
+                if (grew && (list.bottomGap < 80 || root.shown[root.shown.length - 1]?.mine)) Qt.callLater(list.toEnd);
+            }
+            Component.onCompleted: {
+                list.lastCount = list.count;
+                Qt.callLater(list.toEnd);
+            }
+            Connections {
+                target: root
+                function onConvChanged() { Qt.callLater(list.toEnd); }
+            }
             delegate: Item {
                 id: row
-                required property var modelData
+                required property string modelData
                 required property int index
-                readonly property bool mine: row.modelData.mine
+                // The message itself, live: its reactions, status, deletion.
+                readonly property var msg: Mesh.byMid[row.modelData] ?? ({ mid: row.modelData, text: "", time: 0 })
+                readonly property bool mine: row.msg.mine
                 readonly property var prev: row.index > 0 ? root.shown[row.index - 1] : null
-                readonly property bool firstOfRun: row.prev?.from !== row.modelData.from
+                readonly property bool firstOfRun: row.prev?.from !== row.msg.from
                 readonly property bool showName: !row.mine && root.conv === "" && row.firstOfRun
                 // Everyone's conversation: the sender's picture beside their
                 // first message of a run, their messages lined up after it.
                 readonly property real indent: !row.mine && root.conv === "" ? 34 : 0
                 readonly property real maxWidth: (list.width - row.indent) * 0.8
-                readonly property bool deleted: !!row.modelData.deleted
-                readonly property var reactions: row.deleted ? [] : Object.keys(row.modelData.reactions ?? {})
-                    .map(e => ({ emoji: e, who: row.modelData.reactions[e] }))
+                readonly property bool deleted: !!row.msg.deleted
+                readonly property var reactions: row.deleted ? [] : Object.keys(row.msg.reactions ?? {})
+                    .map(e => ({ emoji: e, who: row.msg.reactions[e] }))
                 // Your own: for everyone; anyone's (or yours from before
                 // deleting existed, to everyone): for this desktop.
-                readonly property bool forEveryone: Mesh.canDeleteForEveryone(row.modelData)
+                readonly property bool forEveryone: Mesh.canDeleteForEveryone(row.msg)
                 property bool armed: false
                 property bool picking: false
-                readonly property bool busy: !!row.modelData.deleting || row.modelData.status === "sending"
+                readonly property bool busy: !!row.msg.deleting || row.msg.status === "sending"
                 width: list.width
                 implicitHeight: bubble.y + bubble.height + (row.reactions.length > 0 ? reactionRow.implicitHeight + 3 : 0)
                     + (row.picking ? picker.implicitHeight + 4 : 0)
@@ -353,13 +402,13 @@ Item {
                     x: 0
                     y: bubble.y
                     size: 28
-                    memberId: row.modelData.from
+                    memberId: row.msg.from
                 }
                 StyledText {
                     id: nameText
                     visible: row.showName
                     x: row.indent + 10
-                    text: row.modelData.name || Mesh.nameOf(row.modelData.from)
+                    text: row.msg.name || Mesh.nameOf(row.msg.from)
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     color: Appearance.colors.colSubtext
                 }
@@ -409,8 +458,8 @@ Item {
                             }
                             row.armed = false;
                             disarm.stop();
-                            if (row.forEveryone) Mesh.deleteForEveryone(row.modelData.mid);
-                            else Mesh.deleteForMe(row.modelData.mid);
+                            if (row.forEveryone) Mesh.deleteForEveryone(row.msg.mid);
+                            else Mesh.deleteForMe(row.msg.mid);
                         }
                         contentItem: MaterialSymbol {
                             horizontalAlignment: Text.AlignHCenter
@@ -450,17 +499,17 @@ Item {
                             color: Appearance.colors.colSubtext
                         }
                         MeshAttachment {
-                            visible: !!row.modelData.file
-                            message: row.modelData
+                            visible: !!row.msg.file
+                            message: row.msg
                             maxWidth: row.maxWidth - 20
                             textColor: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
                             subColor: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext
                         }
                         StyledText {
-                            visible: row.modelData.text !== ""
+                            visible: row.msg.text !== ""
                             Layout.fillWidth: true
                             Layout.maximumWidth: row.maxWidth - 20
-                            text: row.modelData.text
+                            text: row.msg.text
                             wrapMode: Text.Wrap
                             textFormat: Text.PlainText
                             color: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
@@ -468,30 +517,30 @@ Item {
                         StyledText {
                             Layout.alignment: row.mine ? Qt.AlignRight : Qt.AlignLeft
                             text: {
-                                const when = Qt.locale().toString(new Date(row.modelData.time), Config.options?.time.format ?? "hh:mm");
+                                const when = Qt.locale().toString(new Date(row.msg.time), Config.options?.time.format ?? "hh:mm");
                                 if (!row.mine || row.deleted) return when;
-                                if (row.modelData.deleting) return Translation.tr("%1 · deleting…").arg(when);
-                                if (row.modelData.deleteError)
-                                    return Translation.tr("%1 · couldn't delete: %2").arg(when).arg(row.modelData.deleteError);
-                                if (row.modelData.status === "failed")
-                                    return row.modelData.error ? Translation.tr("%1 · not sent: %2 (click to retry)").arg(when).arg(row.modelData.error)
+                                if (row.msg.deleting) return Translation.tr("%1 · deleting…").arg(when);
+                                if (row.msg.deleteError)
+                                    return Translation.tr("%1 · couldn't delete: %2").arg(when).arg(row.msg.deleteError);
+                                if (row.msg.status === "failed")
+                                    return row.msg.error ? Translation.tr("%1 · not sent: %2 (click to retry)").arg(when).arg(row.msg.error)
                                         : Translation.tr("%1 · not sent, click to retry").arg(when);
-                                if (row.modelData.status === "sending") return Translation.tr("%1 · sending…").arg(when);
-                                const seen = row.modelData.to !== "" && (Mesh.members[row.modelData.to]?.readUpTo ?? 0) >= row.modelData.time;
+                                if (row.msg.status === "sending") return Translation.tr("%1 · sending…").arg(when);
+                                const seen = row.msg.to !== "" && (Mesh.members[row.msg.to]?.readUpTo ?? 0) >= row.msg.time;
                                 return seen ? Translation.tr("%1 · seen").arg(when) : when;
                             }
                             font.pixelSize: Appearance.font.pixelSize.smallest
-                            color: row.modelData.status === "failed" || (!!row.modelData.deleteError && !row.deleted) ? Appearance.m3colors.m3error
+                            color: row.msg.status === "failed" || (!!row.msg.deleteError && !row.deleted) ? Appearance.m3colors.m3error
                                 : (row.mine && !row.deleted ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext)
                             opacity: 0.8
                         }
                     }
                     MouseArea {
                         anchors.fill: parent
-                        enabled: row.modelData.status === "failed"
+                        enabled: row.msg.status === "failed"
                         hoverEnabled: enabled
                         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                        onClicked: Mesh.retry(row.modelData.mid)
+                        onClicked: Mesh.retry(row.msg.mid)
                     }
                 }
 
@@ -515,7 +564,7 @@ Item {
                             buttonRadius: Appearance.rounding.full
                             toggled: chipReaction.byMe
                             colBackground: Appearance.colors.colLayer2
-                            onClicked: Mesh.react(row.modelData.mid, chipReaction.modelData.emoji)
+                            onClicked: Mesh.react(row.msg.mid, chipReaction.modelData.emoji)
                             contentItem: StyledText {
                                 id: reactionText
                                 horizontalAlignment: Text.AlignHCenter
@@ -553,9 +602,9 @@ Item {
                                 implicitWidth: 32
                                 implicitHeight: 32
                                 buttonRadius: Appearance.rounding.full
-                                toggled: (row.modelData.reactions?.[choice.modelData] ?? []).includes(Mesh.me)
+                                toggled: (row.msg.reactions?.[choice.modelData] ?? []).includes(Mesh.me)
                                 onClicked: {
-                                    Mesh.react(row.modelData.mid, choice.modelData);
+                                    Mesh.react(row.msg.mid, choice.modelData);
                                     row.picking = false;
                                 }
                                 contentItem: StyledText {

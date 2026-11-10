@@ -111,6 +111,8 @@ cmd_shell() {
   bash nixbook-shell/tests/scripts.sh || failed=1
   section "nixbook-shell smart clipboard (what a copied text is)"
   bash nixbook-shell/tests/smart-clipboard.sh || failed=1
+  section "nixbook-shell listening along (is the player on the host's song)"
+  bash nixbook-shell/tests/listen-along.sh || failed=1
   section "nixbook-shell desktop control MCP server"
   bash nixbook-shell/tests/desktop-mcp.sh || failed=1
   section "nixbook-shell Kiroshi scan"
