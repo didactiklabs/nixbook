@@ -35,7 +35,7 @@ import QtQuick
  * an emoji and a line) carries its id (`quick`); the other side shows it as
  * its own cut-in (modules/ii/notificationPopup/MeshNudge.qml, `nudged`)
  * instead of a notification, when it can (mesh.nudgeCutIn; not locked, Do
- * Not Disturb, a fullscreen window, the Mesh tab on screen).
+ * Not Disturb, a fullscreen window; the Mesh tab open or not).
  *
  * Deleting: your own messages for everyone (deleteForEveryone: each desktop
  * puts "deleted" in its place, its file, notification and history entry go;
@@ -81,11 +81,12 @@ Singleton {
     // { mid, from, name, to, time, text, quick }.
     signal nudged(var message)
     // Whether a nudge now gets its cut-in, else a notification: not locked,
-    // on Do Not Disturb, over a fullscreen window (a game, a film), with the
-    // Mesh tab on screen, nor for one from long ago.
+    // on Do Not Disturb, over a fullscreen window (a game, a film), while an
+    // agent works, nor for one from long ago. With the Mesh tab open (even on
+    // its conversation) it does: a nudge is meant to be seen.
     function _nudgeCutInNow(m) {
         if (!(Config.options?.mesh?.nudgeCutIn ?? true) || !root.nudgeOf(m.quick)) return false;
-        if (GlobalStates.screenLocked || Notifications.silent || root.inView || MakeWay.active) return false;
+        if (GlobalStates.screenLocked || Notifications.silent || MakeWay.active) return false;
         if (Date.now() - m.time > 10 * 60 * 1000) return false;
         const mon = WM.focusedMonitor?.name ?? "";
         return !(mon !== "" && WM.fullscreenOnMonitor(mon));
@@ -779,18 +780,17 @@ Singleton {
         if (file && file.size <= root.autoFetchBytes) root.fetchFile(mid);
         if (m.mine) return;
         const conv = root.conversationOf(m);
-        if (root.viewing && root.conversation === conv) {
-            root.markRead(conv);
-            return;
-        }
-        // What was said while this desktop was off for long: unread, not a
-        // pile of notifications.
+        const looking = root.viewing && root.conversation === conv;
+        if (looking) root.markRead(conv);
         // A nudge: its own cut-in when it can show (MeshNudge.qml), in place
-        // of the notification.
+        // of the notification, the Mesh tab open or not.
         if (m.quick && root._nudgeCutInNow(m)) {
             root.nudged(m);
             return;
         }
+        if (looking) return;
+        // What was said while this desktop was off for long: unread, not a
+        // pile of notifications.
         if (Date.now() - time < 2 * 3600 * 1000 && (Config.options?.mesh?.notify ?? true)) {
             // An image: once here, so the notification shows it.
             if (file && /^image\//.test(file.mime) && file.size <= root.autoFetchBytes) root._update(mid, { notifyWhenFetched: true });
