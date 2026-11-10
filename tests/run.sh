@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Cheap regression checks: everything here evaluates, only tiny derivations
-# are built. See the "Tests" section of README.md.
+# are built. See docs/development/testing.md.
 #
 #   tests/run.sh repo                  repository consistency, custom packages, nixbook-shell unit
 #                                      tests and self-containment
