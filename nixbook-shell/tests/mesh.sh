@@ -324,6 +324,65 @@ expect "save only copies the mesh's files" false "$(field .ok "$r")"
 r=$(mesh carol prune <<<'{"keep": []}')
 expect "prune: the files of messages gone are deleted" "1 0" "$(field .removed "$r") $(find "$tmp/carol/data/nixbook-shell/mesh/files" -type f | wc -l)"
 
+# -- Listening together ---------------------------------------------------------
+
+state='{"op": "state", "sid": "0123456789abcdef", "service": "spotify", "track": {"id": "4uLU6hMCjMI75M1A2tKUQC", "title": "Song", "artist": "Band", "length": 200, "art": "http://plain/x.jpg"}, "position": 12.5, "playing": true, "name": "Alice"}'
+r=$(mesh alice send "$server" listen <<<"$state")
+expect "alice shares her music with everyone" true "$(field .ok "$r")"
+r=$(mesh alice send "$server" listen <<<"$(jq -c '.to = "carol" | .sid = "fedcba9876543210" | .track.id = "privatetrack1"' <<<"$state")")
+expect "and privately with carol" true "$(field .ok "$r")"
+r=$(mesh alice send "$server" listen <<<"$(jq -c '.service = "deezer"' <<<"$state")" || true)
+expect "only YouTube Music and Spotify are shared" false "$(field .ok "$r")"
+r=$(mesh alice send "$server" listen <<<"$(jq -c '.op = "steal"' <<<"$state")" || true)
+expect "an unknown listening event is refused" false "$(field .ok "$r")"
+r=$(mesh carol send "$server" listen <<<'{"op": "join", "sid": "fedcba9876543210", "to": "alice"}')
+expect "carol joins privately" true "$(field .ok "$r")"
+for _ in $(seq 50); do
+  grep -q '"privatetrack1"' "$tmp/carol.events" && grep -q '"kind": "listen"' "$tmp/bob.events" && grep -q '"op": "join"' "$tmp/alice.events" && break
+  sleep 0.2
+done
+shared=$(grep '"kind": "listen"' "$tmp/bob.events" | head -1)
+expect "bob gets the shared song, its position" "4uLU6hMCjMI75M1A2tKUQC 12.5 true" "$(field .data.track.id "$shared") $(field .data.position "$shared") $(field .data.playing "$shared")"
+expect "a cover that isn't https is dropped" "" "$(field .data.track.art "$shared")"
+if grep -q '"privatetrack1"' "$tmp/bob.events"; then fail "bob doesn't see carol's private session" "$(cat "$tmp/bob.events")"; else pass "bob doesn't see carol's private session"; fi
+if grep -q '"privatetrack1"' "$tmp/carol.events"; then pass "carol gets her private session"; else fail "carol gets her private session" "$(cat "$tmp/carol.events")"; fi
+if grep -q '"op": "join"' "$tmp/alice.events"; then pass "alice hears carol joined"; else fail "alice hears carol joined" "$(cat "$tmp/alice.events")"; fi
+# A session's state from before an absence says nothing now: skipped.
+"$py" -P - "$script" "$tmp/alice/config/nixbook-shell/mesh/key" "$server" "${token[alice]}" <<'PY2'
+import base64, importlib.machinery, sys, time, urllib.request
+mesh = importlib.machinery.SourceFileLoader("mesh", sys.argv[1]).load_module()
+key = base64.b64decode(open(sys.argv[2]).read())
+topic = mesh.topic_of(key)
+body = mesh.seal(key, topic, {"kind": "listen", "from": "alice", "name": "Alice", "to": "", "time": int(time.time()) - 600,
+                              "mid": "old-listen", "data": {"op": "state", "sid": "aaaaaaaaaaaaaaaa"}})
+urllib.request.urlopen(urllib.request.Request(f"{sys.argv[3]}/{topic}", data=body.encode(), method="POST",
+                       headers={"Authorization": f"Bearer {sys.argv[4]}"})).read()
+PY2
+mesh alice send "$server" message <<<'{"text": "after the old session"}' >/dev/null
+for _ in $(seq 50); do
+  grep -q 'after the old session' "$tmp/bob.events" && break
+  sleep 0.2
+done
+if grep -q '"old-listen"' "$tmp/bob.events"; then fail "an old session state is skipped" "$(grep old-listen "$tmp/bob.events")"; else pass "an old session state is skipped"; fi
+# Finding a Spotify song on YouTube Music: the closest title, artist, length.
+best=$(
+  "$py" -P - "$script" <<'PY2'
+import importlib.machinery, sys
+mesh = importlib.machinery.SourceFileLoader("mesh", sys.argv[1]).load_module()
+results = [
+    {"videoId": "radio000000", "title": "Get Lucky (Radio Edit - feat. Pharrell Williams)", "line": "Daft Punk • Get Lucky • 4:09", "length": 249},
+    {"videoId": "album000000", "title": "Get Lucky (feat. Pharrell Williams and Nile Rodgers)", "line": "Daft Punk • Random Access Memories • 6:10", "length": 370},
+    {"videoId": "cover000000", "title": "Get Lucky", "line": "Funk Punk • Get Lucky • 6:09", "length": 369},
+    {"videoId": "other000000", "title": "One More Time", "line": "Daft Punk • Discovery • 5:20", "length": 320},
+]
+a, _ = mesh.best_match({"title": "Get Lucky (feat. Pharrell Williams and Nile Rodgers)", "artist": "Daft Punk", "length": 369}, results)
+b, _ = mesh.best_match({"title": "Get Lucky - Radio Edit", "artist": "Daft Punk", "length": 248}, results)
+c, _ = mesh.best_match({"title": "Harder Better Faster Stronger", "artist": "Daft Punk", "length": 224}, results)
+print(a["videoId"], b["videoId"], c)
+PY2
+)
+expect "a Spotify song is matched on YouTube Music by title, artist and length" "album000000 radio000000 None" "$best"
+
 # Resuming: a restarted listener doesn't get the same messages again.
 kill "${listener[bob]}" 2>/dev/null || true
 sleep 0.3

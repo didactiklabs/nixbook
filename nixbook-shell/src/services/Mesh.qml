@@ -633,6 +633,8 @@ Singleton {
         if (!root.keys[id]) keysSoon.restart();
         if (e.kind === "message") root._receive(e, time);
         else root._saveSoon();
+        // Listening together (services/MeshListen.qml).
+        if (e.kind === "listen") MeshListen.receive(e);
     }
 
     function _receive(e, time) {
@@ -860,7 +862,8 @@ Singleton {
         onTriggered: root._save()
     }
 
-    // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|sendFile PATH|sendFileTo MEMBER PATH|open|openConversation MEMBER`.
+    // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|sendFile PATH|sendFileTo MEMBER PATH|open|openConversation MEMBER`,
+    // and listening together: `listenShare MEMBER|listenStop|listenJoin MEMBER|listenLeave|listenStatus` ("" = everyone).
     // Denied to the desktop agents (desktop-mcp's shellIpcDenyTargets): they
     // would speak in the user's name.
     IpcHandler {
@@ -896,6 +899,30 @@ Singleton {
         }
         function open(): void {
             root.open();
+        }
+        // Listening together: share what YouTube Music / Spotify plays with
+        // everyone ("") or a member, stop; follow a member's session, leave.
+        function listenShare(member: string): string {
+            const why = MeshListen.start(member);
+            return why === "" ? `ok: sharing with ${member === "" ? "everyone" : member}` : `error: ${why}`;
+        }
+        function listenStop(): string {
+            MeshListen.stop();
+            return "ok";
+        }
+        function listenJoin(member: string): string {
+            const s = Object.values(MeshListen.sessions).find(x => x.host === member);
+            if (!s) return `error: ${member} isn't sharing music`;
+            MeshListen.join(s.sid);
+            return `ok: listening along with ${member}`;
+        }
+        function listenLeave(): string {
+            MeshListen.leave("");
+            return "ok";
+        }
+        function listenStatus(): string {
+            return JSON.stringify({ hosting: MeshListen.hosting, track: MeshListen.hostTrack, following: MeshListen.following,
+                status: MeshListen.followStatus, sessions: Object.values(MeshListen.sessions), notice: MeshListen.notice });
         }
         // A member's conversation ("" = everyone).
         function openConversation(member: string): void {

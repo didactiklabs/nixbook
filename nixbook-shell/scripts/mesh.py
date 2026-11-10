@@ -40,6 +40,9 @@ Commands (JSON on stdout; secrets only ever on stdin):
   save | prune                  a copy in Downloads (stdin: {path}) / delete the
                                 files of messages gone (stdin: {keep: [sha…]})
   limits SERVER                 the largest file the server takes, and expiry
+  match                         a song on YouTube Music like a Spotify one
+                                (stdin: {title, artist, album, length}), for
+                                listening together: {videoId, title, …}
   invite SERVER NAME            (the server's admin) an account for NAME with
                                 the mesh's topics, and their invite code
   members SERVER | remove SERVER NAME   (the admin) who is in / take one out
@@ -86,13 +89,16 @@ VERSION = "m1"
 TOPIC_PREFIX = "mesh-"
 TOKEN_RE = re.compile(r"^tk_[A-Za-z0-9]{29}$")
 MEMBER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
-KINDS = ("message", "presence", "read")
+KINDS = ("message", "presence", "read", "listen")
 MAX_TEXT = 1000
 # ntfy sends a keepalive every 45s: nothing for this long means the
 # connection is dead.
 READ_TIMEOUT = 120
 # Catching up, status updates older than this are skipped.
 STALE_PRESENCE = 30 * 60
+# Listening together: a session's state older than this says nothing now.
+STALE_LISTEN = 2 * 60
+LISTEN_OPS = ("state", "end", "join", "leave")
 USER_AGENT = "nixbook-mesh/1"
 
 
@@ -758,6 +764,8 @@ def cmd_send(args):
         if not text:
             fail("nothing to send")
         data["text"] = text[:MAX_TEXT]
+    if kind == "listen":
+        data = listen_data(data)
     token = token_or_fail()
     key = key_or_fail()
     mid = str(data.pop("mid", "") or secrets.token_hex(8))
@@ -767,12 +775,40 @@ def cmd_send(args):
     out({"ok": True, "id": answer.get("id"), "mid": mid, "time": now})
 
 
+def listen_data(data):
+    """A listening-together event, kept to what it needs: {op, sid, service,
+    track: {id, title, artist, album, length, art}, position, playing, at}."""
+    op = str(data.get("op") or "")
+    sid = str(data.get("sid") or "")
+    if op not in LISTEN_OPS or not re.match(r"^[0-9a-f]{8,32}$", sid):
+        fail("not a listening-together event")
+    clean = {"op": op, "sid": sid}
+    if op == "state":
+        service = str(data.get("service") or "")
+        if service not in ("spotify", "youtube-music"):
+            fail("only YouTube Music and Spotify can be shared")
+        t = data.get("track") if isinstance(data.get("track"), dict) else {}
+        track = {k: str(t.get(k) or "")[:300] for k in ("id", "title", "artist", "album", "art")}
+        if not re.match(r"^[A-Za-z0-9_-]{1,64}$", track["id"]):
+            fail("no track to share")
+        if not re.match(r"^https://", track["art"]):
+            track["art"] = ""
+        try:
+            track["length"] = max(0.0, float(t.get("length") or 0))
+            clean["position"] = max(0.0, float(data.get("position") or 0))
+            clean["at"] = int(data.get("at") or time.time() * 1000)
+        except (TypeError, ValueError):
+            fail("not a listening-together event")
+        clean.update(service=service, track=track, playing=bool(data.get("playing")))
+    return clean
+
+
 def readers_or_fail(to, kind):
     """Who can open a private message or receipt to `to`: (sk, my_pk,
     their keys), checked before anything leaves (a file is uploaded first).
     None for what goes to everyone."""
     sk, my_pk = load_identity()
-    if not (to and kind in ("message", "read")):
+    if not (to and kind in ("message", "read", "listen")):
         return sk, my_pk, None
     myself = me()
     # Sealed: for the recipient's key alone (and the sender's own copy).
@@ -1200,6 +1236,104 @@ def cmd_prune(_args):
     out({"ok": True, "removed": removed})
 
 
+# -- Listening together: a Spotify track on YouTube Music -------------------
+#
+# A listener without the host's app follows on the other one. Spotify has no
+# search without an account, YouTube Music's own web client (InnerTube) has:
+# `match`, stdin {title, artist, album, length}, finds the song there (the
+# closest title, artist and length) and answers its videoId.
+
+YT_SEARCH = "https://music.youtube.com/youtubei/v1/search?prettyPrint=false"
+# The "Songs" filter of YouTube Music's search.
+YT_SONGS = "EgWKAQIIAWoMEA4QChADEAQQCRAF"
+
+
+def _fold(text):
+    import unicodedata
+    text = unicodedata.normalize("NFKD", str(text or "").lower())
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    return set(re.findall(r"[a-z0-9]+", text))
+
+
+def _duration(text):
+    m = re.search(r"\b(?:(\d+):)?(\d{1,2}):(\d\d)\b", text)
+    if not m:
+        return 0
+    return int(m.group(1) or 0) * 3600 + int(m.group(2)) * 60 + int(m.group(3))
+
+
+def yt_results(query):
+    body = {"context": {"client": {"clientName": "WEB_REMIX", "clientVersion": "1.20250101.01.00", "hl": "en"}},
+            "query": query, "params": YT_SONGS}
+    req = urllib.request.Request(YT_SEARCH, data=json.dumps(body).encode(), method="POST",
+                                 headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0",
+                                          "Origin": "https://music.youtube.com"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        data = json.load(r)
+
+    def walk(o):
+        if isinstance(o, dict):
+            if "musicResponsiveListItemRenderer" in o:
+                yield o["musicResponsiveListItemRenderer"]
+            for v in o.values():
+                yield from walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                yield from walk(v)
+
+    out = []
+    for item in walk(data):
+        vid = (item.get("playlistItemData") or {}).get("videoId") or ""
+        cols = []
+        for c in item.get("flexColumns") or []:
+            runs = ((c.get("musicResponsiveListItemFlexColumnRenderer") or {}).get("text") or {}).get("runs") or []
+            cols.append("".join(str(x.get("text") or "") for x in runs))
+        if re.match(r"^[\w-]{11}$", vid) and cols:
+            out.append({"videoId": vid, "title": cols[0], "line": cols[1] if len(cols) > 1 else "",
+                        "length": _duration(cols[1] if len(cols) > 1 else "")})
+    return out
+
+
+def best_match(want, results):
+    """The result closest to `want` {title, artist, length}: title words,
+    then artist words, then length (a radio edit isn't the album version)."""
+    title, artist = _fold(want.get("title")), _fold(want.get("artist"))
+    length = float(want.get("length") or 0)
+    best, best_score = None, 0.0
+    for r in results:
+        got_title, got_line = _fold(r["title"]), _fold(r["line"])
+        if not title:
+            continue
+        t = len(title & got_title) / len(title)
+        a = len(artist & got_line) / len(artist) if artist else 0.5
+        d = 1.0
+        if length and r["length"]:
+            d = max(0.0, 1 - abs(r["length"] - length) / 30)
+        score = 0.5 * t + 0.3 * a + 0.2 * d
+        if t >= 0.5 and score > best_score:
+            best, best_score = r, score
+    return best, best_score
+
+
+def cmd_match(_args):
+    try:
+        want = json.loads(sys.stdin.readline() or "{}")
+    except ValueError:
+        fail("the data isn't JSON")
+    if not isinstance(want, dict) or not str(want.get("title") or "").strip():
+        fail("no track to look for")
+    query = f"{want.get('artist') or ''} {want.get('title')}".strip()
+    try:
+        results = yt_results(query[:200])
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        fail(f"YouTube Music can't be searched ({getattr(e, 'reason', e)})")
+    best, score = best_match(want, results)
+    if not best:
+        fail(f"no song like \"{want.get('title')}\" on YouTube Music")
+    out({"ok": True, "videoId": best["videoId"], "title": best["title"], "line": best["line"],
+         "length": best["length"], "score": round(score, 2)})
+
+
 SEEN_KEEP = 300
 
 
@@ -1241,7 +1375,7 @@ def receive(payload, topic, sk, my_pk, myself, told):
             return None
         sender = str(inner.get("from") or "")
         to = str(inner.get("to") or "")
-        if inner.get("kind") not in ("message", "read") or not MEMBER_RE.match(sender) \
+        if inner.get("kind") not in ("message", "read", "listen") or not MEMBER_RE.match(sender) \
                 or not MEMBER_RE.match(to) or myself not in (sender, to):
             return None
         if sender == myself:
@@ -1254,6 +1388,8 @@ def receive(payload, topic, sk, my_pk, myself, told):
                                              "the one known for them (Trust the new key in the Mesh tab)"})
             return None
         data = inner.get("data") if isinstance(inner.get("data"), dict) else {}
+        if inner["kind"] == "listen" and time.time() - float(inner.get("time") or 0) > STALE_LISTEN:
+            return None
         event = {"kind": inner["kind"], "from": sender, "name": str(inner.get("name") or "")[:64], "to": to,
                  "time": inner.get("time"), "mid": str(inner.get("mid") or ""), "data": data,
                  "private": True, "event": "message", "mine": sender == myself}
@@ -1265,6 +1401,8 @@ def receive(payload, topic, sk, my_pk, myself, told):
     sender_pk = pk_of(payload.get("pk"))
     if sender_pk:
         note_key(sender, sender_pk, myself, told)
+    if kind == "listen" and time.time() - float(payload.get("time") or 0) > STALE_LISTEN:
+        return None
     if kind == "presence" and time.time() - float(payload.get("time") or 0) > STALE_PRESENCE:
         # Catching up: an old status says nothing about now (members count as
         # offline after 25 min), and months of them would only flood the shell.
@@ -1391,6 +1529,7 @@ def main():
         "save": cmd_save,
         "prune": cmd_prune,
         "limits": cmd_limits,
+        "match": cmd_match,
     }
     command = commands.get(args[0]) if args else None
     if not command:
