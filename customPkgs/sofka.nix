@@ -11,6 +11,14 @@ pkgs.rustPlatform.buildRustPackage {
 
   cargoLock.lockFile = "${sofkaSrc}/Cargo.lock";
 
+  # The -sys crates link system libraries on this nixpkgs (it sets e.g.
+  # AWS_LC_SYS_USE_SYSTEM): AWS-LC, zstd.
+  nativeBuildInputs = [ pkgs.pkg-config ];
+  buildInputs = [
+    pkgs.aws-lc
+    pkgs.zstd
+  ];
+
   doCheck = false;
 
   meta = {
