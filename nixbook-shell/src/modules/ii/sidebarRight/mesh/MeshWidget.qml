@@ -38,6 +38,28 @@ Item {
         if (Mesh.sendText(text, root.conv)) input.text = "";
     }
 
+    component ShareButton: RippleButton {
+        id: share
+        property string kind
+        property string symbol
+        property bool can
+        property string tip
+        visible: !MeshListen.hostingIn(root.conv) && !MeshListen.sessionIn(root.conv)
+        implicitWidth: 32
+        implicitHeight: 32
+        buttonRadius: Appearance.rounding.full
+        onClicked: MeshListen.notice = MeshListen.start(root.conv, share.kind)
+        contentItem: MaterialSymbol {
+            horizontalAlignment: Text.AlignHCenter
+            text: share.symbol
+            iconSize: Appearance.font.pixelSize.larger
+            color: share.can ? Appearance.colors.colOnLayer1 : Appearance.colors.colSubtext
+        }
+        StyledToolTip {
+            text: share.tip
+        }
+    }
+
     ChatAttacher {
         id: attacher
         pickFolder: Directories.home
@@ -203,25 +225,25 @@ Item {
                     color: Appearance.colors.colSubtext
                 }
             }
-            // Listening together: share what plays here.
-            RippleButton {
-                visible: !MeshListen.hostingIn(root.conv) && !MeshListen.sessionIn(root.conv)
-                implicitWidth: 32
-                implicitHeight: 32
-                buttonRadius: Appearance.rounding.full
-                onClicked: MeshListen.notice = MeshListen.start(root.conv)
-                contentItem: MaterialSymbol {
-                    horizontalAlignment: Text.AlignHCenter
-                    text: "headphones"
-                    iconSize: Appearance.font.pixelSize.larger
-                    color: MeshListen.canShare ? Appearance.colors.colOnLayer1 : Appearance.colors.colSubtext
-                }
-                StyledToolTip {
-                    text: MeshListen.canShare
-                        ? Translation.tr("Listen together: share what your %1 plays with %2; they can listen along")
-                            .arg(MeshListen.serviceName(MeshListen.serviceOf(MeshListen.shareablePlayer()))).arg(Mesh.nameOf(root.conv))
-                        : Translation.tr("Listen together: play something in YouTube Music, Spotify or Jellyfin, then share it here")
-                }
+            // Listening / watching together: share what plays here, music
+            // (YouTube Music, Spotify) or Jellyfin, one button each.
+            ShareButton {
+                kind: "music"
+                symbol: "headphones"
+                can: MeshListen.canShareMusic
+                tip: MeshListen.canShareMusic
+                    ? Translation.tr("Listen together: share what your %1 plays with %2; they can listen along")
+                        .arg(MeshListen.serviceName(MeshListen.serviceOf(MeshListen.shareablePlayer("music")))).arg(Mesh.nameOf(root.conv))
+                    : Translation.tr("Listen together: play something in YouTube Music or Spotify, then share it here")
+            }
+            ShareButton {
+                kind: "video"
+                symbol: "movie"
+                visible: MeshListen.videoOffered && !MeshListen.hostingIn(root.conv) && !MeshListen.sessionIn(root.conv)
+                can: MeshListen.canShareVideo
+                tip: MeshListen.canShareVideo
+                    ? Translation.tr("Watch together: share what Jellyfin plays on this computer with %1; they can watch along on their own Jellyfin").arg(Mesh.nameOf(root.conv))
+                    : Translation.tr("Watch together: play something from Jellyfin on this computer (its player), then share it here")
             }
             MaterialSymbol {
                 visible: !Mesh.connected

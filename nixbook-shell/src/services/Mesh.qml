@@ -863,7 +863,7 @@ Singleton {
     }
 
     // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|sendFile PATH|sendFileTo MEMBER PATH|open|openConversation MEMBER`,
-    // and listening together: `listenShare MEMBER|listenStop|listenJoin MEMBER|listenLeave|listenStatus` ("" = everyone).
+    // and listening together: `listenShare MEMBER|watchShare MEMBER|listenStop|listenJoin MEMBER|listenLeave|listenStatus` ("" = everyone).
     // Denied to the desktop agents (desktop-mcp's shellIpcDenyTargets): they
     // would speak in the user's name.
     IpcHandler {
@@ -903,7 +903,12 @@ Singleton {
         // Listening together: share what YouTube Music / Spotify plays with
         // everyone ("") or a member, stop; follow a member's session, leave.
         function listenShare(member: string): string {
-            const why = MeshListen.start(member);
+            const why = MeshListen.start(member, "music");
+            return why === "" ? `ok: sharing with ${member === "" ? "everyone" : member}` : `error: ${why}`;
+        }
+        // Watching together: what Jellyfin's mpv plays.
+        function watchShare(member: string): string {
+            const why = MeshListen.start(member, "video");
             return why === "" ? `ok: sharing with ${member === "" ? "everyone" : member}` : `error: ${why}`;
         }
         function listenStop(): string {

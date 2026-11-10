@@ -106,23 +106,32 @@ Singleton {
     // What a Jellyfin item is, for listeners on other servers: { id: info | null }.
     property var _jfInfo: ({})
 
-    // What can be shared now: the player in front if it is one of the two,
-    // else one of them playing, else any of them.
-    function shareablePlayer() {
+    // Music (YouTube Music, Spotify: Listen together) or video (Jellyfin's
+    // mpv: Watch together): two buttons, each sharing its own players only.
+    function kindOf(service) {
+        return service === "jellyfin" ? "video" : service === "" ? "" : "music";
+    }
+    // What can be shared now, of a kind: a player with something on
+    // (playing first, the one in front first among equals), else an empty one.
+    function shareablePlayer(kind) {
+        kind = kind ?? "music";
         const active = MprisController.activePlayer;
-        const players = root.players().filter(p => root.serviceOf(p) !== "");
+        const players = root.players().filter(p => root.kindOf(root.serviceOf(p)) === kind);
         const has = p => root.trackOf(p) !== null;
         // Something on it first (playing, then paused), the one in front
         // first among equals; an empty one last.
         const order = [p => has(p) && p.isPlaying, p => has(p), p => true];
         for (const ok of order) {
-            if (root.serviceOf(active) !== "" && ok(active)) return active;
+            if (root.kindOf(root.serviceOf(active)) === kind && ok(active)) return active;
             const p = players.find(ok);
             if (p) return p;
         }
         return null;
     }
-    readonly property bool canShare: root.shareablePlayer() !== null
+    readonly property bool canShareMusic: root.shareablePlayer("music") !== null
+    readonly property bool canShareVideo: root.shareablePlayer("video") !== null
+    // Watch together is offered where Jellyfin is installed.
+    readonly property bool videoOffered: root.canShareVideo || (root.testJellyfin === null && Jellyfin.available)
 
     // -- Sessions --------------------------------------------------------------------
 
@@ -158,15 +167,20 @@ Singleton {
 
     // -- Hosting ------------------------------------------------------------------------
 
-    // Share what plays in the conversation `conv` ("" = everyone). Returns
-    // "" or why not.
-    function start(conv) {
+    // Share in the conversation `conv` ("" = everyone) what plays: `kind`
+    // "music" (YouTube Music, Spotify) or "video" (Jellyfin). Returns "" or
+    // why not.
+    function start(conv, kind) {
+        kind = kind ?? "music";
         if (!Mesh.configured) return Translation.tr("The mesh isn't set up");
-        const p = root.shareablePlayer();
-        if (!p) return Translation.tr("Play something in YouTube Music, Spotify or Jellyfin first");
+        const p = root.shareablePlayer(kind);
+        if (!p)
+            return kind === "video"
+                ? Translation.tr("Jellyfin's player isn't running: play something on this computer from Jellyfin first")
+                : Translation.tr("Play something in YouTube Music or Spotify first");
         if (root.following !== "") root.leave("");
         if (root.hosting) root.stop();
-        root.hosting = { sid: root._sid(), to: conv ?? "", bus: p.dbusName, listeners: {} };
+        root.hosting = { sid: root._sid(), to: conv ?? "", bus: p.dbusName, kind: kind, listeners: {} };
         root.hostService = root.serviceOf(p);
         root.hostTrack = null;
         root._last = null;
@@ -190,10 +204,10 @@ Singleton {
         const h = root.hosting;
         if (!h) return;
         const now = Date.now();
-        let p = root.players().find(x => x.dbusName === h.bus) ?? root.shareablePlayer();
-        // Nothing on the one shared, something on another: that one now.
+        let p = root.players().find(x => x.dbusName === h.bus) ?? root.shareablePlayer(h.kind);
+        // Nothing on the one shared, something on another of its kind: that one now.
         if (p && root.trackOf(p) === null) {
-            const other = root.shareablePlayer();
+            const other = root.shareablePlayer(h.kind);
             if (other && root.trackOf(other) !== null) p = other;
         }
         if (!p) {
