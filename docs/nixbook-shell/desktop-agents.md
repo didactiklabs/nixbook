@@ -249,7 +249,9 @@ library and this computer's player through `jellyfin-mcp`
 (`nixbookShellConfig.jellyfinMcp.enable`) and off until set up:
 
 1. **Settings → Desktop agents → Apps it can use**: turn **Jellyfin** on and
-   enter your server (`ai.jellyfin.url`).
+   enter your server (`ai.jellyfin.url`). The same account is also in
+   **Settings → Services → Jellyfin**, without AI: watching along in the
+   [Mesh](./mesh.md#listening-together) uses it whether DAI is on or not.
 2. **Sign in** with your own Jellyfin username and password: no admin and no
    API key needed. DAI then acts as you (your library, progress, favourites
    and players) with a login of its own, kept in your keyring

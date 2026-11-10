@@ -170,28 +170,15 @@ Singleton {
     }
 
     // ── Jellyfin ──
-    readonly property string jellyfinBin: Ai.assistantMcpServers.jellyfin?.command ?? ""
+    // The Jellyfin helper (services/Jellyfin.qml, a plain service); the
+    // bubble's instant "play …" is DAI's, so it also needs Jellyfin on for
+    // the chat (ai.claudeCode.mcpServersOff).
+    readonly property string jellyfinBin: Jellyfin.bin
     readonly property bool jellyfinOn: root.jellyfinBin !== ""
         && !(Config.options.ai.claudeCode.mcpServersOff ?? []).includes("jellyfin")
-    // Set up (a server and a key): `jellyfin-mcp configured`, checked at
-    // start and whenever its settings change (Settings calls it after a save).
-    property bool jellyfinReady: false
-    readonly property string jellyfinSignature: root.jellyfinOn ? `${root.jellyfinBin} ${JSON.stringify(Ai.jellyfinEnv)}` : ""
-    onJellyfinSignatureChanged: root.refreshJellyfin()
-    Component.onCompleted: root.refreshJellyfin()
+    readonly property bool jellyfinReady: root.jellyfinOn && Jellyfin.ready
     function refreshJellyfin() {
-        if (!root.jellyfinOn) {
-            root.jellyfinReady = false
-            return
-        }
-        jellyfinCheck.running = false
-        jellyfinCheck.command = [root.jellyfinBin, "configured"]
-        jellyfinCheck.environment = Ai.jellyfinEnv
-        jellyfinCheck.running = true
-    }
-    Process {
-        id: jellyfinCheck
-        onExited: code => root.jellyfinReady = code === 0
+        Jellyfin.refresh()
     }
     readonly property var _videoVerb: /^(?:play|watch|put on|stream|lance|mets|regarde|joue|spiel(?:e)?|schau(?:e)?(?: mir)?|xem|m[oở]|ph[aá]t|b[aậ]t|cho (?:t[oô]i|m[iì]nh|em) xem) (.+)$/
     readonly property var _episodeWords: /\bs\d{1,2} ?e\d{1,3}\b|\b\d{1,2}x\d{1,3}\b|(?:season|saison|staffel|m[uù]a) \d{1,2}\b|(?:episode|[eé]pisode|ep|folge|t[aậ]p) \d{1,3}\b/
