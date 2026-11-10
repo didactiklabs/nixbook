@@ -208,7 +208,7 @@ Singleton {
     // Refuses with a word to the user; true when refused.
     function refuseIfAgentInput(what: string): bool {
         if (!root.agentInputRecent()) return false
-        Quickshell.execDetached(["notify-send", "--app-name=Desktop agent", "--icon=smart_toy",
+        Quickshell.execDetached(["notify-send", "--app-name=Desktop agent", "--icon=dialog-warning",
             Translation.tr("Blocked: %1").arg(what),
             Translation.tr("An agent was typing or clicking just now, so this didn't run (agents can't run commands this way). Do it again in a few seconds if it was you.")])
         return true
