@@ -51,7 +51,10 @@ ListView {
         }
     }
 
+    // Off: a scroll set in code jumps (a list opened at its end).
+    property bool animateScroll: true
     Behavior on contentY {
+        enabled: root.animateScroll
         NumberAnimation {
             id: scrollAnim
             alwaysRunToEnd: true
