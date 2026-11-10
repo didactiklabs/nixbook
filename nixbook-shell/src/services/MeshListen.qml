@@ -87,10 +87,11 @@ Singleton {
         if (root.installed(other)) return other;
         return "";
     }
-    // Jellyfin set up here (Settings > Desktop agents > Apps it can use).
+    // Jellyfin set up here (services/Jellyfin.qml, Settings > Services >
+    // Jellyfin): a plain service, whatever the AI switches say.
     property var testJellyfin: null
     function jellyfinReady() {
-        return root.testJellyfin !== null ? true : QuickIntent.jellyfinReady;
+        return root.testJellyfin !== null ? true : Jellyfin.ready;
     }
     // `jellyfin-mcp ARGS` (stdin: `input`), then(ok, answer). Tests answer
     // through testJellyfin(args, input).
@@ -100,37 +101,7 @@ Singleton {
             Qt.callLater(() => then(!!answer?.ok, answer ?? {}));
             return;
         }
-        if (QuickIntent.jellyfinBin === "") {
-            then(false, { error: Translation.tr("Jellyfin isn't set up on this computer") });
-            return;
-        }
-        jfRunner.createObject(root, { input: input ?? "", then: then, command: [QuickIntent.jellyfinBin, ...args],
-            environment: Ai.jellyfinEnv });
-    }
-    Component {
-        id: jfRunner
-        Process {
-            id: proc
-            property string input
-            property var then
-            stdinEnabled: true
-            stdout: StdioCollector { id: jfOut }
-            Component.onCompleted: proc.running = true
-            onRunningChanged: {
-                if (!proc.running) return;
-                proc.write(proc.input + "\n");
-                proc.stdinEnabled = false;
-            }
-            onExited: code => {
-                let answer = null;
-                try {
-                    answer = JSON.parse(jfOut.text);
-                } catch (e) {}
-                const done = proc.then;
-                proc.destroy();
-                done(code === 0 && !!answer?.ok, answer ?? { error: Translation.tr("Couldn't run jellyfin-mcp") });
-            }
-        }
+        Jellyfin.run(args, input, then);
     }
     // What a Jellyfin item is, for listeners on other servers: { id: info | null }.
     property var _jfInfo: ({})

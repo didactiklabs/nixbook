@@ -159,6 +159,19 @@ ContentPage {
             }
         }
 
+        // Jellyfin on this computer (services/Jellyfin.qml): a plain service,
+        // used by watching along in the Mesh and by DAI when it is on.
+        ContentSection {
+            icon: "movie"
+            shape: MaterialShape.Shape.Oval
+            title: Translation.tr("Jellyfin")
+            shown: Jellyfin.available
+
+            JellyfinAccount {
+                Layout.fillWidth: true
+            }
+        }
+
         ContentSection {
             icon: "music_cast"
             shape: MaterialShape.Shape.Oval
