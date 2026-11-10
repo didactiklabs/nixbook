@@ -31,12 +31,7 @@ ColumnLayout {
     readonly property var shared: root.hosting ? MeshListen._lastState : root.session
     readonly property real length: root.shared?.track?.length > 0 ? root.shared.track.length : 0
     property real now: Date.now()
-    readonly property real position: {
-        const st = root.shared;
-        if (!st) return 0;
-        const at = st.playing ? st.position + (root.now - st.at) / 1000 : st.position;
-        return Math.max(0, root.length > 0 ? Math.min(root.length, at) : at);
-    }
+    readonly property real position: MeshListen.positionOf(root.shared, root.now)
     Timer {
         interval: 1000
         repeat: true

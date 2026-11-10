@@ -363,7 +363,7 @@ Singleton {
             root.followStatus = "noapp";
             return;
         }
-        const target = s.position + (s.playing ? (now - s.at) / 1000 : 0);
+        const target = root.positionOf(s, now);
         if (s.service === "jellyfin") {
             root._followJellyfin(s, f, now, target);
             return;
@@ -438,6 +438,16 @@ Singleton {
         root._keepInSync(p, s, f, now, target, wantId);
     }
     // The song (or film) is the host's: the same play/pause and position.
+    // Where the host is now: its position, moved on by the time since its
+    // state, by the host's clock (right when a state arrives late), or by
+    // when it arrived here when the host's clock is ahead (a state from
+    // the future: the two clocks disagree).
+    function positionOf(s, now) {
+        if (!s) return 0;
+        const since = s.recv !== undefined && s.at > s.recv + 3000 ? s.recv : s.at;
+        const at = s.position + (s.playing ? (now - since) / 1000 : 0);
+        return Math.max(0, s.track?.length > 0 ? Math.min(s.track.length, at) : at);
+    }
     function _keepInSync(p, s, f, now, target, wantId) {
         f.syncedTo = wantId;
         f.lastPos = p.position ?? 0;
@@ -456,7 +466,8 @@ Singleton {
         // a drift at most every 30 s (each jump rebuffers: it looks like a
         // reload).
         const len = p.length > 0 ? p.length : s.track.length;
-        const to = p.canSeek ? TrackMatch.seekStep(f, { now: now, pos: p.position ?? 0, target: target, len: len, hostRecv: s.recv }) : -1;
+        const to = p.canSeek ? TrackMatch.seekStep(f, { now: now, pos: p.position ?? 0, target: target, len: len, hostRecv: s.recv,
+            playing: p.isPlaying }) : -1;
         if (to >= 0) p.position = to;
         root.followStatus = "synced";
     }
@@ -491,6 +502,9 @@ Singleton {
                 if (root._f !== f) return;
                 f.jfBusy = false;
                 f.openedAt = Date.now();
+                // A new open for the jumps (seekStep): mpv starts at the
+                // host's position, so most often none is needed.
+                f.openedFor = key;
                 if (ok) f.jfLocal = `${answer.id ?? ""}`;
                 else f.jfError = answer.notFound ? "notonserver" : `${answer.error ?? ""}`;
             });
