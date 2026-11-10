@@ -405,6 +405,21 @@ expect_eq "listen-play: only an id (the host's details missing)" "$(jq -r '"\(.o
 r=$("${jmcp[@]}" listen-play <<<'{"serverId": "other", "id": "x-4", "type": "Movie", "name": "Not Here", "position": 0}' || true)
 expect_eq "listen-play: not on this server, said" "$(jq -r '"\(.ok) \(.notFound)"' <<<"$r")" "false true"
 
+# -- the shell's Jellyfin tab: shelf, play-id ---------------------------------
+write_sessions ",$SHIM_SESSION"
+r=$(XDG_CACHE_HOME="$tmp/cache" "${jmcp[@]}" shelf || true)
+expect_eq "shelf: up next (in progress, then next up, once each)" "$(jq -c '[.upNext[] | .id]' <<<"$r")" '["ep-e2"]'
+expect_eq "shelf: an episode's title is its series, its subtitle the episode" "$(jq -r '.upNext[0] | .title + " / " + .subtitle' <<<"$r")" "Cyberpunk: Edgerunners / S1:E2 · $(jq -r .upNext[0].subtitle <<<"$r" | sed 's/^S1:E2 · //')"
+expect_eq "shelf: recently added" "$(jq -r '[.recent[] | .id] | index("mov-spirited") != null' <<<"$r")" "true"
+img=$(jq -r '.recent[] | select(.id == "mov-spirited") | .image' <<<"$r")
+if [ -s "$img" ] && head -c 4 "$img" | od -An -tx1 | grep -q "ff d8 ff"; then pass "shelf: a poster cached as a file"; else fail "shelf: a poster cached as a file" "$r"; fi
+expect_eq "shelf: no picture, no file" "$(jq -r '.recent[] | select(.id == "mov-dune84") | .image' <<<"$r")" ""
+: >"$log"
+r=$("${jmcp[@]}" play-id mov-spirited || true)
+expect_eq "play-id: played on this computer's player" "$(jq -r .ok <<<"$r") $(last_req /Sessions/s-shim/Playing | jq -r '.query.itemIds')" "true mov-spirited"
+r=$("${jmcp[@]}" play-id '../x' || true)
+expect_eq "play-id: an id, nothing else" "$(jq -r .ok <<<"$r")" "false"
+
 # -- the fast path: play-query ----------------------------------------------
 write_sessions ",$SHIM_SESSION"
 pq() { "${jmcp[@]}" play-query "$@" || true; }

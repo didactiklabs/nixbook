@@ -48,6 +48,35 @@ Singleton {
         onExited: code => root.ready = code === 0
     }
 
+    // The right sidebar's Jellyfin tab (sidebar.jellyfinTab): what to watch
+    // next (in progress, then next episodes) and what's new, each {id,
+    // title, subtitle, kind, progress, image (a cached file)}; kept here so
+    // the tab shows the last one at once while it refreshes.
+    property var shelf: null
+    property real shelfAt: 0
+    property bool shelfLoading: false
+    property string shelfError: ""
+    function refreshShelf(force) {
+        if (root.shelfLoading || !root.ready) return;
+        if (!force && root.shelf && Date.now() - root.shelfAt < 2 * 60 * 1000) return;
+        root.shelfLoading = true;
+        root.run(["shelf"], "", (ok, answer) => {
+            root.shelfLoading = false;
+            if (ok) {
+                root.shelf = answer;
+                root.shelfAt = Date.now();
+                root.shelfError = "";
+            } else root.shelfError = answer?.error ?? "";
+        });
+    }
+    // Plays it in mpv on this computer, where you stopped; then(ok, error).
+    function playItem(id, then) {
+        root.run(["play-id", id], "", (ok, answer) => {
+            if (then) then(ok, ok ? "" : (answer?.error || answer?.reason || ""));
+            if (ok) Qt.callLater(() => root.refreshShelf(true));
+        });
+    }
+
     // `jellyfin-mcp ARGS`, `input` on stdin; then(ok, answer).
     function run(args, input, then) {
         if (!root.available) {

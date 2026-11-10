@@ -2170,8 +2170,132 @@ def listen_play():
     out({"ok": True, "id": it["Id"], "name": title_of(it)})
 
 
+# -- The shell's Jellyfin tab: what to watch next, what's new ------------------
+#
+# `shelf`: {ok, upNext: [...], recent: [...]} for nixbook-shell's right
+# sidebar (in progress first, then the next episodes of what you follow; the
+# newest additions), each item {id, title, subtitle, kind, progress (0-100),
+# image (a cached local file, "" when it has none)}. `play-id ID`: plays it
+# in mpv on this computer (where you stopped), as the play tool does.
+
+def cache_dir():
+    base = os.environ.get("XDG_CACHE_HOME") or os.path.join(os.path.expanduser("~"), ".cache")
+    return os.path.join(base, "jellyfin-mcp", "images")
+
+
+def fetch_image(jf, item_id, kind, tag, width):
+    """The item's image, cached under its tag (a new image, a new tag): a
+    local path, "" when it can't be had."""
+    if not (item_id and tag and re.match(r"^[\w-]{1,64}$", str(item_id)) and re.match(r"^[\w-]{1,64}$", str(tag))):
+        return ""
+    folder = cache_dir()
+    path = os.path.join(folder, f"{item_id}-{kind}-{tag}-{width}.jpg")
+    if os.path.isfile(path) and os.path.getsize(path) > 0:
+        return path
+    os.makedirs(folder, mode=0o700, exist_ok=True)
+    query = urllib.parse.urlencode({"tag": tag, "maxWidth": width, "quality": 85, "format": "Jpg"})
+    req = urllib.request.Request(f"{jf.url}/Items/{item_id}/Images/{kind}?{query}", headers=jf.headers())
+    tmp = f"{path}.{os.getpid()}.tmp"
+    try:
+        with urllib.request.urlopen(req, timeout=jf.timeout) as resp:
+            data = resp.read(8 * 1024 * 1024)
+        if not data:
+            return ""
+        with open(tmp, "wb") as f:
+            f.write(data)
+        os.replace(tmp, path)
+        return path
+    except (OSError, urllib.error.URLError, socket.timeout, TimeoutError):
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        return ""
+
+
+def shelf_item(jf, it, wide):
+    kind = it.get("Type", "")
+    ud = it.get("UserData") or {}
+    if kind == "Episode":
+        title = it.get("SeriesName") or it.get("Name") or ""
+        num = ""
+        if it.get("ParentIndexNumber") is not None and it.get("IndexNumber") is not None:
+            num = f"S{it['ParentIndexNumber']}:E{it['IndexNumber']}"
+        subtitle = " · ".join(x for x in (num, it.get("Name") or "") if x)
+    else:
+        title = it.get("Name") or ""
+        subtitle = str(it.get("ProductionYear") or "")
+        if kind == "Series" and ud.get("UnplayedItemCount"):
+            subtitle = " · ".join(x for x in (subtitle, f"{ud['UnplayedItemCount']} new") if x)
+    tags = it.get("ImageTags") or {}
+    # A wide picture for what's next (an episode's still, else its series'
+    # thumb), a poster for what's new.
+    if wide:
+        choices = [(it.get("Id"), "Primary", tags.get("Primary")) if kind == "Episode" else (None, None, None),
+                   (it.get("Id"), "Thumb", tags.get("Thumb")),
+                   (it.get("ParentThumbItemId"), "Thumb", it.get("ParentThumbImageTag")),
+                   (it.get("Id"), "Primary", tags.get("Primary")),
+                   (it.get("SeriesId"), "Primary", it.get("SeriesPrimaryImageTag"))]
+    else:
+        choices = [(it.get("SeriesId"), "Primary", it.get("SeriesPrimaryImageTag")) if kind == "Episode" else (None, None, None),
+                   (it.get("Id"), "Primary", tags.get("Primary"))]
+    image = next(((i, k, t) for i, k, t in choices if i and t), None)
+    return {"id": it.get("Id"), "title": title, "subtitle": subtitle, "kind": TYPE_OUT.get(kind, kind.lower()),
+            "progress": round(float(ud.get("PlayedPercentage") or 0)), "image": image}
+
+
+def cli_shelf(args):
+    limit = 12
+    jf = listen_client()
+    images = {"EnableImages": True, "ImageTypeLimit": 1, "EnableImageTypes": "Primary,Thumb,Backdrop"}
+    try:
+        uid = jf.uid()
+        resume = jf.compat("GET", [("/UserItems/Resume", {"userId": uid, "Limit": limit, "MediaTypes": "Video",
+                                                          "EnableUserData": True, **images}),
+                                   (f"/Users/{uid}/Items/Resume", {"Limit": limit, "MediaTypes": "Video",
+                                                                   "EnableUserData": True, **images})]) or {}
+        nxt = jf.request("GET", "/Shows/NextUp", {"userId": uid, "Limit": limit, "EnableUserData": True, **images}) or {}
+        latest = jf.compat("GET", [("/Items/Latest", {"userId": uid, "Limit": limit, "EnableUserData": True, **images}),
+                                   (f"/Users/{uid}/Items/Latest", {"Limit": limit, "EnableUserData": True, **images})]) or []
+    except JfError as exc:
+        out({"ok": False, "error": jf.hide(exc)}, 1)
+    if isinstance(latest, dict):
+        latest = latest.get("Items") or []
+    seen, up = set(), []
+    for it in (resume.get("Items") or []) + (nxt.get("Items") or []):
+        if it.get("Id") and it["Id"] not in seen:
+            seen.add(it["Id"])
+            up.append(shelf_item(jf, it, True))
+    recent = [shelf_item(jf, it, False) for it in latest[:limit] if it.get("Id")]
+    jobs = [(x, 360 if i < len(up) else 240) for i, x in enumerate(up[:limit] + recent)]
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        paths = list(pool.map(lambda j: fetch_image(jf, *(j[0]["image"] or ("", "", "")), j[1])
+                              if j[0]["image"] else "", jobs))
+    for (x, _), path in zip(jobs, paths):
+        x["image"] = path
+    out({"ok": True, "upNext": up[:limit], "recent": recent})
+
+
+def cli_play_id(args):
+    if len(args) != 1 or not re.match(r"^[\w-]{1,64}$", args[0]):
+        out({"ok": False, "error": "usage: play-id ID"}, 2)
+    jf = listen_client()
+    try:
+        res = t_play(jf, {"item_id": args[0]})
+    except JfError as exc:
+        out({"ok": False, "error": jf.hide(exc)}, 1)
+    res.pop("_meta", None)
+    played = res.get("played", True) is not False
+    out(dict(res, ok=played, error=res.get("reason", "") if not played else ""), 0 if played else 1)
+
+
 def main():
     args = sys.argv[1:]
+    if args[:1] == ["shelf"]:
+        cli_shelf(args[1:])
+    if args[:1] == ["play-id"]:
+        cli_play_id(args[1:])
     if len(args) == 2 and args[0] == "listen-info":
         listen_info(args[1])
     if args == ["listen-play"]:
@@ -2198,7 +2322,7 @@ def main():
         print(VERSION)
         return
     sys.stderr.write("usage: jellyfin-mcp [serve] | configured | play-query TEXT | credentials … | shim-login|shim-status|shim-logout"
-                     " | listen-info ID | listen-play\n")
+                     " | listen-info ID | listen-play | shelf | play-id ID\n")
     sys.exit(2)
 
 

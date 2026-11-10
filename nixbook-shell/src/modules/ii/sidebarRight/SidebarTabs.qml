@@ -5,6 +5,7 @@ import qs.modules.common.widgets
 import qs.services
 // Quickshell only serves directories that are imported, Loader sources included.
 import qs.modules.ii.sidebarRight.calendar
+import qs.modules.ii.sidebarRight.jellyfin
 import qs.modules.ii.sidebarRight.mesh
 import qs.modules.ii.sidebarRight.notifications
 import qs.modules.ii.sidebarRight.pomodoro
@@ -35,6 +36,16 @@ ColumnLayout {
                 "name": Translation.tr("Mesh"),
                 "icon": "hub",
                 "widget": "mesh/MeshWidget.qml"
+            });
+        }
+        // Jellyfin's up next and recently added: on by default, shown once
+        // Jellyfin is signed in on this computer.
+        if (Config.options.sidebar.jellyfinTab && Jellyfin.ready) {
+            list.push({
+                "type": "jellyfin",
+                "name": Translation.tr("Jellyfin"),
+                "icon": "live_tv",
+                "widget": "jellyfin/JellyfinWidget.qml"
             });
         }
         if (Config.options.sidebar.bottomGroup) {

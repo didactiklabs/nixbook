@@ -53,7 +53,7 @@ ITEMS = [
      "Genres": ["Animation", "Sci-Fi"], "UserData": {"UnplayedItemCount": 9}, "ProviderIds": {"Tvdb": "416359"}},
     {"Id": "sea-edge-1", "Type": "Season", "Name": "Season 1", "SeriesId": "ser-edge", "IndexNumber": 1,
      "ParentId": "ser-edge", "UserData": {"UnplayedItemCount": 9}},
-    {"Id": "mov-spirited", "Type": "Movie", "Name": "Spirited Away", "ProductionYear": 2001,
+    {"Id": "mov-spirited", "Type": "Movie", "Name": "Spirited Away", "ProductionYear": 2001, "ImageTags": {"Primary": "tagspirit"},
      "ProviderIds": {"Imdb": "tt0245429", "Tmdb": "129"},
      "RunTimeTicks": 125 * 60 * TICKS, "Overview": "A girl in a world of spirits.", "UserData": ud()},
     {"Id": "mov-dune84", "Type": "Movie", "Name": "Dune", "ProductionYear": 1984, "RunTimeTicks": 137 * 60 * TICKS,
@@ -277,6 +277,16 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(200, items[: int(query.get("Limit", ["20"])[0])])
         if path == "/UserItems/Resume":
             return self.reply(200, page([BY_ID["ep-e2"]], query))
+        # The shell's Jellyfin tab fetches pictures (a fake JPEG's bytes).
+        m = re.match(r"^/Items/([^/]+)/Images/(Primary|Thumb)$", path)
+        if m:
+            body = b"\xff\xd8\xff\xe0fake-jpeg-" + m.group(1).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if path == "/Shows/NextUp":
             return self.reply(200, page([BY_ID["ep-e2"]], query))
         m = re.match(r"^/Shows/([^/]+)/(Seasons|Episodes)$", path)
