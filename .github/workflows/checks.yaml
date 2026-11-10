@@ -2,8 +2,8 @@ name: Checks
 # Cheap regression checks (evaluation, lint, script tests), complementing the
 # full profile builds of build.yaml. They run on GitHub-hosted runners, so they
 # never compete with the self-hosted builders, and fail within minutes instead
-# of after a full build. Everything runs through tests/run.sh; see the "Tests"
-# section of README.md to run them locally.
+# of after a full build. Everything runs through tests/run.sh; see
+# docs/development/testing.md to run them locally.
 on:
   push:
     branches:

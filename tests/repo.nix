@@ -88,7 +88,7 @@ let
     );
   # Entry points imported from outside the repo, by design.
   externalEntryPoints = [
-    # Standalone Home Manager entry for non-NixOS hosts (see README.md).
+    # Standalone Home Manager entry for non-NixOS hosts (see docs/).
     "homeManagerModules/entrypoint.nix"
   ];
   orphansIn =

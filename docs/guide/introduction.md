@@ -65,9 +65,19 @@ Provisioning a brand-new laptop is as simple as choosing a profile and running a
 
 ## Screenshots
 
-Niri with the desktop shell:
+Niri with the desktop shell (nixbook-shell), in its Cyberpunk 2077 theme:
 
-![Niri configuration](https://raw.githubusercontent.com/didactiklabs/nixbook/main/assets/images/screenshot.png)
+![Desktop](https://raw.githubusercontent.com/didactiklabs/nixbook/main/assets/screenshots/desktop.webp)
+
+![Tiled windows](https://raw.githubusercontent.com/didactiklabs/nixbook/main/assets/screenshots/windows.webp)
+
+Quick settings and notifications, and the same in the Persona 5 theme:
+
+![Quick settings](https://raw.githubusercontent.com/didactiklabs/nixbook/main/assets/screenshots/sidebar.webp)
+
+![Persona 5 theme](https://raw.githubusercontent.com/didactiklabs/nixbook/main/assets/screenshots/sidebar-persona.webp)
+
+More in the [README](https://github.com/didactiklabs/nixbook#readme).
 
 Headless Sunshine/Moonlight remote desktop:
 

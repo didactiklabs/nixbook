@@ -1,313 +1,35 @@
 # Nixbook
 
-[![Build Totoro](https://github.com/didactiklabs/nixbook/actions/workflows/build-totoro.yaml/badge.svg)](https://github.com/didactiklabs/nixbook/actions/workflows/build-totoro.yaml)
-[![Build nishinoya](https://github.com/didactiklabs/nixbook/actions/workflows/build-nishinoya.yaml/badge.svg)](https://github.com/didactiklabs/nixbook/actions/workflows/build-nishinoya.yaml)
-[![Build anya](https://github.com/didactiklabs/nixbook/actions/workflows/build-anya.yaml/badge.svg)](https://github.com/didactiklabs/nixbook/actions/workflows/build-anya.yaml)
+<img src="./assets/screenshots/desktop.webp" alt="Desktop: Cyberpunk 2077 theme, live wallpaper, widgets" width="100%">
 
-📖 **[Documentation](https://didactiklabs.github.io/nixbook/)** — every feature, module and machine, organised as a website (sources in [`docs/`](./docs)).
+<img src="./assets/screenshots/windows.webp" alt="Tiled windows on niri" width="100%">
 
-## 🔍 Description
+<img src="./assets/screenshots/notifications.webp" alt="Notification popups" width="100%">
 
-Nixbook is a personal, declarative NixOS configuration repository that manages multiple machines from a single source of truth. Built entirely with Nix, it embraces the "everything as code" philosophy to deliver reproducible, composable, and easily maintainable system configurations.
+<img src="./assets/screenshots/sidebar.webp" alt="Quick settings and notifications" width="100%">
 
-It ships modern Wayland compositors (Niri and Sway), a fully-featured Zsh shell with GNU CLI replacements, a complete development and Kubernetes toolchain, and per-machine profiles selected automatically by hostname. Security is a first-class concern, with UEFI Secure Boot (Lanzaboote), LUKS disk encryption, agenix-managed secrets, and kernel hardening baked in. Deployment is handled by Colmena, dependencies are pinned with npins, and the whole system can be provisioned from a custom interactive installer ISO.
+<img src="./assets/screenshots/launcher.webp" alt="App launcher" width="100%">
 
-### Project Goals
+<img src="./assets/screenshots/themes.webp" alt="Theme switcher" width="100%">
 
-The primary goal of Nixbook is to provide a personal, highly customizable, and reproducible NixOS environment that manages an entire fleet of machines from a single, version-controlled source of truth. Rather than configuring each system by hand, Nixbook treats the complete system state -- bootloader, kernel, drivers, display servers, user environments, secrets, and services -- as declarative Nix code, fully embracing the "everything as code" philosophy.
+<img src="./assets/screenshots/theme-persona.webp" alt="Persona 5 theme" width="100%">
 
-At its core, Nixbook offers a robust, opinionated base configuration that is designed to be extended and adapted rather than rewritten. Shared functionality lives in reusable NixOS and Home Manager modules, each exposing opt-in/opt-out options, so features like gaming support, sim-racing hardware, VPNs, printing, or Secure Boot can be toggled per machine without duplicating code. Machine-specific behavior is layered on top through per-hostname profiles under `profiles/`, and further refined with per-user overrides, giving each device its own identity while still sharing the same tested foundation.
+<img src="./assets/screenshots/cutin-persona.webp" alt="Persona cut-in for an urgent notification" width="100%">
 
-This architecture yields several concrete benefits:
+<img src="./assets/screenshots/sidebar-persona.webp" alt="Notifications as a Persona phone chat" width="100%">
 
-- **Reproducibility** -- pinned dependencies (via npins) guarantee that the same commit builds the same system on any machine, at any time.
-- **Composability** -- modules can be mixed and matched, so new machines are assembled from existing building blocks instead of bespoke configuration.
-- **Consistency** -- shell environment, editor setup, theming, and development toolchain are identical everywhere, eliminating configuration drift between devices.
-- **Maintainability** -- a change made once in a shared module propagates to every machine that imports it, and updates are applied atomically and rolled back safely by NixOS generations.
-- **Safe experimentation** -- because the entire system is code, changes can be reviewed, tested (including in a VM), and reverted with confidence.
+<img src="./assets/screenshots/assistant.webp" alt="Side-panel assistant" width="100%">
 
-The result is a workflow where provisioning a brand-new laptop or desktop is as simple as selecting a profile and running a single deployment command, with the assurance that the outcome will exactly match every other machine built from the same configuration.
+<img src="./assets/screenshots/theme-ghibli.webp" alt="Studio Ghibli theme" width="100%">
 
-### Wayland with UEFI Boot
+<img src="./assets/screenshots/cutin-cyberpunk.webp" alt="Cyberpunk cut-in" width="100%">
 
-Currently supports Wayland display servers with UEFI boot only.
+<img src="./assets/screenshots/mesh.webp" alt="Mesh: chat between desktops" width="100%">
 
-## 🚀 Main Features
+<img src="./assets/screenshots/wallpapers.webp" alt="Wallpaper selector" width="100%">
 
-**Reproducibility**
+<img src="./assets/screenshots/settings.webp" alt="Shell settings" width="100%">
 
-Everything is configured as code with Nix, ensuring consistent and reproducible deployments across systems.
+<img src="./assets/screenshots/overview.webp" alt="niri overview" width="100%">
 
-**Modern Zsh Shell**
-
-Pre-configured with various plugins and GNU CLI replacements for an enhanced shell experience.
-
-**Machine Profiles**
-
-Customize your setup per machine using profile configurations. Add custom Nix code for features like git configuration and opt-in/opt-out functionality.
-
-**Keybindings**
-
-All keyboard shortcuts (Niri, Sway, Kitty, and Neovim) are documented in [KEYBINDS.md](./KEYBINDS.md).
-
-**Easy Installation and Updates**
-
-After installing the base NixOS ISO, customize your system using profiles. Profile selection is automatic based on your hostname.
-
-Initial setup:
-
-```bash
-colmena apply-local --sudo -v switch
-```
-
-Update your system:
-
-```bash
-osupdate          # refuses to run offline; --force skips the check
-```
-
-Or manually:
-
-```bash
-ginx --source https://github.com/didactiklabs/nixbook -b main --now -- colmena apply-local --sudo
-```
-
-## 💿 ISO Generation and Installation
-
-### Prerequisites
-
-- **Nix** package manager installed on your build machine
-- **UEFI** boot support on the target machine (legacy BIOS is not supported)
-- **Wired internet connection (Ethernet)** on the target machine -- the ISO relies on network access to download packages and clone the nixbook repository during installation. Wi-Fi is not configured on the live ISO; a cable connection with DHCP is required.
-- The hostname you choose during installation must match an existing profile in `profiles/` (currently: `totoro`, `anya`, `nishinoya`)
-
-### Building the ISO
-
-```bash
-nix-build default.nix -A buildIso
-```
-
-The resulting ISO will be available under `./result/`. You can then flash it to a USB drive:
-
-```bash
-sudo dd if=./result/iso/*.iso of=/dev/sdX bs=4M status=progress oflag=sync
-```
-
-Replace `/dev/sdX` with your USB drive device.
-
-### Testing the ISO in a VM
-
-You can test the ISO in a QEMU virtual machine with UEFI support:
-
-```bash
-nix-build default.nix -A testVm && ./result/bin/test-iso-vm
-```
-
-This launches a VM with KVM acceleration, 8 GB RAM, 4 CPUs, and a 64 GB virtual disk.
-
-### Installation Process
-
-Boot from the ISO on the target machine. The installer starts automatically, downloads the nixbook configuration from GitHub (`main`) and asks everything up front:
-
-1. **Network** -- if there is no connection, connect to Wi-Fi from the installer (`nmtui`) or plug in Ethernet.
-2. **Machine** -- pick one of the machines defined in `hive.nix`. The keyboard switches to that machine's layout, so passphrases are typed the way they will be at boot.
-3. **Disk** -- the target disk (the installer's own USB drive is not listed).
-4. **Disk encryption** -- optionally LUKS, with its passphrase.
-5. **Partition layout** -- the recommended layout (swap the size of the RAM, at most a quarter of the disk, and ext4 `/` on the rest) or custom LVM volumes.
-6. **Passwords** -- one for each account the machine's profile defines.
-7. **Confirmation** -- a summary, then the disk is erased.
-
-Then, without further questions, it partitions the disk with Disko, generates the hardware configuration, builds the machine's full configuration (exactly what `colmena build` builds) and installs it with `nixos-install`. One reboot later the machine is fully configured. The log is kept in `/var/log/nixbook-install.log`.
-
-`NIXBOOK_BRANCH` and `NIXBOOK_REPO` install from another branch or repository: `sudo NIXBOOK_BRANCH=my-branch installer`.
-
-### Secure Boot (Lanzaboote)
-
-Nixbook supports UEFI Secure Boot via [lanzaboote](https://github.com/nix-community/lanzaboote) with fully automatic provisioning. No manual key generation or enrollment is required.
-
-#### Enabling Secure Boot
-
-In your machine profile (e.g. `profiles/tanjiro/default.nix`), enable the lanzaboote module:
-
-```nix
-customNixOSModules.lanzaboote.enable = true;
-```
-
-#### What happens automatically
-
-When lanzaboote is enabled, the following occurs over the first few boots after `colmena apply-local --sudo` (or after installing with the installer):
-
-1. **First boot under lanzaboote** -- a systemd service generates Secure Boot signing keys (PK, KEK, db) in `/var/lib/sbctl`.
-2. **Same boot** -- another service prepares EFI Authenticated Variables on the ESP, re-signs all boot artifacts, and triggers an automatic reboot.
-3. **Next boot** -- `systemd-boot` enrolls the keys into the UEFI firmware. Secure Boot enforcement begins.
-
-This is a trust-on-first-use model: the first boot is unsigned, subsequent boots are signed and verified. Microsoft keys are included by default for OptionROM and driver compatibility.
-
-#### Verifying Secure Boot
-
-After provisioning completes:
-
-```bash
-# Check that Secure Boot is active
-bootctl status
-# Should show: Secure Boot: enabled (user)
-
-# Verify all boot entries are signed
-sudo sbctl verify
-```
-
-#### Important notes
-
-- LUKS full-disk encryption is strongly recommended when using Secure Boot, since signing keys are stored locally in `/var/lib/sbctl`.
-- Setting a UEFI/BIOS password is also recommended to prevent disabling Secure Boot from the firmware.
-- The `autoEnrollKeys` and `autoGenerateKeys` services are idempotent -- they are no-ops once keys are generated and enrolled.
-
-## 🧪 Tests
-
-Besides the full profile builds (`build.yaml`, self-hosted), every push and PR runs cheap regression checks on GitHub-hosted runners (`.github/workflows/checks.yaml`). Nothing is built except a few tiny generated files, so they report problems within minutes. They all run through `tests/run.sh` (`run-tests` in `devenv shell`):
-
-| Command                                 | Checks                                                                                                                                                                                                                                                                                                                                                        |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `run-tests repo`                        | `hive.nix` nodes, `profiles/` and the `build.yaml` build matrix agree; `devenv.yaml` uses the npins nixpkgs; every module file is imported; every `customPkgs/` package instantiates; nixbook-shell `lib.nix` unit tests; `nixbook-shell/` evaluates on its own (copied alone to the store)                                                                   |
-| `run-tests shell`                       | nixbook-shell scripts (`nixbook-shell/tests/scripts.sh`): `config-merge.jq` output round-trips through Nix, `nixbook-shell config` commands, `assistant-facts.py`, app colours, background widget placement (`least_busy_region.py` and its cache); the desktop control MCP server, the Electron apps' bridge, jellyfin-mcp and the other nixbook-shell tests |
-| `run-tests iso`                         | the installer ISO evaluates                                                                                                                                                                                                                                                                                                                                   |
-| `run-tests docs`                        | `docs/MODULES.md` documents the current options (run `generate-docs` if not)                                                                                                                                                                                                                                                                                  |
-| `run-tests host <name> [--all-modules]` | the machine evaluates exactly as `colmena build` would, keeps its invariants (`tests/hosts.nix`: hardening sysctls, boot editor off, deployment settings, state version, …) and its generated config files build                                                                                                                                              |
-| `run-tests all`                         | all of the above, for every machine                                                                                                                                                                                                                                                                                                                           |
-
-`--all-modules` evaluates a machine with every optional `customNixOSModules` toggle forced on, so modules no profile enables are still evaluated. `host` needs an `/etc/nixos/hardware-configuration.nix`; on a machine without one (e.g. a CI runner), install the stub: `sudo install -D -m 644 tests/hardware-stub.nix /etc/nixos/hardware-configuration.nix`.
-
-The profile builds themselves only build the machines a change touches: `tests/changed-hosts.sh BASE` compares every machine's system derivation (`tests/drv-paths.nix`) with the base commit's and prints the ones that differ, and `build.yaml`'s other legs pass without building (a pin only one machine uses, docs-only changes, …).
-
-## 🐧 Using Home Manager on Non-NixOS Distributions
-
-Nixbook's Home Manager modules can be used on any Linux distribution (Ubuntu, Fedora, Arch, etc.) to manage your user-level configurations declaratively. This allows you to replicate your Nix-based dotfiles environment without installing NixOS.
-
-### Prerequisites
-
-1. **Install Nix** on your system:
-
-   ```bash
-   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
-   ```
-
-2. **Install Home Manager** (standalone mode, no flakes required):
-
-   ```bash
-   nix-shell '<home-manager>' -A install
-   ```
-
-### Import Nixbook Home Manager Config (Without Flakes)
-
-#### Setup
-
-Clone the Nixbook repository and set up Home Manager configuration:
-
-```bash
-# Clone the nixbook repository
-git clone https://github.com/didactiklabs/nixbook ~/.config/nixbook
-
-# Create Home Manager config directory
-mkdir -p ~/.config/home-manager
-```
-
-#### Create Your Home Manager Configuration
-
-Create `~/.config/home-manager/home.nix`:
-
-```nix
-{ config, pkgs, ... }:
-
-let
-  nixbookPath = /home/khoa/.config/nixbook;  # Change 'khoa' to your username
-in
-{
-  home.username = "khoa";  # Change to your username
-  home.homeDirectory = "/home/khoa";  # Change to your home directory
-  home.stateVersion = "24.05";  # Match your Home Manager version
-
-  # Import Nixbook's Home Manager modules
-  imports = [
-    (import "${nixbookPath}/homeManagerModules/entrypoint.nix")
-  ];
-
-  # Optional: Override or add custom configurations
-  # home.packages = with pkgs; [ ... ];
-}
-```
-
-#### Import Specific Modules (Instead of All)
-
-If you prefer to cherry-pick modules instead of importing everything:
-
-```nix
-{ config, pkgs, ... }:
-
-let
-  nixbookPath = /home/khoa/.config/nixbook;
-in
-{
-  home.username = "khoa";
-  home.homeDirectory = "/home/khoa";
-  home.stateVersion = "24.05";
-
-  # Import only specific modules
-  imports = [
-    "${nixbookPath}/homeManagerModules/zshConfig.nix"
-    "${nixbookPath}/homeManagerModules/kittyConfig.nix"
-    "${nixbookPath}/homeManagerModules/starshipConfig.nix"
-    "${nixbookPath}/homeManagerModules/gitConfig.nix"
-    "${nixbookPath}/homeManagerModules/nixvim"
-  ];
-
-  # Modules that install nixbook's own packages use `pkgs.customPkgs.*`
-  # (entrypoint.nix adds this overlay itself).
-  nixpkgs.overlays = [ (import "${nixbookPath}/customPkgs") ];
-}
-```
-
-#### Enable Home Manager
-
-Install and enable Home Manager (standalone, one-time setup):
-
-```bash
-nix-shell '<home-manager>' -A install
-```
-
-### Activating Your Home Manager Configuration
-
-```bash
-# Activate the configuration
-home-manager switch
-
-# Or, switch with verbose output for debugging
-home-manager switch -v
-```
-
-#### First Activation
-
-On first activation, Home Manager may ask about replacing existing dotfiles. You can:
-
-```bash
-# Let Home Manager manage the files
-home-manager switch
-
-# Or, see what changes it would make first
-home-manager build
-```
-
----
-
-**Screenshots**
-
-Niri:
-
-<img src="./assets/images/screenshot.png" alt="Niri configuration" width="500">
-
-Headless sunshine/moonlight (remote desktop) v1:
-
-<img src="./assets/images/screenshot-demo-sunshine.png" alt="Sunshine/moonlight v1" width="500">
-
-Headless sunshine/moonlight (remote desktop) v2 with Windows:
-
-<img src="./assets/images/screenshot-demo-sunshine-windows.png" alt="Sunshine/moonlight v2 Windows" width="500">
+<img src="./assets/screenshots/lockscreen.webp" alt="Lock screen" width="100%">
