@@ -168,7 +168,58 @@ Scope {
                     id: row
                     anchors.centerIn: parent
                     spacing: 14
+                    // Head pats: a hand pats the receiver's own picture (a
+                    // private one; one to everyone pats a face), squashing it
+                    // on each pat.
                     Item {
+                        id: pet
+                        visible: root.current?.quick === "pet"
+                        implicitWidth: 96
+                        implicitHeight: 96
+                        readonly property bool toMe: (root.current?.to ?? "") !== ""
+                        // 0 → 1 → 0 per pat, about three a second.
+                        property real press: 0
+                        SequentialAnimation on press {
+                            running: window.visible && pet.visible
+                            loops: Animation.Infinite
+                            NumberAnimation { from: 0; to: 1; duration: 140; easing.type: Easing.InQuad }
+                            NumberAnimation { from: 1; to: 0; duration: 200; easing.type: Easing.OutBack; easing.overshoot: 2 }
+                        }
+                        Item {
+                            id: patted
+                            width: 72
+                            height: 72
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.bottom: parent.bottom
+                            transform: Scale {
+                                origin.x: patted.width / 2
+                                origin.y: patted.height
+                                xScale: 1 + 0.14 * pet.press
+                                yScale: 1 - 0.24 * pet.press
+                            }
+                            MeshAvatar {
+                                visible: pet.toMe
+                                anchors.fill: parent
+                                size: 72
+                                memberId: Mesh.me
+                            }
+                            StyledText {
+                                visible: !pet.toMe
+                                anchors.centerIn: parent
+                                text: "🥰"
+                                font.pixelSize: 60
+                            }
+                        }
+                        StyledText {
+                            text: "🫳"
+                            font.pixelSize: 54
+                            x: 18 + 4 * pet.press
+                            y: -6 + 16 * pet.press
+                            rotation: -12 + 10 * pet.press
+                        }
+                    }
+                    Item {
+                        visible: root.current?.quick !== "pet"
                         implicitWidth: 76
                         implicitHeight: 76
                         MeshAvatar {
@@ -207,7 +258,9 @@ Scope {
                         }
                         StyledText {
                             Layout.maximumWidth: 320
-                            text: root.nudge?.text ?? (root.current?.text ?? "")
+                            text: root.current?.quick === "pet"
+                                ? ((root.current?.to ?? "") !== "" ? Translation.tr("Head pats for you") : Translation.tr("Head pats for everyone"))
+                                : root.nudge?.text ?? (root.current?.text ?? "")
                             font.pixelSize: Appearance.font.pixelSize.hugeass + 4
                             font.weight: Font.Bold
                             wrapMode: Text.Wrap
