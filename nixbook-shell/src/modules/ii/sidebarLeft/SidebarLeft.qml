@@ -482,12 +482,16 @@ Scope { // Scope
                 }
                 x: Appearance.sizes.gapsOut - (!sidebarOpen ? width : 0)
 
+                // On the panel itself, not on the item on top below: hover goes
+                // to the topmost item under the pointer and its ancestors, so a
+                // HoverHandler on a covering item took it from every HoverHandler
+                // inside (the Mesh tab's message buttons never showed).
+                HoverHandler { id: peekHover }
                 // On top of everything inside: a widget's own MouseArea would keep the
                 // press from a handler on the panel itself.
                 Item {
                     anchors.fill: parent
                     z: 1000
-                    HoverHandler { id: peekHover }
                     PointHandler {
                         acceptedButtons: Qt.AllButtons
                         onActiveChanged: if (active) panelWindow.peekUsed = true
