@@ -203,6 +203,26 @@ Item {
                     color: Appearance.colors.colSubtext
                 }
             }
+            // Listening together: share what plays here.
+            RippleButton {
+                visible: !MeshListen.hostingIn(root.conv) && !MeshListen.sessionIn(root.conv)
+                implicitWidth: 32
+                implicitHeight: 32
+                buttonRadius: Appearance.rounding.full
+                onClicked: MeshListen.notice = MeshListen.start(root.conv)
+                contentItem: MaterialSymbol {
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "headphones"
+                    iconSize: Appearance.font.pixelSize.larger
+                    color: MeshListen.canShare ? Appearance.colors.colOnLayer1 : Appearance.colors.colSubtext
+                }
+                StyledToolTip {
+                    text: MeshListen.canShare
+                        ? Translation.tr("Listen together: share what your %1 plays with %2; they can listen along")
+                            .arg(MeshListen.serviceName(MeshListen.serviceOf(MeshListen.shareablePlayer()))).arg(Mesh.nameOf(root.conv))
+                        : Translation.tr("Listen together: play something in YouTube Music or Spotify, then share it here")
+                }
+            }
             MaterialSymbol {
                 visible: !Mesh.connected
                 text: "cloud_off"
@@ -246,6 +266,11 @@ Item {
             text: Mesh.lastError || Translation.tr("Not connected to the mesh's server: messages wait here until it is back.")
             font.pixelSize: Appearance.font.pixelSize.smaller
             color: Appearance.m3colors.m3error
+        }
+
+        MeshListenBar {
+            Layout.fillWidth: true
+            conv: root.conv
         }
 
         // The messages.
