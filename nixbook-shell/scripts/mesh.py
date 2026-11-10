@@ -301,7 +301,7 @@ def http_error(e):
         if e.code == 401:
             return "the server refused the access token (401)"
         if e.code == 403:
-            return "the token isn't allowed on the mesh's topic (403): the server's ACL needs mesh-* for this user"
+            return "this account can't use the mesh (403): ask the server's admin to invite you"
         if e.code == 429:
             return "too many requests (429): try again in a minute"
         return f"the server answered {e.code}"
@@ -652,12 +652,13 @@ def cmd_listen(args):
                         write_position(cursor, seen)
         except urllib.error.HTTPError as e:
             out({"event": "status", "connected": False, "error": http_error(e)})
-            # Refused: not going to change on its own, so wait longer.
-            delay = 300 if e.code in (401, 403) else delay
+            # Refused: it changes when the server's admin does something, so
+            # a minute, not the quick retries of a network error.
+            delay = 60 if e.code in (401, 403) else delay
         except (urllib.error.URLError, OSError, socket.timeout) as e:
             out({"event": "status", "connected": False, "error": http_error(e)})
         time.sleep(delay)
-        delay = 300 if delay >= 300 else min(delay * 2, 60)
+        delay = min(delay * 2, 60)
 
 
 def main():

@@ -5,10 +5,12 @@ The mesh lets a few people talk desktop to desktop over the internet: messages t
 ## What it does
 
 - **Messages** to everyone, or to one person. They are written in the right sidebar's **Mesh** tab (Mod+N), which lists the conversations (Everyone, then each person), with quick messages ("❤️", "Thinking of you", "On my way"…, `mesh.quickMessages`).
-- **Status**: free, in a meeting, gaming, busy (a fullscreen window), do not disturb, away (locked, screens off). It never says which app or window. It is sent when it changes, and again every 10 minutes; someone not heard from for 25 minutes shows as offline.
+- **Status**: free, in a meeting, gaming, busy (a fullscreen window), do not disturb, away (locked, screens off). It never says which app or window. It is sent when it changes, and again every 10 minutes; someone not heard from for 25 minutes shows as offline. How the others see you shows at the top of the Mesh tab ("You (Khoa): Free") and first in the bar widget's hover list. In order: not shared (the switch is off), away, do not disturb, in a meeting (a timed calendar event now), gaming (a Steam game or gamescope focused), busy (a fullscreen window), free.
 - **Read receipts** in a conversation with one person ("seen").
 - **Notifications**: each message arrives as a notification named after its sender, with **Reply**, which opens the conversation. On nixbook, a message to you alone gets the Persona cut-in, and every mesh message stays on screen like other chats (`hint:"nixbook-mesh-direct"`, `nixbook-mesh` in the notification rules).
 - **The bar's mesh widget**: how many people are around, and unread messages. Hovering it lists everyone's status; a click opens the conversation that has something new.
+
+**History**: each desktop keeps its last 500 messages (`~/.local/state/quickshell/user/mesh-conversation.json`): scroll up in a conversation. The server keeps messages 72 hours, so a desktop that was off catches up; one that joins gets the last 24 hours. Two computers of the same person don't share their history.
 
 Messages written while the computer was off arrive when it comes back (the server keeps them 72 hours). Messages older than two hours then count as unread, without a notification each.
 

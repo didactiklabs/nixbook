@@ -243,6 +243,9 @@ Singleton {
                 } catch (e) {}
                 if (proc.kind === "message" && proc.mid !== "")
                     root._setStatus(proc.mid, code === 0 && answer?.ok ? "sent" : "failed");
+                // The server took it but the listener says it's cut off (a
+                // refusal it waits a minute after): listen again now.
+                if (code === 0 && answer?.ok && !root.connected) root._kick();
                 if (code !== 0 && answer?.error) root.lastError = answer.error;
                 proc.destroy();
             }
@@ -263,6 +266,9 @@ Singleton {
         if (mon !== "" && WM.fullscreenOnMonitor(mon)) return "busy";
         return "free";
     }
+    // How the others see you.
+    readonly property string myStateText: root.myState === "hidden" ? Translation.tr("Not shared")
+        : root.stateText(root.myState)
     property string _sentState: ""
     property real _sentAt: 0
     onMyStateChanged: presenceDebounce.restart()
@@ -310,10 +316,20 @@ Singleton {
             if (root.configured && root.enabled) restartListener.start();
         }
     }
+    property bool _kicked: false
+    function _kick() {
+        if (!listener.running) {
+            restartListener.restart();
+            return;
+        }
+        root._kicked = true;
+        listener.running = false;
+    }
     Timer {
         id: restartListener
-        interval: 15000
+        interval: root._kicked ? 500 : 15000
         onTriggered: {
+            root._kicked = false;
             if (root.configured && root.enabled && !listener.running) listener.running = true;
         }
     }
