@@ -2240,8 +2240,13 @@ def shelf_item(jf, it, wide):
         choices = [(it.get("SeriesId"), "Primary", it.get("SeriesPrimaryImageTag")) if kind == "Episode" else (None, None, None),
                    (it.get("Id"), "Primary", tags.get("Primary"))]
     image = next(((i, k, t) for i, k, t in choices if i and t), None)
-    return {"id": it.get("Id"), "title": title, "subtitle": subtitle, "kind": TYPE_OUT.get(kind, kind.lower()),
+    out_ = {"id": it.get("Id"), "title": title, "subtitle": subtitle, "kind": TYPE_OUT.get(kind, kind.lower()),
             "progress": round(float(ud.get("PlayedPercentage") or 0)), "image": image}
+    # A series' episodes can be picked (`episodes`): an episode says its series.
+    series = it.get("Id") if kind == "Series" else it.get("SeriesId") if kind == "Episode" else ""
+    if series:
+        out_["seriesId"] = series
+    return out_
 
 
 def cli_shelf(args):
@@ -2277,6 +2282,36 @@ def cli_shelf(args):
     out({"ok": True, "upNext": up[:limit], "recent": recent})
 
 
+def cli_episodes(args):
+    """`episodes ID` (a series, or one of its episodes): {ok, series,
+    nextUp (the episode to watch next), seasons: [{number, name, episodes:
+    [{id, number, name, played, progress}]}]}."""
+    if len(args) != 1 or not re.match(r"^[\w-]{1,64}$", args[0]):
+        out({"ok": False, "error": "usage: episodes ID"}, 2)
+    jf = listen_client()
+    try:
+        it = jf.item(args[0])
+        series_id = it.get("Id") if it.get("Type") == "Series" else it.get("SeriesId")
+        if not series_id:
+            out({"ok": False, "error": f"{title_of(it)} isn't a series"}, 1)
+        eps = jf.episodes(series_id)
+        nxt = jf.next_up(1, series_id)
+    except JfError as exc:
+        out({"ok": False, "error": jf.hide(exc)}, 1)
+    seasons = {}
+    for e in eps:
+        n = e.get("ParentIndexNumber")
+        n = n if isinstance(n, int) else 0
+        s = seasons.setdefault(n, {"number": n, "name": e.get("SeasonName") or (f"Season {n}" if n else "Specials"),
+                                   "episodes": []})
+        ud = e.get("UserData") or {}
+        s["episodes"].append({"id": e.get("Id"), "number": e.get("IndexNumber"), "name": e.get("Name") or "",
+                              "played": bool(ud.get("Played")), "progress": round(float(ud.get("PlayedPercentage") or 0))})
+    name = it.get("SeriesName") if it.get("Type") == "Episode" else it.get("Name")
+    out({"ok": True, "series": name or "", "seriesId": series_id, "nextUp": nxt[0].get("Id") if nxt else "",
+         "seasons": [seasons[k] for k in sorted(seasons, key=lambda k: (k == 0, k))]})
+
+
 def cli_play_id(args):
     if len(args) != 1 or not re.match(r"^[\w-]{1,64}$", args[0]):
         out({"ok": False, "error": "usage: play-id ID"}, 2)
@@ -2296,6 +2331,8 @@ def main():
         cli_shelf(args[1:])
     if args[:1] == ["play-id"]:
         cli_play_id(args[1:])
+    if args[:1] == ["episodes"]:
+        cli_episodes(args[1:])
     if len(args) == 2 and args[0] == "listen-info":
         listen_info(args[1])
     if args == ["listen-play"]:
@@ -2322,7 +2359,7 @@ def main():
         print(VERSION)
         return
     sys.stderr.write("usage: jellyfin-mcp [serve] | configured | play-query TEXT | credentials … | shim-login|shim-status|shim-logout"
-                     " | listen-info ID | listen-play | shelf | play-id ID\n")
+                     " | listen-info ID | listen-play | shelf | play-id ID | episodes ID\n")
     sys.exit(2)
 
 

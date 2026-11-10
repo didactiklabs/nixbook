@@ -77,6 +77,12 @@ Singleton {
         });
     }
 
+    // A series' seasons and episodes (`jellyfin-mcp episodes ID`, a series
+    // or one of its episodes); then(ok, answer).
+    function episodes(id, then) {
+        root.run(["episodes", id], "", then);
+    }
+
     // `jellyfin-mcp ARGS`, `input` on stdin; then(ok, answer).
     function run(args, input, then) {
         if (!root.available) {
