@@ -15,6 +15,17 @@ MaterialShape { // App icon
     property var image: ""
     property bool imageFailed: false
     onImageChanged: imageFailed = false
+    // The app icon to draw: a file, or a theme icon that exists. An icon
+    // name the theme doesn't have (a Material Symbols name such as
+    // "palette", a typo) used to draw the missing-icon checkerboard; it
+    // gets the symbol guessed from the summary instead.
+    readonly property string appIconSource: {
+        const icon = `${root.appIcon ?? ""}`;
+        if (icon === "") return "";
+        if (icon.startsWith("/")) return `file://${icon}`;
+        if (/^(file|image|qrc):/.test(icon)) return icon;
+        return Quickshell.iconPath(icon, true);
+    }
     property real materialIconScale: 0.57
     property real appIconScale: 0.8
     property real smallAppIconScale: 0.49
@@ -32,7 +43,7 @@ MaterialShape { // App icon
     color: isUrgent ? Appearance.colors.colPrimaryContainer : Appearance.colors.colSecondaryContainer
     Loader {
         id: materialSymbolLoader
-        active: root.appIcon == ""
+        active: root.appIconSource === ""
         anchors.fill: parent
         sourceComponent: MaterialSymbol {
             text: {
@@ -50,13 +61,13 @@ MaterialShape { // App icon
     }
     Loader {
         id: appIconLoader
-        active: (root.image == "" || root.imageFailed) && root.appIcon != ""
+        active: (root.image == "" || root.imageFailed) && root.appIconSource !== ""
         anchors.centerIn: parent
         sourceComponent: IconImage {
             id: appIconImage
             implicitSize: root.appIconSize
             asynchronous: true
-            source: Quickshell.iconPath(root.appIcon, "image-missing")
+            source: root.appIconSource
         }
     }
     Loader {
@@ -95,13 +106,13 @@ MaterialShape { // App icon
             }
             Loader {
                 id: notifImageAppIconLoader
-                active: root.appIcon != ""
+                active: root.appIconSource !== ""
                 anchors.bottom: parent.bottom
                 anchors.right: parent.right
                 sourceComponent: IconImage {
                     implicitSize: root.smallAppIconSize
                     asynchronous: true
-                    source: Quickshell.iconPath(root.appIcon, "image-missing")
+                    source: root.appIconSource
                 }
             }
         }

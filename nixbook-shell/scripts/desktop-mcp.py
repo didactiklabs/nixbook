@@ -7771,7 +7771,8 @@ class HabitRecorder:
 
 
 def habits_notify(title, body, icon, action=None):
-    """A notification; with an action, its label: True once clicked (waits
+    """A notification (icon: a freedesktop icon name, not a Material
+    Symbols one: those draw as the missing icon); with an action, its label: True once clicked (waits
     for it, so call it in a thread)."""
     if not shutil.which("notify-send"):
         return False
@@ -7801,7 +7802,7 @@ def habits_jobs(cfg, rec, data, now):
         marks["report"] = week
         report = week_report(data, now)
         threading.Thread(target=habits_notify, daemon=True,
-                         args=("Your week on this computer", report, "data_usage")).start()
+                         args=("Your week on this computer", report, "office-chart-bar")).start()
 
     mode = cfg.get("habitsTheme", "suggest")
     hint = theme_hint(data, now) if mode in ("suggest", "auto") and rec.span else None
@@ -7812,7 +7813,7 @@ def habits_jobs(cfg, rec, data, now):
 
         def switch(ask):
             if not ask or habits_notify(f"Switch to {label}?",
-                                        "You usually switch to it around this time.", "palette", "Switch"):
+                                        "You usually switch to it around this time.", "preferences-desktop-theme", "Switch"):
                 try:
                     qs_ipc("call", "--", "theme", "set", theme, variant)
                 except ToolError as e:
@@ -7822,7 +7823,7 @@ def habits_jobs(cfg, rec, data, now):
                     rec.theme = hint
                     if not ask:
                         habits_notify(f"Switched to {label}", "As you usually do around this time "
-                                      "(Settings > Desktop agents > Usage habits).", "palette")
+                                      "(Settings > Desktop agents > Usage habits).", "preferences-desktop-theme")
         threading.Thread(target=switch, args=(mode == "suggest",), daemon=True).start()
 
     opened = dict(sent.get("open") or {})
@@ -7836,7 +7837,7 @@ def habits_jobs(cfg, rec, data, now):
         rec.own_opens[app] = now + 20
         try:
             run(["niri", "msg", "action", "spawn", "--", *exec_argv(entry)])
-            habits_notify(f"Opened {entry.get('Name') or app}", "You usually open it around this time.", "schedule")
+            habits_notify(f"Opened {entry.get('Name') or app}", "You usually open it around this time.", "chronometer")
         except ToolError as e:
             log(f"habits: open {app}: {e}")
     if opened != (sent.get("open") or {}):
