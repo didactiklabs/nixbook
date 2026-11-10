@@ -99,6 +99,10 @@ Singleton {
     // bytes (0: not known), and how long it keeps one (seconds).
     property real maxFileBytes: 0
     property real fileExpiry: 0
+    // Received files up to this size download by themselves; bigger ones
+    // wait for a click (Download), the server keeping them (a year on
+    // nixbook's).
+    readonly property real autoFetchBytes: 250e6
 
     property real now: Date.now()
     readonly property int staleMs: 25 * 60 * 1000
@@ -410,6 +414,17 @@ Singleton {
         if (n < 1e9) return Translation.tr("%1 MB").arg((n / 1e6).toFixed(1));
         return Translation.tr("%1 GB").arg((n / 1e9).toFixed(1));
     }
+    // "3 days", "1 year": how long the server keeps files.
+    function durationText(seconds) {
+        const d = Math.round(seconds / 86400);
+        if (seconds < 2 * 86400) return Translation.tr("%1 h").arg(Math.round(seconds / 3600));
+        if (d >= 360) return d >= 720 ? Translation.tr("%1 years").arg(Math.round(d / 365)) : Translation.tr("a year");
+        return Translation.tr("%1 days").arg(d);
+    }
+    // One of the mesh's own copies (not a file shown from where it was sent).
+    function isMeshCopy(file) {
+        return /\/nixbook-shell\/mesh\/files\/[0-9a-f]{32}\/[^/]+$/.test(file?.path ?? "");
+    }
     function refreshLimits() {
         if (root.server === "" || !root.setup.token) return;
         root.run(["limits", root.server], "", (ok, answer) => {
@@ -642,8 +657,8 @@ Singleton {
         const list = [...root.messages, m].sort((a, b) => a.time - b.time).slice(-500);
         root.messages = list;
         root._saveSoon();
-        // At once: the server deletes files after a while (72 h on nixbook's).
-        if (file) root.fetchFile(mid);
+        // At once: the server deletes files after a while.
+        if (file && file.size <= root.autoFetchBytes) root.fetchFile(mid);
         if (m.mine) return;
         const conv = root.conversationOf(m);
         if (root.viewing && root.conversation === conv) {
@@ -654,7 +669,7 @@ Singleton {
         // pile of notifications.
         if (Date.now() - time < 2 * 3600 * 1000 && (Config.options?.mesh?.notify ?? true)) {
             // An image: once here, so the notification shows it.
-            if (file && /^image\//.test(file.mime)) root._update(mid, { notifyWhenFetched: true });
+            if (file && /^image\//.test(file.mime) && file.size <= root.autoFetchBytes) root._update(mid, { notifyWhenFetched: true });
             else root._notify(m);
         }
     }
@@ -825,7 +840,7 @@ Singleton {
         root._filesResumed = true;
         root.run(["prune"], JSON.stringify({ keep: root.messages.map(m => m.file?.sha ?? "").filter(s => s !== "") }));
         for (const m of root.messages)
-            if (root._needsFetch(m) && !m.file.error) root.fetchFile(m.mid);
+            if (root._needsFetch(m) && !m.file.error && m.file.size <= root.autoFetchBytes) root.fetchFile(m.mid);
     }
     function _save() {
         saveTimer.stop();

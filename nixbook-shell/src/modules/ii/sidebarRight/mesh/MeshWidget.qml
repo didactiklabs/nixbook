@@ -431,7 +431,7 @@ Item {
                 StyledToolTip {
                     text: {
                         const limit = Mesh.maxFileBytes > 0 ? Translation.tr(" (up to %1)").arg(Mesh.sizeText(Mesh.maxFileBytes)) : "";
-                        const kept = Mesh.fileExpiry > 0 ? Translation.tr("\nThe server keeps it %1 h, encrypted").arg(Math.round(Mesh.fileExpiry / 3600)) : "";
+                        const kept = Mesh.fileExpiry > 0 ? Translation.tr("\nThe server keeps it %1, encrypted").arg(Mesh.durationText(Mesh.fileExpiry)) : "";
                         return Translation.tr("Send files%1: pick them, drop them here, or paste a copied image (Ctrl+V)").arg(limit) + kept;
                     }
                 }

@@ -11,9 +11,9 @@ The mesh lets a few people talk desktop to desktop over the internet: messages t
 - **Notifications**: each message arrives as a notification named after its sender, with **Reply**, which opens the conversation. On nixbook, a message to you alone gets the Persona cut-in, and every mesh message stays on screen like other chats (`hint:"nixbook-mesh-direct"`, `nixbook-mesh` in the notification rules).
 - **The bar's mesh widget**: how many people are around, and unread messages. Hovering it lists everyone's status; a click opens the conversation that has something new.
 
-**History**: each desktop keeps its last 500 messages (`~/.local/state/quickshell/user/mesh-conversation.json`): scroll up in a conversation. The server keeps messages 3 months, so a desktop that was off catches up, and one that joins (or is reinstalled) gets the conversation so far, without others' private messages. Status updates older than 30 minutes are skipped when catching up. Two computers of the same person don't share their history.
+**History**: each desktop keeps its last 500 messages (`~/.local/state/quickshell/user/mesh-conversation.json`): scroll up in a conversation. The server keeps messages a year, so a desktop that was off catches up, and one that joins (or is reinstalled) gets the conversation so far, without others' private messages. Status updates older than 30 minutes are skipped when catching up. Two computers of the same person don't share their history.
 
-Messages written while the computer was off arrive when it comes back (the server keeps them 3 months: `cache-duration` in `../atlas`). Messages older than two hours then count as unread, without a notification each.
+Messages written while the computer was off arrive when it comes back (the server keeps them a year: `cache-duration` in `../atlas`). Messages older than two hours then count as unread, without a notification each.
 
 ## Files
 
@@ -23,7 +23,8 @@ Send files with the **clip button** beside the field (several at once), by **dro
 - **Other files** show as a card with their name and size, **Open** (with their app; a file that could run something, a script or a program, opens its folder instead) and **Save** (a copy in Downloads).
 - While a file moves, its card shows how far it is. A failed send says why (click the message to try again); a failed download says why (click to retry).
 - **Size**: the server decides. Hover the clip button to see its limit (on nixbook: `attachment-file-size-limit` in `../atlas`, `clusters/production/ntfy/cm.yaml`).
-- **How long**: the server deletes files after a while (72 h on nixbook's, `attachment-expiry-duration`), so each desktop downloads a file as soon as its message arrives and keeps it with the conversation (`~/.local/share/nixbook-shell/mesh/files/`; files of messages no longer kept are deleted). A computer that was off for longer than that finds the message, and a card saying the file is no longer on the server.
+- **How long**: the server keeps files a year on nixbook's (`attachment-expiry-duration`; messages too, `cache-duration`), up to 10 GB each and 50 GB in all, then deletes them. Each desktop downloads a file up to 250 MB as soon as its message arrives and keeps it with the conversation (`~/.local/share/nixbook-shell/mesh/files/`; files of messages no longer kept are deleted); a bigger one shows **Download**, with the date it stays on the server until. A file gone from the server shows a card saying so.
+- **Your own big files**: the sender keeps a copy of what it sends up to 250 MB; a bigger file is shown from where you picked it (moving or deleting it there breaks its preview on your side only).
 - A notification for an image shows the image.
 
 A file is encrypted on your computer before it leaves (AES-256-GCM, with a key of its own) and uploaded as an ntfy attachment under a random name; its key travels inside the message, sealed like any other: for everyone in the mesh, or for one person alone in a private conversation. The server stores ciphertext only, and the downloaded file is checked against the hash the sender gave. A desktop only downloads from its own mesh server's attachments: a message can't make it fetch anything else.

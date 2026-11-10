@@ -814,9 +814,10 @@ def publish(server, token, key, kind, to, data, mid, name, readers):
 # on the server, its key and what it is travel in the message, which is
 # sealed like any other (for its recipient alone when private): the server
 # keeps ciphertext under a random name. ntfy deletes attachments after a
-# while (72 h on nixbook's server), so the shell downloads each file as soon
-# as its message arrives (`fetch`), into $XDG_DATA_HOME/nixbook-shell/mesh/
-# files/<sha256>/<name>; the sender keeps a copy there too. How big a file
+# while (a year on nixbook's server), so the shell downloads each file up to
+# 250 MB as soon as its message arrives (`fetch`; bigger ones on a click),
+# into $XDG_DATA_HOME/nixbook-shell/mesh/files/<sha256>/<name>; the sender
+# keeps a copy there too (up to COPY_MAX). How big a file
 # may be is the server's to say (`limits`: /v1/account).
 
 CHUNK = 1 << 20
@@ -824,6 +825,14 @@ FILE_PATH_RE = re.compile(r"^/file/[A-Za-z0-9]{1,32}(\.[A-Za-z0-9]{1,8})?$")
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
 DIR_RE = re.compile(r"^[0-9a-f]{32}$")
 TAG = 16
+# The sender keeps a copy of what it sends, up to this size (bytes): a
+# bigger file is shown from where it was picked, not doubled on the disk.
+COPY_MAX = int(os.environ.get("NIXBOOK_MESH_COPY_MAX") or 250 * 1000 * 1000)
+
+
+class NoCopy:
+    def write(self, _data):
+        pass
 
 
 def files_dir():
@@ -1000,8 +1009,11 @@ def cmd_sendfile(args):
     fdir = files_dir()
     private_file(fdir)
     tmp = fdir / f".send.{os.getpid()}.tmp"
+    keep_copy = size <= COPY_MAX
     try:
-        with open(path, "rb") as src, open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "wb") as copy:
+        with open(path, "rb") as src, \
+                (open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "wb") if keep_copy
+                 else contextlib.nullcontext(NoCopy())) as copy:
             body = EncryptingReader(src, file_key, nonce, copy, Progress(size))
             req = urllib.request.Request(f"{server}/{files_topic_of(key)}", data=body, method="PUT")
             req.add_header("Authorization", f"Bearer {token}")
@@ -1019,9 +1031,12 @@ def cmd_sendfile(args):
         server_path = urllib.parse.urlparse(str(attachment.get("url") or "")).path
         if not FILE_PATH_RE.match(server_path):
             fail("the server didn't take the file (are attachments turned on there?)")
-        local = fdir / sha[:32] / safe_name(path.name)
-        private_file(local.parent)
-        os.replace(tmp, local)
+        if keep_copy:
+            local = fdir / sha[:32] / safe_name(path.name)
+            private_file(local.parent)
+            os.replace(tmp, local)
+        else:
+            local = path.resolve()
     finally:
         with contextlib.suppress(OSError):
             tmp.unlink()
@@ -1310,7 +1325,7 @@ def cmd_listen(args):
     seen_set = set(seen)
     while True:
         # Resume where the last connection stopped; the first time, all the
-        # server still has (3 months on nixbook's server).
+        # server still has (a year on nixbook's server).
         since = cursor or "all"
         url = f"{server}/{topic}/json?since={urllib.parse.quote(since)}"
         try:
