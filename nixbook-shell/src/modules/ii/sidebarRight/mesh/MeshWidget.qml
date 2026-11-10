@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import qs
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.common.functions
 import qs.services
 import QtQuick
 import QtQuick.Controls
@@ -10,7 +11,9 @@ import QtQuick.Layouts
 /**
  * The right sidebar's Mesh tab (services/Mesh.qml): the conversations
  * (everyone, then each member, with their status and unread count), the one
- * picked, quick messages and a field to write.
+ * picked, quick messages and a field to write. Files (the clip button, a
+ * drop, or Ctrl+V of a copied image or file) wait above the field and go
+ * when it is sent, the text with the first.
  */
 Item {
     id: root
@@ -18,8 +21,29 @@ Item {
     readonly property string conv: Mesh.conversation
     readonly property var shown: Mesh.messagesIn(root.conv)
 
+    // Files to send with the next message: [path].
+    property var pending: []
+    function attach(path) {
+        path = FileUtils.trimFileProtocol(`${path}`);
+        if (path !== "" && !root.pending.includes(path)) root.pending = [...root.pending, path];
+    }
     function send(text) {
+        if (root.pending.length > 0) {
+            if (Mesh.sendFiles(root.pending, text, root.conv)) {
+                root.pending = [];
+                input.text = "";
+            }
+            return;
+        }
         if (Mesh.sendText(text, root.conv)) input.text = "";
+    }
+
+    ChatAttacher {
+        id: attacher
+        pickFolder: Directories.home
+        pickFilter: ""
+        pickMultiple: true
+        onAttached: path => root.attach(path)
     }
 
     // Not set up yet.
@@ -269,7 +293,15 @@ Item {
                         anchors.leftMargin: 10
                         anchors.rightMargin: 10
                         spacing: 2
+                        MeshAttachment {
+                            visible: !!row.modelData.file
+                            message: row.modelData
+                            maxWidth: list.width * 0.82 - 20
+                            textColor: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
+                            subColor: row.mine ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colSubtext
+                        }
                         StyledText {
+                            visible: row.modelData.text !== ""
                             Layout.fillWidth: true
                             Layout.maximumWidth: list.width * 0.82 - 20
                             text: row.modelData.text
@@ -332,9 +364,78 @@ Item {
             }
         }
 
+        // The files that go with the next message.
+        Flow {
+            Layout.fillWidth: true
+            visible: root.pending.length > 0
+            spacing: 6
+            Repeater {
+                model: root.pending
+                delegate: Rectangle {
+                    id: pendingChip
+                    required property string modelData
+                    implicitHeight: 30
+                    implicitWidth: Math.min(list.width, pendingRow.implicitWidth + 16)
+                    radius: Appearance.rounding.full
+                    color: Appearance.colors.colSecondaryContainer
+                    RowLayout {
+                        id: pendingRow
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 4
+                        spacing: 4
+                        MaterialSymbol {
+                            text: /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(pendingChip.modelData) ? "image" : "attach_file"
+                            iconSize: Appearance.font.pixelSize.normal
+                            color: Appearance.colors.colOnSecondaryContainer
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: list.width - 70
+                            text: pendingChip.modelData.split("/").pop()
+                            elide: Text.ElideMiddle
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colOnSecondaryContainer
+                        }
+                        RippleButton {
+                            implicitWidth: 22
+                            implicitHeight: 22
+                            buttonRadius: Appearance.rounding.full
+                            onClicked: root.pending = root.pending.filter(p => p !== pendingChip.modelData)
+                            contentItem: MaterialSymbol {
+                                horizontalAlignment: Text.AlignHCenter
+                                text: "close"
+                                iconSize: Appearance.font.pixelSize.small
+                                color: Appearance.colors.colOnSecondaryContainer
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
+            RippleButton {
+                implicitWidth: 40
+                implicitHeight: 40
+                buttonRadius: Appearance.rounding.full
+                onClicked: attacher.pick()
+                contentItem: MaterialSymbol {
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "attach_file"
+                    iconSize: Appearance.font.pixelSize.larger
+                    color: Appearance.colors.colOnLayer1
+                }
+                StyledToolTip {
+                    text: {
+                        const limit = Mesh.maxFileBytes > 0 ? Translation.tr(" (up to %1)").arg(Mesh.sizeText(Mesh.maxFileBytes)) : "";
+                        const kept = Mesh.fileExpiry > 0 ? Translation.tr("\nThe server keeps it %1 h, encrypted").arg(Math.round(Mesh.fileExpiry / 3600)) : "";
+                        return Translation.tr("Send files%1: pick them, drop them here, or paste a copied image (Ctrl+V)").arg(limit) + kept;
+                    }
+                }
+            }
             MaterialTextField {
                 id: input
                 Layout.fillWidth: true
@@ -342,12 +443,21 @@ Item {
                     : Translation.tr("To %1…").arg(Mesh.nameOf(root.conv))
                 focus: Mesh.viewing
                 onAccepted: root.send(input.text)
+                Keys.onPressed: event => {
+                    if ((event.modifiers & Qt.ControlModifier) && !(event.modifiers & Qt.ShiftModifier) && event.key === Qt.Key_V) {
+                        // A copied image or file is attached, text pasted.
+                        event.accepted = attacher.paste(input);
+                    } else if (event.key === Qt.Key_Escape && root.pending.length > 0) {
+                        root.pending = [];
+                        event.accepted = true;
+                    }
+                }
             }
             RippleButton {
                 implicitWidth: 40
                 implicitHeight: 40
                 buttonRadius: Appearance.rounding.full
-                enabled: input.text.trim() !== ""
+                enabled: input.text.trim() !== "" || root.pending.length > 0
                 colBackground: Appearance.colors.colPrimary
                 onClicked: root.send(input.text)
                 contentItem: MaterialSymbol {
@@ -356,6 +466,44 @@ Item {
                     iconSize: Appearance.font.pixelSize.larger
                     color: Appearance.colors.colOnPrimary
                 }
+            }
+        }
+    }
+
+    // Files dropped on the tab: they wait above the field.
+    DropArea {
+        id: drop
+        anchors.fill: parent
+        enabled: Mesh.configured
+        onDropped: event => {
+            const urls = event.hasUrls ? event.urls.map(u => u.toString()).filter(u => u.startsWith("file://")) : [];
+            for (const u of urls) root.attach(decodeURIComponent(u));
+            if (urls.length > 0) {
+                event.acceptProposedAction();
+                input.forceActiveFocus();
+            }
+        }
+    }
+    Rectangle {
+        anchors.fill: parent
+        visible: drop.containsDrag
+        radius: Appearance.rounding.normal
+        color: ColorUtils.transparentize(Appearance.colors.colPrimaryContainer, 0.15)
+        border.width: 2
+        border.color: Appearance.colors.colPrimary
+        ColumnLayout {
+            anchors.centerIn: parent
+            spacing: 6
+            MaterialSymbol {
+                Layout.alignment: Qt.AlignHCenter
+                text: "upload_file"
+                iconSize: 40
+                color: Appearance.colors.colOnPrimaryContainer
+            }
+            StyledText {
+                Layout.alignment: Qt.AlignHCenter
+                text: Translation.tr("Drop to send to %1").arg(Mesh.nameOf(root.conv))
+                color: Appearance.colors.colOnPrimaryContainer
             }
         }
     }

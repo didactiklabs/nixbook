@@ -20,6 +20,11 @@ import QtQuick
  * access token (keyring), then create a mesh or enter a member's mesh code.
  * Members appear when they first say something or share their status.
  *
+ * Files (images and GIFs shown in the conversation, any other file as a
+ * card): encrypted and uploaded by `nixbook-mesh sendfile`, downloaded as
+ * soon as their message arrives (`fetch`: the server deletes them after a
+ * while) into ~/.local/share/nixbook-shell/mesh/files/.
+ *
  * The conversation is kept in ~/.local/state/quickshell/user/
  * mesh-conversation.json (the last 500 messages). Its view is the right sidebar's
  * Mesh tab; the bar's `mesh` widget shows who is around.
@@ -76,13 +81,24 @@ Singleton {
     // Everyone seen: { id: { id, name, state, seen (ms), readUpTo (ms) } }.
     property var members: ({})
     // The messages, oldest first: { mid, from, name, to, time (ms), text,
-    // mine, status: "sent" | "sending" | "failed" }.
+    // mine, status: "sent" | "sending" | "failed", file? }. A file: received
+    // and not yet downloaded { u, k, n, name, size, sha, mime, w, h, exp },
+    // downloaded { path, name, size, sha, mime, image, animated, w, h },
+    // being sent { source, name }; `expired` when it was gone from the
+    // server first, `error` when the download failed.
     property var messages: []
     // Read up to (ms), per conversation ("" = everyone, else a member's id).
     property var readAt: ({})
     // The conversation shown in the Mesh tab.
     property string conversation: ""
     readonly property bool viewing: GlobalStates.sidebarRightOpen && Persistent.states.sidebar.tab === "mesh"
+
+    // Files moving, by message: { mid: { done, total } } (not saved).
+    property var transfers: ({})
+    // What the server takes (`nixbook-mesh limits`): the largest file, in
+    // bytes (0: not known), and how long it keeps one (seconds).
+    property real maxFileBytes: 0
+    property real fileExpiry: 0
 
     property real now: Date.now()
     readonly property int staleMs: 25 * 60 * 1000
@@ -212,6 +228,204 @@ Singleton {
         root._send("message", { to: m.to, text: m.text, mid: mid });
         return true;
     }
+    // Files picked, dropped or pasted: one message each, the text with the
+    // first.
+    function sendFiles(paths, text, to) {
+        paths = (paths ?? []).map(p => FileUtils.trimFileProtocol(`${p}`)).filter(p => p !== "");
+        if (paths.length === 0 || !root.configured) return false;
+        const added = paths.map((path, i) => ({ mid: root._mid(), from: root.me, name: root.myName, to: to ?? "",
+            time: Date.now() + i, text: i === 0 ? (text ?? "").trim().slice(0, 1000) : "", mine: true, status: "sending",
+            file: { source: path, name: path.split("/").pop() } }));
+        root.messages = [...root.messages, ...added].slice(-500);
+        root._save();
+        for (const m of added) root._sendFile(m);
+        return true;
+    }
+    function _sendFile(m) {
+        fileSender.createObject(root, {
+            mid: m.mid,
+            payload: JSON.stringify({ path: m.file.source, to: m.to, text: m.text, mid: m.mid, name: root.myName }),
+            command: [root.bin, "sendfile", root.server]
+        });
+    }
+    function _progress(mid, line) {
+        root.transfers = Object.assign({}, root.transfers, { [mid]: { done: line.done ?? 0, total: line.total ?? 0 } });
+    }
+    function _doneMoving(mid) {
+        if (!(mid in root.transfers)) return;
+        const t = Object.assign({}, root.transfers);
+        delete t[mid];
+        root.transfers = t;
+    }
+    function _update(mid, fields) {
+        root.messages = root.messages.map(m => m.mid === mid ? Object.assign({}, m, fields) : m);
+        root._save();
+    }
+    function messageOf(mid) {
+        return root.messages.find(m => m.mid === mid) ?? null;
+    }
+    Component {
+        id: fileSender
+        Process {
+            id: proc
+            property string mid
+            property string payload
+            property var answer: null
+            stdinEnabled: true
+            stdout: SplitParser {
+                onRead: line => {
+                    let e = null;
+                    try {
+                        e = JSON.parse(line);
+                    } catch (err) {
+                        return;
+                    }
+                    if (e.event === "progress") root._progress(proc.mid, e);
+                    else proc.answer = e;
+                }
+            }
+            Component.onCompleted: proc.running = true
+            onRunningChanged: {
+                if (!proc.running) return;
+                proc.write(proc.payload + "\n");
+                proc.stdinEnabled = false;
+            }
+            onExited: code => {
+                root._doneMoving(proc.mid);
+                const m = root.messageOf(proc.mid);
+                if (m) {
+                    if (code === 0 && proc.answer?.ok)
+                        root._update(proc.mid, { status: "sent", error: "",
+                            file: Object.assign({ source: m.file?.source ?? "" }, proc.answer.file) });
+                    else
+                        root._update(proc.mid, { status: "failed",
+                            error: proc.answer?.error ?? Translation.tr("Couldn't run the mesh helper") });
+                }
+                if (code === 0 && proc.answer?.ok && !root.connected) root._kick();
+                proc.destroy();
+            }
+        }
+    }
+
+    // -- Files received -------------------------------------------------------------------
+
+    property var _fetchQueue: []
+    property int _fetching: 0
+    function _needsFetch(m) {
+        return !!(m?.file?.k && !m.file.path && !m.file.expired);
+    }
+    function fetchFile(mid) {
+        if (!root._fetchQueue.includes(mid)) root._fetchQueue = [...root._fetchQueue, mid];
+        root._nextFetch();
+    }
+    function _nextFetch() {
+        if (!root.configured) return;
+        while (root._fetching < 2 && root._fetchQueue.length > 0) {
+            const mid = root._fetchQueue[0];
+            root._fetchQueue = root._fetchQueue.slice(1);
+            const m = root.messageOf(mid);
+            if (!root._needsFetch(m) || mid in root.transfers) continue;
+            root._fetching++;
+            root._progress(mid, { done: 0, total: m.file.size ?? 0 });
+            fileFetcher.createObject(root, {
+                mid: mid,
+                payload: JSON.stringify({ file: m.file }),
+                command: [root.bin, "fetch", root.server]
+            });
+        }
+    }
+    Component {
+        id: fileFetcher
+        Process {
+            id: proc
+            property string mid
+            property string payload
+            property var answer: null
+            stdinEnabled: true
+            stdout: SplitParser {
+                onRead: line => {
+                    let e = null;
+                    try {
+                        e = JSON.parse(line);
+                    } catch (err) {
+                        return;
+                    }
+                    if (e.event === "progress") root._progress(proc.mid, e);
+                    else proc.answer = e;
+                }
+            }
+            Component.onCompleted: proc.running = true
+            onRunningChanged: {
+                if (!proc.running) return;
+                proc.write(proc.payload + "\n");
+                proc.stdinEnabled = false;
+            }
+            onExited: code => {
+                root._fetching--;
+                root._doneMoving(proc.mid);
+                const m = root.messageOf(proc.mid);
+                if (m) {
+                    if (code === 0 && proc.answer?.ok) {
+                        root._update(proc.mid, { file: proc.answer.file });
+                    } else if (proc.answer?.expired) {
+                        // Gone from the server: nothing more to try (its key goes).
+                        root._update(proc.mid, { file: { name: m.file.name, size: m.file.size, mime: m.file.mime,
+                            sha: m.file.sha, expired: true } });
+                    } else {
+                        root._update(proc.mid, { file: Object.assign({}, m.file,
+                            { error: proc.answer?.error ?? Translation.tr("Couldn't run the mesh helper") }) });
+                    }
+                    if (m.notifyWhenFetched) {
+                        root._update(proc.mid, { notifyWhenFetched: false });
+                        root._notify(root.messageOf(proc.mid));
+                    }
+                }
+                proc.destroy();
+                root._nextFetch();
+            }
+        }
+    }
+    // What is being sent, or arriving: { done, total } or null.
+    function transferOf(mid) {
+        return root.transfers[mid] ?? null;
+    }
+    // Opened with its app; a file that could run something (a script, a
+    // launcher, a program) shows its folder instead.
+    function openFile(file) {
+        if (!file?.path) return;
+        const risky = /\.(desktop|sh|bash|zsh|fish|py|pl|rb|run|bin|appimage|exe|msi|bat|cmd|com|jar|deb|rpm|flatpakref|so|ko)$/i;
+        AppLaunch.openUrl(risky.test(file.path) ? file.path.replace(/\/[^/]*$/, "") : file.path);
+    }
+    // A copy in Downloads; then(ok, path or error).
+    function saveFile(file, then) {
+        if (!file?.path) return;
+        root.run(["save"], JSON.stringify({ path: file.path }), (ok, answer) => {
+            if (then) then(ok, ok ? answer.path : (answer.error ?? ""));
+        });
+    }
+    function sizeText(bytes) {
+        const n = Number(bytes ?? 0);
+        if (n < 1000) return Translation.tr("%1 bytes").arg(n);
+        if (n < 1e6) return Translation.tr("%1 KB").arg(Math.round(n / 1000));
+        if (n < 1e9) return Translation.tr("%1 MB").arg((n / 1e6).toFixed(1));
+        return Translation.tr("%1 GB").arg((n / 1e9).toFixed(1));
+    }
+    function refreshLimits() {
+        if (root.server === "" || !root.setup.token) return;
+        root.run(["limits", root.server], "", (ok, answer) => {
+            if (!ok) return;
+            root.maxFileBytes = answer.maxFile ?? 0;
+            root.fileExpiry = answer.expiry ?? 0;
+        });
+    }
+    // A message's file, in a few words (notifications, previews).
+    function fileLabel(file) {
+        if (!file) return "";
+        if (file.image || /^image\//.test(file.mime ?? ""))
+            return /gif$/.test(file.mime ?? "") ? Translation.tr("🎞 GIF") : Translation.tr("🖼 Image");
+        return Translation.tr("📎 %1").arg(file.name ?? Translation.tr("File"));
+    }
+
     function _mid() {
         let s = "";
         for (let i = 0; i < 16; i++) s += Math.floor(Math.random() * 16).toString(16);
@@ -233,7 +447,8 @@ Singleton {
         const m = root.messages.find(x => x.mid === mid && x.mine);
         if (!m) return;
         root._setStatus(mid, "sending");
-        root._send("message", { to: m.to, text: m.text, mid: mid });
+        if (m.file?.source && !m.file.sha) root._sendFile(m);
+        else root._send("message", { to: m.to, text: m.text, mid: mid });
     }
 
     function _send(kind, data) {
@@ -297,7 +512,10 @@ Singleton {
     property string _sentState: ""
     property real _sentAt: 0
     onMyStateChanged: presenceDebounce.restart()
-    onConfiguredChanged: if (root.configured) presenceDebounce.restart()
+    onConfiguredChanged: if (root.configured) {
+        presenceDebounce.restart();
+        root._nextFetch();
+    }
     Timer {
         id: presenceDebounce
         // A short meeting gap, a brief lock: not worth telling.
@@ -405,7 +623,13 @@ Singleton {
     function _receive(e, time) {
         const mid = `${e.mid ?? ""}`;
         const text = `${e.data?.text ?? ""}`;
-        if (text === "") return;
+        const f = e.data?.file;
+        const file = f && typeof f === "object" ? {
+            u: `${f.u ?? ""}`, k: `${f.k ?? ""}`, n: `${f.n ?? ""}`, sha: `${f.sha ?? ""}`,
+            name: `${f.name ?? ""}`.slice(0, 200), size: Number(f.size ?? 0), mime: `${f.mime ?? ""}`.slice(0, 100),
+            w: Number(f.w ?? 0), h: Number(f.h ?? 0), exp: Number(f.exp ?? 0)
+        } : null;
+        if (text === "" && !file) return;
         // Mine, from this desktop: already here (now sent).
         const known = root.messages.find(m => m.mid === mid);
         if (known) {
@@ -414,9 +638,12 @@ Singleton {
         }
         const m = { mid: mid, from: e.from, name: e.name ?? "", to: e.to ?? "", time: time, text: text,
             mine: !!e.mine, status: "sent" };
+        if (file) m.file = file;
         const list = [...root.messages, m].sort((a, b) => a.time - b.time).slice(-500);
         root.messages = list;
         root._saveSoon();
+        // At once: the server deletes files after a while (72 h on nixbook's).
+        if (file) root.fetchFile(mid);
         if (m.mine) return;
         const conv = root.conversationOf(m);
         if (root.viewing && root.conversation === conv) {
@@ -425,17 +652,23 @@ Singleton {
         }
         // What was said while this desktop was off for long: unread, not a
         // pile of notifications.
-        if (Date.now() - time < 2 * 3600 * 1000 && (Config.options?.mesh?.notify ?? true)) root._notify(m);
+        if (Date.now() - time < 2 * 3600 * 1000 && (Config.options?.mesh?.notify ?? true)) {
+            // An image: once here, so the notification shows it.
+            if (file && /^image\//.test(file.mime)) root._update(mid, { notifyWhenFetched: true });
+            else root._notify(m);
+        }
     }
 
     function _notify(m) {
         const who = m.name || root.nameOf(m.from);
         const title = m.to === "" ? Translation.tr("%1 · to everyone").arg(who) : who;
+        const body = [root.fileLabel(m.file), m.text].filter(t => t).join("\n");
+        const image = m.file?.image && m.file?.path ? [`--hint=string:image-path:${m.file.path}`] : [];
         notifier.createObject(root, {
             conv: root.conversationOf(m),
-            command: ["notify-send", `--app-name=${who}`, "--icon=avatar-default",
+            command: ["notify-send", `--app-name=${who}`, "--icon=avatar-default", ...image,
                 `--hint=string:x-nixbook-mesh:${m.to === "" ? "nixbook-mesh-everyone" : "nixbook-mesh-direct"}`,
-                "--wait", `--action=reply=${Translation.tr("Reply")}`, "--", title, m.text]
+                "--wait", `--action=reply=${Translation.tr("Reply")}`, "--", title, body]
         });
     }
     Component {
@@ -467,6 +700,7 @@ Singleton {
             if (first) {
                 root.refreshAccount();
                 root.refreshKeys();
+                root._resumeFiles();
             }
             if (then) then(ok, answer);
         });
@@ -523,6 +757,7 @@ Singleton {
         }
         root.run(["test", root.server], "", (ok, answer) => {
             root.account = ok ? { user: answer.user, role: answer.role } : {};
+            if (ok) root.refreshLimits();
             if (ok && answer.role === "admin") root.refreshPeople();
             if (then) then(ok, answer);
         });
@@ -576,8 +811,21 @@ Singleton {
                 root.readAt = data.readAt ?? {};
                 // Still sending when the shell stopped: it may not have gone.
                 root.messages = root.messages.map(m => m.status === "sending" ? Object.assign({}, m, { status: "failed" }) : m);
+                root._storeRead = true;
+                root._resumeFiles();
             } catch (e) {}
         }
+    }
+    // Once the conversation and the setup are read: the files of messages
+    // no longer kept go, the ones not downloaded yet are fetched.
+    property bool _storeRead: false
+    property bool _filesResumed: false
+    function _resumeFiles() {
+        if (root._filesResumed || !root._storeRead || !root._loaded) return;
+        root._filesResumed = true;
+        root.run(["prune"], JSON.stringify({ keep: root.messages.map(m => m.file?.sha ?? "").filter(s => s !== "") }));
+        for (const m of root.messages)
+            if (root._needsFetch(m) && !m.file.error) root.fetchFile(m.mid);
     }
     function _save() {
         saveTimer.stop();
@@ -597,7 +845,7 @@ Singleton {
         onTriggered: root._save()
     }
 
-    // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|open|openConversation MEMBER`.
+    // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|sendFile PATH|sendFileTo MEMBER PATH|open|openConversation MEMBER`.
     // Denied to the desktop agents (desktop-mcp's shellIpcDenyTargets): they
     // would speak in the user's name.
     IpcHandler {
@@ -623,6 +871,13 @@ Singleton {
         }
         function sendTo(member: string, text: string): string {
             return root.sendText(text, member) ? `ok: sent to ${member}` : "error: the mesh isn't set up";
+        }
+        // A file (its path) to everyone / to a member.
+        function sendFile(path: string): string {
+            return root.sendFiles([path], "", "") ? "ok: sending to everyone" : "error: the mesh isn't set up";
+        }
+        function sendFileTo(member: string, path: string): string {
+            return root.sendFiles([path], "", member) ? `ok: sending to ${member}` : "error: the mesh isn't set up";
         }
         function open(): void {
             root.open();

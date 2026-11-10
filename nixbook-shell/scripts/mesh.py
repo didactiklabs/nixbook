@@ -10,7 +10,9 @@ only relays ciphertext, on a topic whose name is derived from that key. One
 member creates the mesh (`mesh create`) and can show its code again at any
 time (`mesh code`); the others enter it (`mesh join`, the code on stdin).
 A message to one person is also sealed for that person's own key (see
-"Private messages" below): the other members can't read it.
+"Private messages" below): the other members can't read it. Files (images,
+GIFs, documents) go as encrypted ntfy attachments, their key in the message
+(see "Files" below).
 
 The server needs an access token per person (`tk_…`). The server's admin
 (an ntfy admin, whose token is set by hand) invites people from their
@@ -30,6 +32,14 @@ Commands (JSON on stdout; secrets only ever on stdin):
   mesh join | mesh leave        enter a mesh's code (stdin) / forget the key
   test SERVER                   the token works, and the mesh is reachable
   send SERVER KIND              publish (stdin: the JSON data) as $USER
+  sendfile SERVER               a file (stdin: {path, to, text, mid, name}):
+                                encrypted, uploaded, then its message; progress
+                                lines {"event": "progress", "done", "total"}
+  fetch SERVER                  a received file (stdin: {file}), downloaded,
+                                decrypted, checked (see "Files" below)
+  save | prune                  a copy in Downloads (stdin: {path}) / delete the
+                                files of messages gone (stdin: {keep: [sha…]})
+  limits SERVER                 the largest file the server takes, and expiry
   invite SERVER NAME            (the server's admin) an account for NAME with
                                 the mesh's topics, and their invite code
   members SERVER | remove SERVER NAME   (the admin) who is in / take one out
@@ -53,6 +63,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
@@ -62,8 +73,10 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
@@ -484,6 +497,8 @@ def http_error(e):
             return "the server refused the access token (401)"
         if e.code == 403:
             return "this account can't use the mesh (403): ask the server's admin to invite you"
+        if e.code == 413:
+            return "too large for the mesh's server, or your daily transfer there is used up (413)"
         if e.code == 429:
             return "too many requests (429): try again in a minute"
         return f"the server answered {e.code}"
@@ -732,6 +747,8 @@ def cmd_send(args):
         fail("the data isn't JSON")
     if not isinstance(data, dict):
         fail("the data must be an object")
+    # A file only goes with `sendfile`, which uploads it first.
+    data.pop("file", None)
     # Who it is for: a member, or everyone ("").
     to = str(data.pop("to", "") or "")
     if to and not MEMBER_RE.match(to):
@@ -743,23 +760,39 @@ def cmd_send(args):
         data["text"] = text[:MAX_TEXT]
     token = token_or_fail()
     key = key_or_fail()
-    topic = topic_of(key)
     mid = str(data.pop("mid", "") or secrets.token_hex(8))
     name = str(data.pop("name", "") or "")[:64]
+    readers = readers_or_fail(to, kind)
+    answer, now = publish(server, token, key, kind, to, data, mid, name, readers)
+    out({"ok": True, "id": answer.get("id"), "mid": mid, "time": now})
+
+
+def readers_or_fail(to, kind):
+    """Who can open a private message or receipt to `to`: (sk, my_pk,
+    their keys), checked before anything leaves (a file is uploaded first).
+    None for what goes to everyone."""
     sk, my_pk = load_identity()
+    if not (to and kind in ("message", "read")):
+        return sk, my_pk, None
+    myself = me()
+    # Sealed: for the recipient's key alone (and the sender's own copy).
+    their_pk, changed = (my_pk, False) if to == myself else pinned(to)
+    if not their_pk:
+        fail(f"{to}'s desktop hasn't been seen yet, so there is no key to write to them privately: "
+             "they need to come online once")
+    if changed:
+        fail(f"{to}'s key changed: check it in the Mesh tab (Trust the new key) before writing privately")
+    return sk, my_pk, [their_pk] if to == myself else [their_pk, my_pk]
+
+
+def publish(server, token, key, kind, to, data, mid, name, readers):
+    topic = topic_of(key)
+    sk, my_pk, sealed_for = readers
     myself = me()
     now = int(time.time())
-    if to and kind in ("message", "read"):
-        # Sealed: for the recipient's key alone (and the sender's own copy).
-        their_pk, changed = (my_pk, False) if to == myself else pinned(to)
-        if not their_pk:
-            fail(f"{to}'s desktop hasn't been seen yet, so there is no key to write to them privately: "
-                 "they need to come online once")
-        if changed:
-            fail(f"{to}'s key changed: check it in the Mesh tab (Trust the new key) before writing privately")
+    if sealed_for:
         inner = {"kind": kind, "from": myself, "name": name, "to": to, "time": now, "mid": mid, "data": data}
-        readers = [their_pk] if to == myself else [their_pk, my_pk]
-        payload = seal_private(sk, my_pk, readers, inner, topic)
+        payload = seal_private(sk, my_pk, sealed_for, inner, topic)
     else:
         payload = {"kind": kind, "from": myself, "name": name, "to": to, "time": now,
                    "mid": mid, "pk": b64(my_pk), "data": data}
@@ -769,7 +802,387 @@ def cmd_send(args):
             answer = json.load(r)
     except (urllib.error.URLError, OSError, ValueError) as e:
         fail(http_error(e))
-    out({"ok": True, "id": answer.get("id"), "mid": mid, "time": now})
+    return answer, now
+
+
+# -- Files ------------------------------------------------------------------------------
+#
+# A file (an image, a GIF, a PDF…) is encrypted on the sender's desktop with
+# a key of its own (AES-256-GCM, streamed: memory stays flat whatever its
+# size) and uploaded as an ntfy attachment, on a topic of its own (derived
+# from the mesh key, like the mesh's; nobody listens to it). Only its path
+# on the server, its key and what it is travel in the message, which is
+# sealed like any other (for its recipient alone when private): the server
+# keeps ciphertext under a random name. ntfy deletes attachments after a
+# while (72 h on nixbook's server), so the shell downloads each file as soon
+# as its message arrives (`fetch`), into $XDG_DATA_HOME/nixbook-shell/mesh/
+# files/<sha256>/<name>; the sender keeps a copy there too. How big a file
+# may be is the server's to say (`limits`: /v1/account).
+
+CHUNK = 1 << 20
+FILE_PATH_RE = re.compile(r"^/file/[A-Za-z0-9]{1,32}(\.[A-Za-z0-9]{1,8})?$")
+SHA_RE = re.compile(r"^[0-9a-f]{64}$")
+DIR_RE = re.compile(r"^[0-9a-f]{32}$")
+TAG = 16
+
+
+def files_dir():
+    base = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    return Path(base) / "nixbook-shell" / "mesh" / "files"
+
+
+def files_topic_of(key):
+    return TOPIC_PREFIX + hashlib.sha256(b"nixbook-mesh files\0" + key).hexdigest()[:24]
+
+
+def safe_name(name):
+    """A file name that stays a file name: no folders, no control
+    characters, not hidden, not too long (its extension kept)."""
+    name = re.sub(r"[\x00-\x1f\x7f/\\]", "", os.path.basename(str(name or ""))).strip().lstrip(".")
+    if not name:
+        return "file"
+    if len(name) > 120:
+        stem, dot, ext = name.rpartition(".")
+        name = (stem[:110] + "." + ext[:9]) if dot and len(ext) <= 9 else name[:120]
+    return name
+
+
+def sniff(path):
+    """What a file is, from its first bytes (never from its name or what
+    the sender said): {mime, image, animated, w, h}."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(CHUNK)
+    except OSError:
+        head = b""
+    info = {"mime": "", "image": False, "animated": False, "w": 0, "h": 0}
+    if head.startswith(b"\x89PNG\r\n\x1a\n") and len(head) >= 24:
+        info.update(mime="image/png", image=True, w=int.from_bytes(head[16:20], "big"),
+                    h=int.from_bytes(head[20:24], "big"), animated=b"acTL" in head[:4096])
+    elif head[:6] in (b"GIF87a", b"GIF89a") and len(head) >= 10:
+        info.update(mime="image/gif", image=True, animated=True, w=int.from_bytes(head[6:8], "little"),
+                    h=int.from_bytes(head[8:10], "little"))
+    elif head.startswith(b"\xff\xd8"):
+        info.update(mime="image/jpeg", image=True)
+        i = 2
+        while i + 9 < len(head):
+            if head[i] != 0xFF:
+                i += 1
+                continue
+            marker = head[i + 1]
+            if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7 or marker == 0xFF:
+                i += 1 if marker == 0xFF else 2
+                continue
+            length = int.from_bytes(head[i + 2:i + 4], "big")
+            if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+                info.update(h=int.from_bytes(head[i + 5:i + 7], "big"), w=int.from_bytes(head[i + 7:i + 9], "big"))
+                break
+            i += 2 + length
+    elif head[:4] == b"RIFF" and head[8:12] == b"WEBP" and len(head) >= 30:
+        info.update(mime="image/webp", image=True)
+        chunk = head[12:16]
+        if chunk == b"VP8X":
+            info.update(animated=bool(head[20] & 0x02), w=1 + int.from_bytes(head[24:27], "little"),
+                        h=1 + int.from_bytes(head[27:30], "little"))
+        elif chunk == b"VP8 ":
+            info.update(w=int.from_bytes(head[26:28], "little") & 0x3FFF, h=int.from_bytes(head[28:30], "little") & 0x3FFF)
+        elif chunk == b"VP8L":
+            bits = int.from_bytes(head[21:25], "little")
+            info.update(w=(bits & 0x3FFF) + 1, h=((bits >> 14) & 0x3FFF) + 1)
+    if not info["mime"]:
+        import mimetypes
+        info["mime"] = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+    return info
+
+
+def account_limits(server, token):
+    """The server's attachment limits for this account (bytes, seconds)."""
+    try:
+        account = api(server, "/v1/account", token=token)
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        fail(http_error(e))
+    limits = account.get("limits") or {}
+    stats = account.get("stats") or {}
+    return {
+        "maxFile": int(limits.get("attachment_file_size") or 0),
+        "remaining": int(stats.get("attachment_total_size_remaining") or limits.get("attachment_total_size") or 0),
+        "expiry": int(limits.get("attachment_expiry_duration") or 0),
+    }
+
+
+def cmd_limits(args):
+    server = server_url(args[0] if args else "")
+    limits = account_limits(server, token_or_fail())
+    # The file's own size: what the server stores is 16 bytes more (the tag).
+    out({"ok": True, "maxFile": max(0, limits["maxFile"] - TAG), "remaining": max(0, limits["remaining"] - TAG),
+         "expiry": limits["expiry"]})
+
+
+class Progress:
+    """`{"event": "progress", "done", "total"}` lines, at most 5 a second."""
+
+    def __init__(self, total):
+        self.total, self.done, self.last = total, 0, 0.0
+
+    def add(self, n):
+        self.done += n
+        now = time.monotonic()
+        if now - self.last >= 0.2 or self.done >= self.total:
+            self.last = now
+            out({"event": "progress", "done": self.done, "total": self.total})
+
+
+class EncryptingReader:
+    """The upload's body: the file encrypted chunk by chunk, then the GCM
+    tag; also hashes it and writes the sender's own copy."""
+
+    def __init__(self, src, key, nonce, copy, progress):
+        self.src, self.copy, self.progress = src, copy, progress
+        self.enc = Cipher(algorithms.AES(key), modes.GCM(nonce)).encryptor()
+        self.sha = hashlib.sha256()
+        self.done = False
+
+    def read(self, n=-1):
+        if self.done:
+            return b""
+        plain = self.src.read(CHUNK if n is None or n < 0 else max(n, 1))
+        if plain:
+            self.sha.update(plain)
+            self.copy.write(plain)
+            self.progress.add(len(plain))
+            return self.enc.update(plain)
+        self.done = True
+        return self.enc.finalize() + self.enc.tag
+
+
+def private_file(directory):
+    directory.mkdir(parents=True, exist_ok=True)
+    os.chmod(directory, 0o700)
+
+
+def cmd_sendfile(args):
+    """sendfile SERVER, stdin {path, to, text, mid, name}: uploads the file,
+    then sends its message."""
+    server = server_url(args[0] if args else "")
+    try:
+        data = json.loads(sys.stdin.readline() or "{}")
+    except ValueError:
+        fail("the data isn't JSON")
+    if not isinstance(data, dict):
+        fail("the data must be an object")
+    path = Path(str(data.get("path") or "").removeprefix("file://")).expanduser()
+    to = str(data.get("to") or "")
+    if to and not MEMBER_RE.match(to):
+        fail("not a member's name")
+    try:
+        st = path.stat()
+    except OSError:
+        fail(f"{path.name or 'the file'} can't be read")
+    if not path.is_file():
+        fail(f"{path.name} isn't a file")
+    if st.st_size == 0:
+        fail(f"{path.name} is empty")
+    token = token_or_fail()
+    key = key_or_fail()
+    mid = str(data.get("mid") or secrets.token_hex(8))
+    name = str(data.get("name") or "")[:64]
+    readers = readers_or_fail(to, "message")
+    limits = account_limits(server, token)
+    size = st.st_size
+    if limits["maxFile"] and size + TAG > limits["maxFile"]:
+        fail(f"{path.name} is {human_size(size)}: the mesh's server takes files up to "
+             f"{human_size(max(0, limits['maxFile'] - TAG))}")
+    if limits["remaining"] and size + TAG > limits["remaining"]:
+        fail(f"the server holds too many of your files right now ({human_size(limits['remaining'])} left): "
+             "try again later, they are deleted after a while")
+    file_key, nonce = secrets.token_bytes(32), secrets.token_bytes(12)
+    info = sniff(path)
+    fdir = files_dir()
+    private_file(fdir)
+    tmp = fdir / f".send.{os.getpid()}.tmp"
+    try:
+        with open(path, "rb") as src, open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "wb") as copy:
+            body = EncryptingReader(src, file_key, nonce, copy, Progress(size))
+            req = urllib.request.Request(f"{server}/{files_topic_of(key)}", data=body, method="PUT")
+            req.add_header("Authorization", f"Bearer {token}")
+            req.add_header("User-Agent", USER_AGENT)
+            req.add_header("Content-Length", str(size + TAG))
+            req.add_header("Filename", "f.bin")
+            req.add_header("X-Firebase", "no")
+            try:
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    answer = json.load(r)
+            except (urllib.error.URLError, OSError, ValueError) as e:
+                fail(http_error(e))
+        sha = body.sha.hexdigest()
+        attachment = answer.get("attachment") or {}
+        server_path = urllib.parse.urlparse(str(attachment.get("url") or "")).path
+        if not FILE_PATH_RE.match(server_path):
+            fail("the server didn't take the file (are attachments turned on there?)")
+        local = fdir / sha[:32] / safe_name(path.name)
+        private_file(local.parent)
+        os.replace(tmp, local)
+    finally:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+    meta = {"u": server_path, "k": b64(file_key), "n": b64(nonce), "name": safe_name(path.name), "size": size,
+            "sha": sha, "mime": info["mime"], "w": info["w"], "h": info["h"],
+            "exp": int(attachment.get("expires") or 0)}
+    text = str(data.get("text") or "").strip()[:MAX_TEXT]
+    _, now = publish(server, token, key, "message", to, {"text": text, "file": meta}, mid, name, readers)
+    out({"ok": True, "mid": mid, "time": now, "text": text, "file": local_meta(local, sha, size, info, meta["exp"])})
+
+
+def local_meta(path, sha, size, info, exp=0):
+    return {"path": str(path), "name": path.name, "size": size, "sha": sha, "mime": info["mime"],
+            "image": info["image"], "animated": info["animated"], "w": info["w"], "h": info["h"], "exp": exp}
+
+
+def human_size(n):
+    for unit in ("bytes", "KB", "MB", "GB"):
+        if n < 1000 or unit == "GB":
+            return f"{n:.0f} {unit}" if unit == "bytes" else f"{n:.1f} {unit}"
+        n /= 1000
+
+
+def cmd_fetch(args):
+    """fetch SERVER, stdin {file}: a received file, downloaded and
+    decrypted into the files folder (checked against its hash)."""
+    server = server_url(args[0] if args else "")
+    try:
+        meta = (json.loads(sys.stdin.readline() or "{}") or {}).get("file") or {}
+    except (ValueError, AttributeError):
+        fail("the data isn't JSON")
+    if not isinstance(meta, dict):
+        fail("no file")
+    sha = str(meta.get("sha") or "")
+    u = str(meta.get("u") or "")
+    try:
+        size = int(meta.get("size") or 0)
+        file_key = base64.b64decode(str(meta.get("k") or ""), validate=True)
+        nonce = base64.b64decode(str(meta.get("n") or ""), validate=True)
+    except (ValueError, TypeError, binascii.Error):
+        fail("this file's details aren't right")
+    # Only from this mesh's own server, only its attachments: a member can't
+    # make this desktop fetch anything else (nor send its token elsewhere).
+    if not SHA_RE.match(sha) or not FILE_PATH_RE.match(u) or len(file_key) != 32 or len(nonce) != 12 \
+            or not 0 < size < 1 << 34:
+        fail("this file's details aren't right")
+    local = files_dir() / sha[:32] / safe_name(meta.get("name"))
+    if local.is_file() and local.stat().st_size == size:
+        out({"ok": True, "file": local_meta(local, sha, size, sniff(local))})
+        return
+    token = token_or_fail()
+    private_file(local.parent)
+    tmp = local.parent / f".fetch.{os.getpid()}.tmp"
+    try:
+        try:
+            r = request(f"{server}{u}", token, timeout=120)
+        except urllib.error.HTTPError as e:
+            if e.code in (404, 410):
+                out({"ok": False, "expired": True, "error": "the file is no longer on the server"})
+                sys.exit(1)
+            fail(http_error(e))
+        except (urllib.error.URLError, OSError) as e:
+            fail(http_error(e))
+        dec = Cipher(algorithms.AES(file_key), modes.GCM(nonce)).decryptor()
+        digest = hashlib.sha256()
+        progress = Progress(size)
+        held = b""
+        got = 0
+        with r, open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "wb") as f:
+            while True:
+                try:
+                    chunk = r.read(CHUNK)
+                except (OSError, socket.timeout) as e:
+                    fail(http_error(e))
+                if not chunk:
+                    break
+                got += len(chunk)
+                if got > size + TAG:
+                    fail("the file on the server isn't the one sent")
+                held += chunk
+                body, held = held[:-TAG], held[-TAG:]
+                plain = dec.update(body)
+                digest.update(plain)
+                f.write(plain)
+                progress.add(len(plain))
+            try:
+                f.write(dec.finalize_with_tag(held))
+            except (InvalidTag, ValueError):
+                fail("the file couldn't be decrypted: it isn't the one sent")
+        if got != size + TAG or digest.hexdigest() != sha:
+            fail("the file on the server isn't the one sent")
+        os.replace(tmp, local)
+    finally:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+    out({"ok": True, "file": local_meta(local, sha, size, sniff(local))})
+
+
+def in_files(path):
+    """`path` if it is one of the files folder's files, else fail."""
+    try:
+        p = Path(str(path or "").removeprefix("file://")).resolve(strict=True)
+        root = files_dir().resolve(strict=True)
+    except OSError:
+        fail("that file isn't there any more")
+    if p.parent.parent != root or not DIR_RE.match(p.parent.name) or not p.is_file():
+        fail("not one of the mesh's files")
+    return p
+
+
+def downloads_dir():
+    try:
+        r = subprocess.run(["xdg-user-dir", "DOWNLOAD"], capture_output=True, text=True, timeout=5)
+        d = r.stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        d = ""
+    home = os.path.expanduser("~")
+    return Path(d if d and d != home else os.path.join(home, "Downloads"))
+
+
+def cmd_save(_args):
+    """save, stdin {path}: a copy of a mesh file in the Downloads folder
+    (a free name: "photo (2).jpg")."""
+    try:
+        data = json.loads(sys.stdin.readline() or "{}")
+    except ValueError:
+        fail("the data isn't JSON")
+    src = in_files(data.get("path") if isinstance(data, dict) else "")
+    dest_dir = downloads_dir()
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    stem, dot, ext = src.name.rpartition(".")
+    if not dot or not stem:
+        stem, ext = src.name, ""
+    for i in range(1, 1000):
+        name = src.name if i == 1 else (f"{stem} ({i}).{ext}" if ext else f"{stem} ({i})")
+        dest = dest_dir / name
+        try:
+            fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        except FileExistsError:
+            continue
+        with open(src, "rb") as s, os.fdopen(fd, "wb") as d:
+            shutil.copyfileobj(s, d, CHUNK)
+        out({"ok": True, "path": str(dest)})
+        return
+    fail("no free name in the Downloads folder")
+
+
+def cmd_prune(_args):
+    """prune, stdin {keep: [sha…]}: the files of messages no longer kept go."""
+    try:
+        data = json.loads(sys.stdin.readline() or "{}")
+        keep = {str(s)[:32] for s in data.get("keep") or []}
+    except (ValueError, AttributeError, TypeError):
+        fail("the data isn't JSON")
+    removed = 0
+    root = files_dir()
+    for d in root.iterdir() if root.is_dir() else []:
+        if d.is_dir() and DIR_RE.match(d.name) and d.name not in keep:
+            shutil.rmtree(d, ignore_errors=True)
+            removed += 1
+    out({"ok": True, "removed": removed})
 
 
 SEEN_KEEP = 300
@@ -958,10 +1371,16 @@ def main():
         "remove": cmd_remove,
         "accept": cmd_accept,
         "keys": cmd_keys,
+        "sendfile": cmd_sendfile,
+        "fetch": cmd_fetch,
+        "save": cmd_save,
+        "prune": cmd_prune,
+        "limits": cmd_limits,
     }
     command = commands.get(args[0]) if args else None
     if not command:
-        fail("usage: nixbook-mesh status|token|mesh|test|send|listen|invite|members|remove|accept|keys")
+        fail("usage: nixbook-mesh status|token|mesh|test|send|sendfile|fetch|save|prune|limits|listen|invite|members|"
+             "remove|accept|keys")
     try:
         command(args[1:])
     except KeyboardInterrupt:
