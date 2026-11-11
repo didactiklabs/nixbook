@@ -441,7 +441,6 @@ Item {
                 // read, it stays where it is.
                 property real bottomGap: 0
                 property bool autoScrolling: false
-                property int lastCount: 0
                 // Kept at its end until you scroll up: re-pinned when its rows
                 // or its size change (a list built in the background gets its
                 // width late, rows rewrap) and when it shows again (messages
@@ -485,18 +484,31 @@ Item {
                     // what is shown in place when rows come in above it).
                     if (!list.following && list.contentY - list.originY < 300 && list.hasOlder) list.loadOlder();
                 }
-                onCountChanged: {
-                    // Older ones loaded above: no following the end for them.
-                    if (list.loadingOlder) {
-                        list.lastCount = list.count;
-                        return;
-                    }
-                    const grew = list.count > list.lastCount;
-                    list.lastCount = list.count;
-                    if (grew && (list.bottomGap < 80 || list.shown[list.shown.length - 1]?.mine)) Qt.callLater(list.toEnd);
+                // A new message (the newest one changed): to the end when the
+                // one before it was on screen (you were reading the end), or it
+                // is yours. Not the row count: past `limit` messages a new one
+                // drops the oldest, the count stays the same, and the view
+                // stayed above it; nor the gap to the end alone, which the new
+                // row's own height (an image, a long message) made too big.
+                readonly property string newestMid: list.shown.length > 0 ? list.shown[list.shown.length - 1].mid : ""
+                property string _prevNewest: ""
+                onNewestMidChanged: {
+                    const prev = list._prevNewest;
+                    list._prevNewest = list.newestMid;
+                    if (list.loadingOlder || prev === "" || list.newestMid === "") return;
+                    const wasFollowing = list.following;
+                    // After the model has its new row (ScriptModel updates on the
+                    // same change).
+                    Qt.callLater(() => {
+                        const mine = !!list.shown[list.shown.length - 1]?.mine;
+                        const i = list.shown.findIndex(m => m.mid === prev);
+                        const it = i >= 0 ? list.itemAtIndex(i) : null;
+                        const prevInView = it !== null && it.y < list.contentY + list.height + 80;
+                        if (mine || wasFollowing || prevInView) list.toEnd(false);
+                    });
                 }
                 Component.onCompleted: {
-                    list.lastCount = list.count;
+                    list._prevNewest = list.newestMid;
                     Qt.callLater(() => list.toEnd(true));
                 }
                 delegate: Item {
@@ -946,7 +958,7 @@ Item {
                     rowSpacing: 4
                     columnSpacing: 4
                     Repeater {
-                        model: Mesh.nudges
+                        model: Mesh.nudges.filter(n => !n.mood)
                         delegate: RippleButton {
                             id: nudgeButton
                             required property var modelData
@@ -977,6 +989,53 @@ Item {
                             }
                             StyledToolTip {
                                 text: nudgeButton.modelData.text
+                            }
+                        }
+                    }
+                }
+                StyledText {
+                    Layout.topMargin: 2
+                    text: Translation.tr("How I feel")
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                }
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 5
+                    rowSpacing: 4
+                    columnSpacing: 4
+                    Repeater {
+                        model: Mesh.nudges.filter(n => !!n.mood)
+                        delegate: RippleButton {
+                            id: moodButton
+                            required property var modelData
+                            Layout.fillWidth: true
+                            implicitHeight: 54
+                            buttonRadius: Appearance.rounding.small
+                            colBackground: ColorUtils.transparentize(Appearance.colors.colLayer2Hover, 1)
+                            colBackgroundHover: Appearance.colors.colLayer2Hover
+                            onClicked: {
+                                Mesh.sendNudge(moodButton.modelData.id, root.conv);
+                                root.picking = false;
+                            }
+                            contentItem: ColumnLayout {
+                                spacing: 0
+                                StyledText {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    text: moodButton.modelData.emoji
+                                    font.pixelSize: Appearance.font.pixelSize.larger
+                                }
+                                StyledText {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    Layout.maximumWidth: moodButton.width - 6
+                                    text: moodButton.modelData.text
+                                    elide: Text.ElideRight
+                                    font.pixelSize: Appearance.font.pixelSize.smallest
+                                    color: Appearance.colors.colOnLayer2
+                                }
+                            }
+                            StyledToolTip {
+                                text: moodButton.modelData.text
                             }
                         }
                     }

@@ -78,7 +78,21 @@ Singleton {
         { id: "food", emoji: "🍜", text: Translation.tr("Hungry? Let's eat") },
         { id: "game", emoji: "🎮", text: Translation.tr("Up for a game?") },
         { id: "proud", emoji: "🌟", text: Translation.tr("Proud of you") },
-        { id: "laugh", emoji: "😂", text: Translation.tr("Haha") }
+        { id: "laugh", emoji: "😂", text: Translation.tr("Haha") },
+        // How you feel (`mood`: the picker's "How I feel" row); a desktop
+        // that doesn't know one shows its words as a message.
+        { id: "sleepy", emoji: "😴", text: Translation.tr("Sleepy…"), mood: true },
+        { id: "tired", emoji: "🥱", text: Translation.tr("So tired"), mood: true },
+        { id: "happy", emoji: "😊", text: Translation.tr("Happy today"), mood: true },
+        { id: "excited", emoji: "🤩", text: Translation.tr("So excited!"), mood: true },
+        { id: "chill", emoji: "😌", text: Translation.tr("Chilling"), mood: true },
+        { id: "focused", emoji: "🎧", text: Translation.tr("In the zone"), mood: true },
+        { id: "swamped", emoji: "🫠", text: Translation.tr("Swamped"), mood: true },
+        { id: "stressed", emoji: "😫", text: Translation.tr("Stressed"), mood: true },
+        { id: "bored", emoji: "😑", text: Translation.tr("Bored"), mood: true },
+        { id: "sad", emoji: "😢", text: Translation.tr("A bit sad"), mood: true },
+        { id: "grumpy", emoji: "😤", text: Translation.tr("Grumpy"), mood: true },
+        { id: "sick", emoji: "🤒", text: Translation.tr("Feeling sick"), mood: true }
     ]
     function nudgeOf(id) {
         return root.nudges.find(n => n.id === id) ?? null;

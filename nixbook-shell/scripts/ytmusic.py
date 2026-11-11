@@ -31,7 +31,7 @@ friend's song with it.
                                        a playlist, from its song N
   nixbook-ytmusic play-tracks          {tracks, index, shuffle} on stdin
   nixbook-ytmusic play-id VIDEO [--start SECONDS]
-  nixbook-ytmusic control play|pause|toggle|next|previous|stop|seek S
+  nixbook-ytmusic control play|pause|toggle|next|previous|stop|seek S|volume 0-100
                        shuffle [on|off|toggle]  repeat [none|playlist|track|cycle]
   nixbook-ytmusic offline status|keep ID [TITLE]|unkeep ID|set limit MB|
                        set auto on|off|clear [--all]|gc|sync
@@ -1015,11 +1015,16 @@ def cmd_play_id(args):
 
 def cmd_control(args):
     if not args:
-        out({"error": "usage: nixbook-ytmusic control play|pause|toggle|next|previous|stop|seek S|"
+        out({"error": "usage: nixbook-ytmusic control play|pause|toggle|next|previous|stop|seek S|volume N|"
                       "shuffle [on|off|toggle]|repeat [none|playlist|track|cycle]"}, 1)
     req = {"cmd": "control", "action": args[0]}
-    if args[0] == "seek" and len(args) > 1:
-        req["value"] = float(args[1])
+    if args[0] in ("seek", "volume") and len(args) > 1:
+        try:
+            req["value"] = float(args[1])
+        except ValueError:
+            out({"error": f"{args[0]}: a number"}, 1)
+        if args[0] == "volume" and not 0 <= req["value"] <= 100:
+            out({"error": "volume: 0 to 100"}, 1)
     elif args[0] in ("shuffle", "repeat") and len(args) > 1:
         req["value"] = args[1]
     reply(ask_player(req, start=args[0] in ("play", "toggle")))
@@ -1513,6 +1518,7 @@ def serve(_args):
             t = self.track()
             return {"status": self.status(), "track": t, "index": self.index, "count": len(self.queue),
                     "playlist": self.playlist, "position": round(self.position(), 1) if t else 0,
+                    "volume": round(self.volume * 100),
                     "loading": self.loading, "shuffle": self.shuffle, "loop": self.loop,
                     "lastfm": bool(self.scrobbler.creds)}
 
@@ -1775,14 +1781,19 @@ def serve(_args):
             elif iface == PLAYER and prop == "LoopStatus":
                 self.set_loop(str(value))
             elif iface == PLAYER and prop == "Volume":
-                self.volume = max(0.0, min(1.0, float(value)))
-                if self.mpv.running():
-                    self.mpv.command("set_property", "volume", round(self.volume * 100))
-                self.changed("Volume")
-                # Kept for the next start (a slider moves it many times a second).
-                if self.volume_save:
-                    GLib.source_remove(self.volume_save)
-                self.volume_save = GLib.timeout_add(1000, self.save_volume)
+                self.set_volume(value)
+
+        def set_volume(self, value):
+            """0-1, into mpv and MPRIS; kept for the next start (a slider
+            moves it many times a second: written once it rests)."""
+            self.volume = max(0.0, min(1.0, float(value)))
+            if self.mpv.running():
+                self.mpv.command("set_property", "volume", round(self.volume * 100))
+            self.changed("Volume")
+            if self.volume_save:
+                GLib.source_remove(self.volume_save)
+            self.volume_save = GLib.timeout_add(1000, self.save_volume)
+            return self.summary()
 
         def save_volume(self):
             self.volume_save = None
@@ -1867,6 +1878,7 @@ def serve(_args):
                         "toggle": lambda: self.set_paused(not self.paused), "next": lambda: self.step(1),
                         "previous": lambda: self.step(-1), "stop": self.stop_all,
                         "seek": lambda: self.seek_to(float(req.get("value") or 0)),
+                        "volume": lambda: self.set_volume(float(req.get("value") or 0) / 100),
                         "shuffle": lambda: self.set_shuffle(not self.shuffle if req.get("value") in (None, "toggle")
                                                             else req.get("value") in (True, "on", "true", 1)),
                         "repeat": lambda: self.set_loop({"none": "None", "playlist": "Playlist", "track": "Track",
