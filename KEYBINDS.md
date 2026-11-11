@@ -251,14 +251,14 @@ Digit symbols: `ampersand`(1) `eacute`(2) `quotedbl`(3) `apostrophe`(4)
 
 **System mode** (`Return`/`Escape` to exit):
 
-| Key       | Action                      |
-| --------- | --------------------------- |
-| `l`       | Lock screen                 |
-| `e`       | Logout (exit Sway)          |
-| `s`       | Lock + suspend              |
-| `r`       | Reboot                      |
-| `Shift+s` | Shutdown / power off        |
-| `Shift+r` | Reboot into BIOS / firmware |
+| Key       | Action                                              |
+| --------- | --------------------------------------------------- |
+| `l`       | Lock screen                                         |
+| `e`       | Logout (exit Sway)                                  |
+| `s`       | Lock + suspend (only where suspend is on: not anya) |
+| `r`       | Reboot                                              |
+| `Shift+s` | Shutdown / power off                                |
+| `Shift+r` | Reboot into BIOS / firmware                         |
 
 ### Media / brightness / screenshot
 
