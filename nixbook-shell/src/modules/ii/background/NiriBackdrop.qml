@@ -53,6 +53,10 @@ Variants {
             sourceSize: Qt.size(Math.ceil(surface.screen.width * surface.screen.devicePixelRatio / surface.shrink),
                 Math.ceil(surface.screen.height * surface.screen.devicePixelRatio / surface.shrink))
             asynchronous: true
+            // The previous picture until the new one is decoded: cleared, the
+            // surface was empty for a few frames and the windows above showed
+            // niri's background colour.
+            retainWhileLoading: true
             cache: true
             smooth: true
             visible: !surface.blurred

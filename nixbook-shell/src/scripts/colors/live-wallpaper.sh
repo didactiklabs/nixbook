@@ -18,6 +18,14 @@
 #   live-wallpaper.sh pause <output> yes|no
 #                                     pause or resume one output's video (the
 #                                     shell: its desktop covered or shown)
+#   live-wallpaper.sh release         new players start transparent ("held",
+#                                     patches/mpvpaper-hold.patch): show them,
+#                                     once the shell has stacked its desktop
+#                                     layer above them
+#   live-wallpaper.sh freeze          pause every player and print "<output>
+#                                     <file>" for each, the frame it shows (the
+#                                     transition away from a playing video
+#                                     starts from it, not from its first frame)
 #   live-wallpaper.sh prepare-start <current video|-> <folder>...
 #                                     prepare the library in the background
 #                                     (`prepare`, in a systemd unit)
@@ -115,7 +123,57 @@ best_file() { # <video> <w> <h>
 case "$cmd" in
 stop)
   stop_players
-  rm -f "$RUNDIR"/live-wallpaper-*.sock
+  rm -f "$RUNDIR"/live-wallpaper-*.sock "$RUNDIR/live-wallpaper-held.pids"
+  exit 0
+  ;;
+release)
+  # Only the players started held (an older mpvpaper has no SIGUSR1 handler:
+  # the signal would end it).
+  if [ -f "$RUNDIR/live-wallpaper-held.pids" ]; then
+    # On the still frame the shell shows (the first one): mpvpaper's own
+    # auto-pause (-p) resumes a video started paused once its surface gets
+    # frame callbacks, so it may have run on while held. The shell resumes it.
+    while read -r name _; do
+      mpv_cmd "$name" '{"command":["set_property","pause",true]}' >/dev/null
+      mpv_cmd "$name" '{"command":["seek",0,"absolute+exact"]}' >/dev/null
+    done < <(outputs)
+    # Shown once that frame is decoded.
+    for _ in $(seq 20); do
+      busy=0
+      while read -r name _; do
+        mpv_cmd "$name" '{"command":["get_property","seeking"]}' | grep -q '"data":true' && busy=1
+      done < <(outputs)
+      [ "$busy" = 0 ] && break
+      sleep 0.05
+    done
+    while read -r pid; do
+      kill -USR1 "$pid" 2>/dev/null || true
+    done <"$RUNDIR/live-wallpaper-held.pids"
+    rm -f "$RUNDIR/live-wallpaper-held.pids"
+  fi
+  exit 0
+  ;;
+freeze)
+  # A new name each time: Qt caches images by path.
+  rm -f "$RUNDIR"/live-wallpaper-frame-*.jpg
+  stamp=$(date +%s%N)
+  while read -r name _; do
+    f="$RUNDIR/live-wallpaper-frame-$name-$stamp.jpg"
+    mpv_cmd "$name" '{"command":["set_property","pause",true]}' >/dev/null || continue
+    # The video frame as decoded (no subtitles, no OSD): the output's own
+    # pixels for a prepared copy, the video's size otherwise — cropped by the
+    # shell the way mpv crops it (panscan).
+    mpv_cmd "$name" "$(jq -nc --arg f "$f" '{command: ["screenshot-to-file", $f, "video"]}')" >/dev/null
+    # Written after the reply: listed once it is there and no longer grows.
+    last=-1
+    for _ in $(seq 40); do
+      size=$(stat -c %s "$f" 2>/dev/null || echo 0)
+      [ "$size" -gt 0 ] && [ "$size" = "$last" ] && break
+      last=$size
+      sleep 0.025
+    done
+    [ -s "$f" ] && echo "$name $f"
+  done < <(outputs)
   exit 0
   ;;
 pause)
@@ -166,7 +224,10 @@ prepare-start)
   ;;
 esac
 
-OPTS="no-audio loop pause=yes quiet=yes hwdec=auto-safe gpu-dumb-mode=yes video-sync=display-resample interpolation=no panscan=1.0 video-scale-x=1.0 video-scale-y=1.0 video-align-x=0.5 video-align-y=0.5 load-scripts=no"
+# Cropped to cover the output, centred like the shell's still frame
+# (video-align is -1…1, 0 = centred: 0.5 shifted a video that isn't prepared
+# for the output a quarter of its overflow sideways).
+OPTS="no-audio loop pause=yes quiet=yes hwdec=auto-safe gpu-dumb-mode=yes video-sync=display-resample interpolation=no panscan=1.0 video-scale-x=1.0 video-scale-y=1.0 video-align-x=0 video-align-y=0 load-scripts=no"
 
 # A video's "width height fps".
 probe() {
@@ -459,14 +520,18 @@ switch() {
 start() {
   stop_players
   mkdir -p "$RUNDIR"
+  rm -f "$RUNDIR/live-wallpaper-held.pids"
   local name w h n=0 s ready
   local -a socks=()
   while read -r name w h; do
     socks+=("$(sock "$name")")
     rm -f "$(sock "$name")"
     # Its messages kept (small, in the runtime dir): why one ended, if it does.
-    mpvpaper -p -l bottom -o "$OPTS input-ipc-server=$(sock "$name")" "$name" "$(best_file "$video" "$w" "$h")" \
+    # Held: drawn transparent until `release` (the shell first stacks its
+    # desktop widgets above it), 10 s at most.
+    MPVPAPER_HOLD=10 mpvpaper -p -l bottom -o "$OPTS input-ipc-server=$(sock "$name")" "$name" "$(best_file "$video" "$w" "$h")" \
       >"$RUNDIR/live-wallpaper-$name.log" 2>&1 </dev/null &
+    echo "$!" >>"$RUNDIR/live-wallpaper-held.pids"
     n=$((n + 1))
   done < <(outputs)
   for _ in $(seq 150); do

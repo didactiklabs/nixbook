@@ -33,9 +33,14 @@ let
   # wl-clipboard with a wl-copy that keeps text as text (wl-copy.nix).
   wlClipboard = import ./wl-copy.nix { inherit pkgs; };
   # The live wallpaper player, drawing at the output's own pixels on a
-  # fractionally scaled output (patches/mpvpaper-fractional-scale.patch).
+  # fractionally scaled output (patches/mpvpaper-fractional-scale.patch), and
+  # started transparent until the shell has stacked its desktop above it
+  # (patches/mpvpaper-hold.patch).
   mpvpaper = pkgs.mpvpaper.overrideAttrs (old: {
-    patches = (old.patches or [ ]) ++ [ ./patches/mpvpaper-fractional-scale.patch ];
+    patches = (old.patches or [ ]) ++ [
+      ./patches/mpvpaper-fractional-scale.patch
+      ./patches/mpvpaper-hold.patch
+    ];
   });
   fonts = import ./fonts.nix { inherit pkgs; };
   inherit (shell.passthru) configName;
