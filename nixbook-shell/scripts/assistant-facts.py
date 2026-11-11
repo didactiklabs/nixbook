@@ -139,6 +139,8 @@ IPC = {
         "ouvrir les widgets en surimpression",
         "die Overlay-Widgets öffnen",
         "mở các widget nổi"),
+    ("audio", "micToggle"): t("mute or unmute every microphone", "couper ou rétablir tous les micros",
+                              "alle Mikrofone stumm schalten oder wieder einschalten", "tắt hoặc bật tất cả micro"),
     ("mpris", "playPause"): t(
         "play or pause the music (the player picked in the media controls, else the one playing)",
         "lire ou mettre en pause la musique (le lecteur choisi dans les contrôles multimédia, sinon celui qui joue)",
@@ -329,6 +331,9 @@ def describe(action: str):
         if args[:3] == ["nixbook-shell", "ipc", "call"] and len(args) >= 5:
             fallback = f"nixbook-shell panel: {args[3]} {args[4]}"
             return IPC.get((args[3], args[4]), t(fallback, fallback, fallback, fallback))
+        # The mic key: every microphone through the shell, wpctl when it doesn't answer.
+        if args[0] == "sh" and len(args) > 2 and "ipc call audio micToggle" in args[2]:
+            return IPC[("audio", "micToggle")]
         if args[0] == "wpctl":
             if "set-mute" in args and "@DEFAULT_SOURCE@" in args:
                 return t("mute or unmute the microphone", "couper ou rétablir le micro",

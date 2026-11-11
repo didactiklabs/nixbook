@@ -82,7 +82,7 @@ ColumnLayout {
         sourceComponent: RowLayout {
             spacing: 10
             RowIcon {
-                text: Audio.source?.audio?.muted ? "mic_off" : "mic"
+                text: Audio.micMuted ? "mic_off" : "mic"
             }
             QuickSlider {
                 value: Audio.source?.audio?.volume ?? 0

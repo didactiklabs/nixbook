@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import qs.modules.common
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Pipewire
 
 /**
@@ -55,9 +56,70 @@ Singleton {
         Audio.sink.audio.muted = !Audio.sink.audio.muted;
     }
 
+    // The microphone is muted as a whole: every input (the devices, and the
+    // echo canceller's), not only the default one. An app recording another
+    // mic than the default (a call app's own input setting), or the real mic
+    // under the echo canceller, used to go on hearing. Quickshell only knows
+    // Audio/Source nodes: EasyEffects' Audio/Source/Virtual one can't be
+    // muted from here, but it only carries the (muted) real mics. Muted =
+    // every mic muted (so the state isn't read from a default the shell
+    // can't see); a mic that comes while muted (a headset connecting) is
+    // muted too, until it is unmuted.
+    readonly property bool micMuted: root.inputDevices.length > 0
+        ? root.inputDevices.every(n => n.audio?.muted ?? false)
+        : (root.source?.audio?.muted ?? false)
+    property bool _allMuted: false
+    property var _seenMics: ({})
+    function setMicMuted(muted) {
+        root._allMuted = muted;
+        const seen = {};
+        for (const n of root.inputDevices) {
+            seen[n.id] = true;
+            if (n.audio) n.audio.muted = muted;
+        }
+        root._seenMics = seen;
+    }
     function toggleMicMute() {
-        if (!Audio.source?.audio) return;
-        Audio.source.audio.muted = !Audio.source.audio.muted;
+        root.setMicMuted(!root.micMuted);
+    }
+    onInputDevicesChanged: if (root._allMuted) newMicTimer.restart()
+    // A new node's audio is there once it is bound: a moment later.
+    Timer {
+        id: newMicTimer
+        interval: 600
+        onTriggered: {
+            if (!root._allMuted) return;
+            const seen = Object.assign({}, root._seenMics);
+            let waiting = false;
+            for (const n of root.inputDevices) {
+                if (seen[n.id]) continue;
+                if (!n.ready || !n.audio) { waiting = true; continue; }
+                n.audio.muted = true;
+                seen[n.id] = true;
+            }
+            root._seenMics = seen;
+            if (waiting) newMicTimer.restart();
+        }
+    }
+    // Unmuted elsewhere (wpctl, pavucontrol): no longer held muted.
+    Connections {
+        target: root.source?.audio ?? null
+        function onMutedChanged() {
+            if (root._allMuted && !root.source.audio.muted) root._allMuted = false;
+        }
+    }
+
+    IpcHandler {
+        target: "audio"
+        function micToggle(): string {
+            const muted = !root.micMuted;
+            root.setMicMuted(muted);
+            return muted ? "muted" : "unmuted";
+        }
+        function micMute(): void { root.setMicMuted(true); }
+        function micUnmute(): void { root.setMicMuted(false); }
+        function micStatus(): string { return root.micMuted ? "muted" : "unmuted"; }
+        function toggleMute(): void { root.toggleMute(); }
     }
 
     function incrementVolume() {
@@ -85,6 +147,10 @@ Singleton {
     // Internals
     PwObjectTracker {
         objects: [sink, source]
+    }
+    // Every input, so each can be muted (setMicMuted).
+    PwObjectTracker {
+        objects: root.inputDevices
     }
 
     Connections { // Protection against sudden volume changes

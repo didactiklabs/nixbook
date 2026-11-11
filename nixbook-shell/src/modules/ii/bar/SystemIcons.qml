@@ -235,7 +235,7 @@ Item {
             }
         }
         Revealer {
-            reveal: Audio.source?.audio?.muted ?? false
+            reveal: Audio.micMuted
             HintedIcon {
                 text: "mic_off"
                 color: root.iconColor

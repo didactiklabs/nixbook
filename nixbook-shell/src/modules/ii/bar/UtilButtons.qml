@@ -1,6 +1,7 @@
 import qs
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.services
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -217,18 +218,18 @@ Item {
         Component {
             id: micM3
             UtilButton {
-                iconText: Pipewire.defaultAudioSource?.audio?.muted ? "mic_off" : "mic"
-                onClicked: Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_SOURCE@", "toggle"])
+                iconText: Audio.micMuted ? "mic_off" : "mic"
+                onClicked: Audio.toggleMicMute()
             }
         }
         Component {
             id: legacyMic
             CircleUtilButton {
-                onClicked: Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_SOURCE@", "toggle"])
+                onClicked: Audio.toggleMicMute()
                 MaterialSymbol {
                     horizontalAlignment: Qt.AlignHCenter
                     fill: 0
-                    text: Pipewire.defaultAudioSource?.audio?.muted ? "mic_off" : "mic"
+                    text: Audio.micMuted ? "mic_off" : "mic"
                     iconSize: Appearance.font.pixelSize.large
                     color: Appearance.colors.colOnLayer2
                 }

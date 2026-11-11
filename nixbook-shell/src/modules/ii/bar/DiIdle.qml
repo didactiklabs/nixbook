@@ -65,7 +65,7 @@ Item {
             spacing: 4
 
             Revealer {
-                reveal: !diIdleRoot.systemIconsElsewhere && (Audio.source?.audio?.muted ?? false)
+                reveal: !diIdleRoot.systemIconsElsewhere && Audio.micMuted
                 MaterialSymbol {
                     text: "mic_off"
                     iconSize: Appearance.font.pixelSize.normal
