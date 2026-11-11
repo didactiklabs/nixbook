@@ -36,6 +36,10 @@ import QtQuick
  * its own cut-in (modules/ii/notificationPopup/MeshNudge.qml, `nudged`)
  * instead of a notification, when it can (mesh.nudgeCutIn; not locked, Do
  * Not Disturb, a fullscreen window; the Mesh tab open or not).
+ * Back after being away (the listener catching up after this desktop was
+ * off or offline, a nudge sent over 10 minutes ago, or one that came while
+ * the screen was locked): one "welcome back" cut-in instead (`welcomed`),
+ * each sender's nudges grouped with a count, shown once.
  *
  * Deleting: your own messages for everyone (deleteForEveryone: each desktop
  * puts "deleted" in its place, its file, notification and history entry go;
@@ -93,6 +97,54 @@ Singleton {
         if (GlobalStates.screenLocked || Notifications.silent || MakeWay.active) return false;
         return Date.now() - m.time <= 10 * 60 * 1000;
     }
+    // -- Welcome back --------------------------------------------------------------
+    // Nudges that came while this desktop wasn't there — the listener just
+    // (re)connected and catches up, one sent over 10 minutes ago, or the
+    // screen locked — make one "welcome back" cut-in once the screen can
+    // show it (unlocked, not Do Not Disturb, no agent at work, booted), 3 s
+    // after the last of them: each sender's nudges of a kind grouped with a
+    // count (MeshNudge.qml), not a cut-in nor a notification each. A nudge
+    // held for it carries `welcome`, then `greeted` once shown or read in the
+    // Mesh tab first: a restart before it shows still shows it, and it never
+    // shows twice. Older than a week: unread only.
+    // groups: [{ from, name, quick, emoji, text, to, conv, count, time }],
+    // the latest first.
+    signal welcomed(var groups)
+    property real _connectedAt: 0
+    property bool _welcomeWaiting: false
+    function _welcomeBlocked() {
+        return GlobalStates.screenLocked || Notifications.silent || MakeWay.active || Preloader.booting;
+    }
+    Timer {
+        id: welcomeSoon
+        interval: 3000
+        onTriggered: root._flushWelcome()
+    }
+    Timer {
+        // Held back (locked, Do Not Disturb…): tried again.
+        interval: 5000
+        repeat: true
+        running: root._welcomeWaiting
+        onTriggered: root._flushWelcome()
+    }
+    function _flushWelcome() {
+        const held = MeshWelcome.heldIds(root.messages);
+        if (held.length === 0) {
+            root._welcomeWaiting = false;
+            return;
+        }
+        if (root._welcomeBlocked()) {
+            root._welcomeWaiting = true;
+            return;
+        }
+        root._welcomeWaiting = false;
+        const groups = MeshWelcome.groups(root.messages, { now: Date.now(), readAt: root.readAt,
+            nudgeOf: id => root.nudgeOf(id), conversationOf: m => root.conversationOf(m), nameOf: id => root.nameOf(id) });
+        root.messages = root.messages.map(m => held.indexOf(m.mid) >= 0 ? Object.assign({}, m, { greeted: true }) : m);
+        root._save();
+        if (groups.length > 0) root.welcomed(groups);
+    }
+
     function sendNudge(id, to) {
         const n = root.nudgeOf(id);
         if (!n) return false;
@@ -237,6 +289,7 @@ Singleton {
         return s !== "offline" && s !== "hidden";
     }).length
     function nameOf(id) {
+        id = `${id ?? ""}`;
         if (id === "") return Translation.tr("Everyone");
         const m = root.members[id];
         return m?.name || (id.charAt(0).toUpperCase() + id.slice(1));
@@ -737,6 +790,8 @@ Singleton {
             return;
         }
         if (e.event === "status") {
+            // (Re)connected: what comes in the next seconds is the catch-up.
+            if (e.connected && !root.connected) root._connectedAt = Date.now();
             root.connected = !!e.connected;
             root.lastError = e.connected ? "" : (e.error ?? "");
             return;
@@ -807,6 +862,9 @@ Singleton {
         if (/^[a-z]{1,20}$/.test(quick)) m.quick = quick;
         const reply = root._replyIn(e.data?.reply);
         if (reply) m.reply = reply;
+        if ((Config.options?.mesh?.nudgeCutIn ?? true) && root.nudgeOf(m.quick)
+                && MeshWelcome.waits(m, { now: Date.now(), connectedAt: root._connectedAt, locked: GlobalStates.screenLocked }))
+            m.welcome = true;
         // In its place by time, after those of the same second (times are
         // whole seconds): a re-sort is not stable here and reordered them,
         // which rebuilt the Mesh tab's rows and moved its view.
@@ -821,6 +879,12 @@ Singleton {
         const conv = root.conversationOf(m);
         const looking = root.viewing && root.conversation === conv;
         if (looking) root.markRead(conv);
+        // Came while this desktop wasn't there: the welcome back, once the
+        // catch-up is over (nothing else: no cut-in, no notification).
+        if (m.welcome) {
+            welcomeSoon.restart();
+            return;
+        }
         // A nudge: its own cut-in when it can show (MeshNudge.qml), in place
         // of the notification, the Mesh tab open or not.
         if (m.quick && root._nudgeCutInNow(m)) {
@@ -1187,6 +1251,8 @@ Singleton {
                     : m.deleting ? Object.assign({}, m, { deleting: false }) : m);
                 root._storeRead = true;
                 root._resumeFiles();
+                // Held for a welcome back the shell didn't show before it stopped.
+                welcomeSoon.restart();
             } catch (e) {}
         }
     }
