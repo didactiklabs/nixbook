@@ -68,6 +68,19 @@ Singleton {
     function playlist(id, then) {
         root.run(["playlist", id], "", then);
     }
+    // Songs and videos on YouTube Music ({query, songs, videos}, each like a
+    // playlist's tracks with `kind`, art as links); only the latest search
+    // answers: an earlier one still running is dropped when it ends.
+    property int _searchGen: 0
+    function search(query, then) {
+        const gen = ++root._searchGen;
+        root.run(["search", ...String(query).trim().split(/\s+/)], "", (ok, answer) => {
+            if (gen === root._searchGen && then) then(ok, answer);
+        });
+    }
+    function cancelSearch() {
+        root._searchGen++;
+    }
     // Plays `tracks` from `index` (shuffled); then(ok, answer).
     function playTracks(tracks, index, shuffle, playlistId, then) {
         root.run(["play-tracks"], JSON.stringify({ tracks: tracks, index: index, shuffle: !!shuffle, playlist: playlistId ?? "" }), then);

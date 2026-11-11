@@ -6,6 +6,7 @@ import qs.modules.common.functions
 import qs.services
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Services.Mpris
 import Quickshell.Widgets
 
@@ -14,9 +15,11 @@ import Quickshell.Widgets
  * default): YouTube Music played in the background, without a window
  * (services/YouTubeMusic.qml, `nixbook-ytmusic`). Signed out, how to sign in
  * (YouTubeMusicAccount). Signed in: what plays (shuffle, previous, play/pause,
- * next, repeat; its synced lyrics), then your playlists (Liked Music first);
- * one opens its songs: Play, Shuffle, or a song to start from. How a play goes
- * shows at the bottom.
+ * next, repeat; its synced lyrics), a search field for all of YouTube Music
+ * (songs and videos, `nixbook-ytmusic search`, asked once typing pauses or
+ * on Enter; a found one plays with the rest of its list after it), then your
+ * playlists (Liked Music first); one opens its songs: Play, Shuffle, or a
+ * song to start from. How a play goes shows at the bottom.
  */
 Item {
     id: root
@@ -63,6 +66,46 @@ Item {
                 : (answer?.error || Translation.tr("It couldn't be played")), ok ? "ok" : "error");
         });
     }
+    // A search of YouTube Music: {query, songs, videos}; null without one.
+    property var results: null
+    property bool searching: false
+    property string searchError: ""
+    readonly property bool inSearch: searchField.text.trim().length >= 2
+    function search() {
+        const q = searchField.text.trim();
+        searchDelay.stop();
+        if (q.length < 2) {
+            YouTubeMusic.cancelSearch();
+            root.searching = false;
+            root.results = null;
+            root.searchError = "";
+            return;
+        }
+        if (root.results?.query === q && root.searchError === "") return;
+        root.searching = true;
+        YouTubeMusic.search(q, (ok, answer) => {
+            root.searching = false;
+            root.searchError = ok ? "" : (answer?.error || Translation.tr("YouTube Music didn't answer the search"));
+            if (ok) root.results = answer;
+        });
+    }
+    Timer {
+        id: searchDelay
+        interval: 500
+        onTriggered: root.search()
+    }
+    // The rows of the results: a heading, then its songs or videos.
+    readonly property var resultRows: {
+        const rows = [];
+        for (const part of [["songs", Translation.tr("Songs")], ["videos", Translation.tr("Videos")]]) {
+            const list = root.results?.[part[0]] ?? [];
+            if (!list.length) continue;
+            rows.push({ header: part[1], key: `h-${part[0]}` });
+            list.forEach((t, i) => rows.push({ track: t, list: list, index: i, key: `${part[0]}-${t.videoId}` }));
+        }
+        return rows;
+    }
+
     function time(s) {
         s = Math.max(0, Math.round(s || 0));
         return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -120,6 +163,57 @@ Item {
         }
         StyledToolTip {
             text: ib.tip
+        }
+    }
+
+    // A song: its picture, title, artist, length; the one playing lit.
+    component TrackRow: RippleButton {
+        id: row
+        property var track
+        signal activated
+        readonly property bool current: (row.track?.videoId ?? "") !== "" && String(root.player?.metadata?.["xesam:url"] ?? "").endsWith(row.track.videoId)
+        implicitHeight: 48
+        buttonRadius: Appearance.rounding.small
+        colBackground: row.current ? Appearance.colors.colLayer2 : ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 1)
+        onClicked: row.activated()
+        contentItem: RowLayout {
+            spacing: 10
+            Picture {
+                implicitWidth: row.track?.kind === "video" ? 56 : 38
+                implicitHeight: 38
+                source: row.track?.thumb || row.track?.art || ""
+                symbol: row.track?.kind === "video" ? "movie" : "music_note"
+                MaterialLoadingIndicator {
+                    anchors.centerIn: parent
+                    implicitSize: 22
+                    visible: root.starting !== "" && root.starting === (row.track?.videoId ?? "")
+                    loading: visible
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+                StyledText {
+                    Layout.fillWidth: true
+                    text: row.track?.title ?? ""
+                    elide: Text.ElideRight
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    font.weight: row.current ? Font.DemiBold : Font.Normal
+                    color: row.current ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer1
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    text: [row.track?.artist ?? "", row.track?.album ?? ""].filter(x => x !== "").join(" · ")
+                    elide: Text.ElideRight
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                }
+            }
+            StyledText {
+                text: row.track?.duration ? root.time(row.track.duration) : ""
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+            }
         }
     }
 
@@ -252,10 +346,102 @@ Item {
             }
         }
 
-        // The playlists.
+        // Searching YouTube Music.
         RowLayout {
             Layout.fillWidth: true
             visible: root.detail === null
+            spacing: 4
+            ToolbarTextField {
+                id: searchField
+                Layout.fillWidth: true
+                Layout.fillHeight: false
+                implicitHeight: 40
+                placeholderText: Translation.tr("Search YouTube Music")
+                colBackground: Appearance.colors.colLayer2
+                onTextChanged: {
+                    if (searchField.text.trim().length < 2) root.search();
+                    else searchDelay.restart();
+                }
+                onAccepted: root.search()
+                Keys.onEscapePressed: event => {
+                    if (searchField.text === "") {
+                        event.accepted = false;
+                        return;
+                    }
+                    searchField.text = "";
+                    event.accepted = true;
+                }
+            }
+            MaterialLoadingIndicator {
+                implicitSize: 18
+                visible: root.searching
+                loading: visible
+            }
+            IconButton {
+                visible: searchField.text !== ""
+                symbol: "close"
+                tip: Translation.tr("Clear the search")
+                onClicked: searchField.text = ""
+            }
+        }
+        StyledText {
+            Layout.fillWidth: true
+            visible: root.detail === null && root.inSearch && root.searchError !== ""
+            wrapMode: Text.WordWrap
+            text: root.searchError
+            color: Appearance.m3colors.m3error
+            font.pixelSize: Appearance.font.pixelSize.smaller
+        }
+        StyledText {
+            Layout.fillWidth: true
+            visible: root.detail === null && root.inSearch && !root.searching && root.searchError === ""
+                && root.results !== null && root.resultRows.length === 0
+            text: Translation.tr("Nothing found for “%1”").arg(root.results?.query ?? "")
+            color: Appearance.colors.colSubtext
+            font.pixelSize: Appearance.font.pixelSize.smaller
+        }
+        StyledListView {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.detail === null && root.inSearch
+            clip: true
+            spacing: 2
+            popin: false
+            model: ScriptModel {
+                values: root.resultRows
+                objectProp: "key"
+            }
+            delegate: Loader {
+                id: resultRow
+                required property var modelData
+                width: ListView.view.width
+                sourceComponent: resultRow.modelData.header !== undefined ? resultHeader : resultTrack
+                Component {
+                    id: resultHeader
+                    StyledText {
+                        topPadding: 6
+                        bottomPadding: 2
+                        text: resultRow.modelData.header
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        font.weight: Font.DemiBold
+                        color: Appearance.colors.colOnLayer1
+                    }
+                }
+                Component {
+                    id: resultTrack
+                    TrackRow {
+                        track: resultRow.modelData.track
+                        // The rest of its list plays after it.
+                        onActivated: root.play(resultRow.modelData.list, resultRow.modelData.index, false, "", resultRow.modelData.track.title)
+                    }
+                }
+            }
+        }
+
+        // The playlists.
+        RowLayout {
+            Layout.fillWidth: true
+            visible: root.detail === null && !root.inSearch
             spacing: 6
             StyledText {
                 Layout.fillWidth: true
@@ -278,7 +464,7 @@ Item {
         }
         StyledText {
             Layout.fillWidth: true
-            visible: root.detail === null && YouTubeMusic.playlistsError !== ""
+            visible: root.detail === null && !root.inSearch && YouTubeMusic.playlistsError !== ""
             wrapMode: Text.WordWrap
             text: YouTubeMusic.playlistsError
             color: Appearance.m3colors.m3error
@@ -287,7 +473,7 @@ Item {
         StyledFlickable {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.detail === null
+            visible: root.detail === null && !root.inSearch
             contentHeight: grid.implicitHeight
             clip: true
             GridLayout {
@@ -382,54 +568,12 @@ Item {
             clip: true
             spacing: 2
             model: root.detail?.tracks ?? []
-            delegate: RippleButton {
-                id: row
+            delegate: TrackRow {
                 required property var modelData
                 required property int index
-                readonly property bool current: row.modelData.videoId !== "" && String(root.player?.metadata?.["xesam:url"] ?? "").endsWith(row.modelData.videoId)
                 width: ListView.view.width
-                implicitHeight: 48
-                buttonRadius: Appearance.rounding.small
-                colBackground: row.current ? Appearance.colors.colLayer2 : ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 1)
-                onClicked: root.play(root.detail.tracks, row.index, false, root.detail.id, row.modelData.title)
-                contentItem: RowLayout {
-                    spacing: 10
-                    Picture {
-                        implicitWidth: 38
-                        implicitHeight: 38
-                        source: row.modelData.thumb ?? ""
-                        MaterialLoadingIndicator {
-                            anchors.centerIn: parent
-                            implicitSize: 22
-                            visible: root.starting === row.modelData.videoId
-                            loading: visible
-                        }
-                    }
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 0
-                        StyledText {
-                            Layout.fillWidth: true
-                            text: row.modelData.title ?? ""
-                            elide: Text.ElideRight
-                            font.pixelSize: Appearance.font.pixelSize.small
-                            font.weight: row.current ? Font.DemiBold : Font.Normal
-                            color: row.current ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer1
-                        }
-                        StyledText {
-                            Layout.fillWidth: true
-                            text: row.modelData.artist ?? ""
-                            elide: Text.ElideRight
-                            font.pixelSize: Appearance.font.pixelSize.smaller
-                            color: Appearance.colors.colSubtext
-                        }
-                    }
-                    StyledText {
-                        text: row.modelData.duration ? root.time(row.modelData.duration) : ""
-                        font.pixelSize: Appearance.font.pixelSize.smaller
-                        color: Appearance.colors.colSubtext
-                    }
-                }
+                track: modelData
+                onActivated: root.play(root.detail.tracks, index, false, root.detail.id, modelData.title)
             }
         }
     }

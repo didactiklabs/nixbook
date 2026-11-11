@@ -98,6 +98,37 @@ expect "lastfm start: a key that isn't one refused, with where to make one" "tru
 expect "lastfm status: off, the app's key said absent" '{"on": false, "user": null, "fromApp": false, "appKey": true, "newKey": "https://www.last.fm/api/account/create"}' \
   "$(ytm lastfm status)"
 
+# -- Searching YouTube Music ------------------------------------------------------------
+# A fake ytmusicapi: songs (one twice, one unavailable, one not a song) and
+# videos, asked with their filter; signed out it still answers.
+mkdir -p "$tmp/fakeapi/ytmusicapi"
+cat >"$tmp/fakeapi/ytmusicapi/__init__.py" <<'EOF'
+def _r(kind, vid, title, **kw):
+    return dict({"resultType": kind, "videoId": vid, "title": title, "artists": [{"name": "Artist"}],
+                 "duration_seconds": 61, "thumbnails": [{"url": "https://img.example/s.jpg", "width": 60},
+                                                         {"url": "https://img.example/l.jpg", "width": 120}]}, **kw)
+class YTMusic:
+    def __init__(self, auth=None):
+        self.auth = auth
+    def search(self, query, filter=None, limit=20):
+        if filter == "songs":
+            return [_r("song", "song1111111", query + " song", album={"name": "Album"}),
+                    _r("song", "song1111111", "again"), _r("song", "gone1111111", "gone", isAvailable=False),
+                    _r("album", None, "an album"), _r("song", "song2222222", "two")]
+        if filter == "videos":
+            return [_r("video", "video111111", query + " live")]
+        raise AssertionError(filter)
+EOF
+found="$(PYTHONPATH="$tmp/fakeapi" "$py" -P "$script" search persona 5 | "$py" -c 'import json,sys
+a = json.load(sys.stdin)
+print(a["query"], [(t["videoId"], t["kind"], t["album"], t["duration"], t["art"]) for t in a["songs"] + a["videos"]])')"
+expect "search: songs then videos, each once, available ones only, art as links" \
+  "persona 5 [('song1111111', 'song', 'Album', 61, 'https://img.example/l.jpg'), ('song2222222', 'song', '', 61, 'https://img.example/l.jpg'), ('video111111', 'video', '', 61, 'https://img.example/l.jpg')]" "$found"
+expect "search: no words refused" "1" "$(
+  PYTHONPATH="$tmp/fakeapi" "$py" -P "$script" search >/dev/null 2>&1
+  echo $?
+)"
+
 # -- The player ------------------------------------------------------------------------
 track() { printf '{"videoId":"%s","title":"Song %s","artist":"Artist A, Artist B","album":"Album","duration":200,"art":"https://img.example/%s.jpg"}' "$1" "$1" "$1"; }
 q() { printf '{"tracks":[%s,%s,%s],"index":%s,"playlist":"PLtest"}' "$(track aaaaaaaaaaa)" "$(track bbbbbbbbbbb)" "$(track ccccccccccc)" "${1:-0}"; }
@@ -146,7 +177,10 @@ echo "wrap=\$(y control next | j 'r["index"]')"
 y control repeat none >/dev/null
 y control next >/dev/null; y control next >/dev/null
 echo 1.5 >"$tmp/len"
-sleep 1.8
+# The last song ends 1.5 s in: waited for (up to 6 s), not slept on, so a
+# loaded machine doesn't fail it.
+for _ in \$(seq 60); do [ "\$(y status | j 'r["player"]["status"]')" = Stopped ] && break; sleep 0.1; done
+sleep 0.3
 echo "end=\$(y status | j 'r["player"]')"
 echo "names-after=\$(busctl --user list | grep -c nixbook_ytmusic)"
 # A song whose resolved stream fails: yt-dlp through mpv next.
