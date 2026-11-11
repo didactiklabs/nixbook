@@ -50,6 +50,13 @@ ColumnLayout {
     }
     function statusText() {
         const svc = MeshListen.serviceName(MeshListen.localService(root.session?.service ?? ""));
+        const host = root.session?.hostName || Mesh.nameOf(root.session?.host ?? "");
+        if (MeshListen.followStatus === "held")
+            return Translation.tr("Paused here: press play to catch up with %1").arg(host);
+        // Their states stopped coming (their shell restarting, a network
+        // drop): said, not "waiting for their next song".
+        if (MeshListen.quiet)
+            return Translation.tr("No news from %1 for a minute: still listening along").arg(host);
         switch (MeshListen.followStatus) {
         case "synced": return Translation.tr("In sync, in %1").arg(svc);
         case "opening": return root.video ? Translation.tr("Opening it in mpv…") : Translation.tr("Opening the song in %1…").arg(svc);
@@ -204,6 +211,13 @@ ColumnLayout {
                 StyledToolTip {
                     text: Translation.tr("Add this song to one of your YouTube Music playlists")
                 }
+            }
+            // Paused here while the host goes on: back with them at once.
+            RippleButtonWithIcon {
+                visible: root.followingThis && MeshListen.followStatus === "held"
+                materialIcon: "play_arrow"
+                mainText: Translation.tr("Catch up")
+                onClicked: MeshListen.catchUp()
             }
             RippleButtonWithIcon {
                 materialIcon: root.hosting ? "stop" : root.followingThis ? "logout" : root.video ? "movie" : "headphones"

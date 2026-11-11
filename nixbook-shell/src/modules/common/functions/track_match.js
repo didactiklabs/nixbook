@@ -80,7 +80,7 @@ function goneStep(f, x) {
 }
 // A new song to follow.
 function fresh() {
-    return { openedFor: "", openedAt: 0, opens: 0, syncedTo: "", offSince: 0, endSince: 0, pausedSince: 0, goneSince: 0,
+    return { openedFor: "", openedAt: 0, opens: 0, syncedTo: "", offSince: 0, endSince: 0, pausedSince: 0, goneSince: 0, held: false, heldSince: 0,
         sawPlaying: false, cmdAt: 0, lastPos: 0, lastLen: 0, seekAt: 0, seekRecv: 0, seekedFor: "",
         tried: [], alt: "", altFor: "", before: "" }
 }
@@ -168,9 +168,29 @@ function seekStep(f, x) {
     return Math.max(0, x.target)
 }
 
-// On the song, about play/pause: "ok" | "play" | "pause" | "leave". x: {
-// now, hostPlaying, localPlaying, hostRecv (ms, the host's last state) }.
+// On the song, about play/pause: "ok" | "play" | "pause" | "hold" |
+// "resume" | "leave". x: { now, hostPlaying, localPlaying, hostRecv (ms,
+// the host's last state) }.
+// Paused here while the host plays, after it played (once it lasts 8 s,
+// not at the song's end — the next one comes —, nor right after a command,
+// an open or the host's news): the listener paused (a media key, the
+// panel's button, a click by mistake). It used to end listening along;
+// now it is a hold: nothing is played for them ("hold" each tick; the
+// host's next songs aren't opened either), and when they press play again
+// it "resume"s, caught up to where the host is. Held 30 minutes: they've
+// moved on, "leave".
+var HOLD_MAX = 30 * 60 * 1000
 function playStep(f, x) {
+    if (f.held) {
+        if (x.localPlaying) {
+            f.held = false
+            f.heldSince = 0
+            f.pausedSince = 0
+            f.sawPlaying = true
+            return "resume"
+        }
+        return x.now - f.heldSince >= HOLD_MAX ? "leave" : "hold"
+    }
     if (!x.hostPlaying) {
         f.pausedSince = 0
         if (x.localPlaying && x.now - f.cmdAt > 1500) {
@@ -185,12 +205,14 @@ function playStep(f, x) {
         f.pausedSince = 0
         return "ok"
     }
-    // Paused here while the host plays, after it played: the listener
-    // paused, once it lasts 8 s, and not at the song's end (the next one
-    // comes), right after a command, an open or the host's news.
     if (f.sawPlaying && !nearEnd(f) && x.now - f.cmdAt > 3000 && x.now - f.openedAt > 8000 && x.now - x.hostRecv > 3000) {
         if (!f.pausedSince) f.pausedSince = x.now
-        return x.now - f.pausedSince >= 8000 ? "leave" : "ok"
+        if (x.now - f.pausedSince >= 8000) {
+            f.held = true
+            f.heldSince = x.now
+            return "hold"
+        }
+        return "ok"
     }
     if (x.now - f.cmdAt > 2000) {
         f.cmdAt = x.now
