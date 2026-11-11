@@ -157,7 +157,8 @@
         "qt": true,
         "vesktop": true,
         "youtubeMusic": true,
-        "zen": true
+        "zen": true,
+        "zenPages": false
       },
       "enableAppsAndShell": true,
       "enableQtApps": true,

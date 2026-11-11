@@ -3,6 +3,9 @@
   quickshellSrc,
   # The Google Keep client for the notes' sync with Keep (an npins pin).
   gkeepapiSrc,
+  # Dark Reader's library (an npins pin of its npm tarball): web pages in
+  # the shell's colours, in Zen (zen/pages-theme.js).
+  darkreaderSrc,
   # The VPN CLIs behind the VpnStatus bar widget (services/VpnState.qml probes
   # them with `command -v`, so the widget only shows the ones it finds). Off
   # where they are on the PATH anyway or not used, to keep them out of the
@@ -156,9 +159,14 @@ let
   # ($XDG_RUNTIME_DIR/nixbook-zen/bridge.sock). nixbook's zenBrowserConfig
   # installs both (`passthru.zenAgent`).
   zenExtensionId = "desktop-agent@nixbook-shell";
+  # Web pages in the shell's colours (zen/pages-theme.js): Dark Reader's
+  # library (MIT), from its npm tarball.
   zenExtension = pkgs.runCommand "nixbook-zen-extension.xpi" { nativeBuildInputs = [ pkgs.zip ]; } ''
-    cp ${./zen}/manifest.json ${./zen}/page.js ${./zen}/background.js .
-    zip -q -X -9 $out manifest.json page.js background.js
+    cp ${./zen}/manifest.json ${./zen}/page.js ${./zen}/background.js ${./zen}/pages-theme.js .
+    tar -xzf ${darkreaderSrc} package/darkreader.js package/LICENSE
+    mv package/darkreader.js darkreader.js
+    mv package/LICENSE darkreader-LICENSE
+    zip -q -X -9 $out manifest.json page.js background.js pages-theme.js darkreader.js darkreader-LICENSE
   '';
   zenBridge = pkgs.writeShellScriptBin "nixbook-zen-bridge" ''
     exec ${pkgs.python3}/bin/python3 -I ${./scripts/zen-bridge.py} "$@"

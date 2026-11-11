@@ -134,6 +134,8 @@ cmd_shell() {
   bash nixbook-shell/tests/trust.sh || failed=1
   section "nixbook-shell page code (Zen and the Electron apps)"
   bash nixbook-shell/tests/page.sh || failed=1
+  section "nixbook-shell web pages in the shell's colours (Zen)"
+  bash nixbook-shell/tests/zen-pages.sh || failed=1
   section "nixbook-shell Actual Budget adapter (the budget and budget_edit tools)"
   bash nixbook-shell/tests/actual.sh || failed=1
   section "nixbook-shell Discord, Slack and YouTube Music adapters"

@@ -17,6 +17,10 @@
 #     its Gmail pages (one per account); light or dark as the palette is.
 #   zen: the CSS imported by each profile's userChrome.css (zen-theme.py);
 #     Zen only reads it at startup, so a running Zen offers a restart.
+#   zen-pages: web pages in the palette's colours (Dark Reader's library in
+#     nixbook's Zen extension, zen/pages-theme.js): the colours sent to the
+#     running Zen through its bridge, live; a Zen started later gets them
+#     from the bridge (zen-bridge.py reads the file).
 # An app switched off gets its setup undone (Qt: its files just stop being
 # updated).
 #
@@ -41,6 +45,8 @@ ytm_settings="$XDG_CONFIG_HOME/YouTube Music/config.json"
 ytm_socket="$XDG_RUNTIME_DIR/nixbook-electron/youtube-music.sock"
 gmail_css="$APPS_DIR/gmail.css"
 gmail_socket="$XDG_RUNTIME_DIR/nixbook-electron/gmail.sock"
+zen_pages="$APPS_DIR/zen-pages.json"
+zen_socket="$XDG_RUNTIME_DIR/nixbook-zen/bridge.sock"
 
 # edit_list FILE JQ_PATH add|del VALUE: VALUE added to / removed from the JSON
 # array at JQ_PATH of FILE, everything else kept. Only once the app has
@@ -69,6 +75,7 @@ on qt && pairs+=("$TEMPLATES/qt-colors.conf" "$APPS_DIR/qt-colors.conf")
 on vesktop && pairs+=("$TEMPLATES/vesktop.css" "$vesktop_css")
 on youtube-music && pairs+=("$TEMPLATES/youtube-music.css" "$ytm_css")
 on gmail && pairs+=("$TEMPLATES/gmail.css" "$gmail_css")
+on zen-pages && pairs+=("$TEMPLATES/zen-pages.json" "$zen_pages")
 if on zen; then
   while IFS= read -r profile; do
     [ -n "$profile" ] && pairs+=("$TEMPLATES/zen-userChrome.css" "$profile/chrome/nixbook-shell.css")
@@ -130,6 +137,19 @@ style_app() {
 }
 style_app youtube-music "$ytm_css" "$ytm_socket"
 style_app gmail "$gmail_css" "$gmail_socket"
+
+# Zen's web pages: the colours to the running Zen (null: pages left as they
+# are).
+zen_pages_send() {
+  [ -S "$zen_socket" ] || return 0
+  printf '%s\n' "$1" | socat -t 10 - "UNIX-CONNECT:$zen_socket" >/dev/null 2>&1 || true
+}
+if on zen-pages; then
+  was_changed "$zen_pages" && zen_pages_send "$(jq -c '{cmd: "theme", theme: .}' "$zen_pages")"
+elif [ -f "$zen_pages" ]; then
+  rm -f "$zen_pages"
+  zen_pages_send '{"cmd":"theme","theme":null}'
+fi
 
 # Vesktop: the theme is in its themes folder; turn it on.
 if on vesktop; then

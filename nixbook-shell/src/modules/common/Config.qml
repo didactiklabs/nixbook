@@ -602,6 +602,9 @@ Singleton {
                         property bool vesktop: true
                         property bool youtubeMusic: true
                         property bool zen: true
+                        // Web pages in Zen (Dark Reader's library): off
+                        // until asked, it changes how every site looks.
+                        property bool zenPages: false
                     }
                     property bool enableTerminal: true
                     property JsonObject terminalGenerationProps: JsonObject {

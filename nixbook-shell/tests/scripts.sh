@@ -428,7 +428,27 @@ expect_eq "zen-theme.py: profiles from profiles.ini" "$(realpath "$zen_profile")
 full_palette=$(grep -ohE 'colors\.[a-z_]+\.(default|dark)' "$colors"/app-templates/* | cut -d. -f2 | sort -u |
   jq -R -s -c 'split("\n") | map(select(. != "")) | map({(.): "#abcdef"}) | add')
 gmail_css="$home/.local/state/quickshell/user/generated/apps/gmail.css"
-in_home "$colors/apply-app-colors.sh" "$full_palette" vesktop,youtube-music,gmail,zen
+zen_pages="$home/.local/state/quickshell/user/generated/apps/zen-pages.json"
+# A running Zen: its bridge's socket, logging what it is sent.
+mkdir -p "$tmp/nixbook-zen"
+python3 -c '
+import socket, sys
+s = socket.socket(socket.AF_UNIX); s.bind(sys.argv[1]); s.listen(4)
+while True:
+    c, _ = s.accept(); f = c.makefile("rwb")
+    for line in f:
+        open(sys.argv[2], "ab").write(line); f.write(b"ok" + bytes([10])); f.flush()
+    c.close()
+' "$tmp/nixbook-zen/bridge.sock" "$tmp/zen-bridge.log" &
+zen_bridge_pid=$!
+for _ in $(seq 50); do
+  [ -S "$tmp/nixbook-zen/bridge.sock" ] && break
+  sleep 0.1
+done
+in_home "$colors/apply-app-colors.sh" "$full_palette" vesktop,youtube-music,gmail,zen,zen-pages
+expect_eq "apply-app-colors.sh: Zen's web pages: their colours rendered" "light #abcdef" \
+  "$(jq -r '"\(.mode) \(.background)"' "$zen_pages")"
+expect_eq "apply-app-colors.sh: ...sent to the running Zen" "$(jq -c '{cmd: "theme", theme: .}' "$zen_pages")" "$(tail -1 "$tmp/zen-bridge.log")"
 expect_eq "apply-app-colors.sh: Gmail CSS written, every colour and grey filled" "true true false" \
   "$(grep -q '#abcdef' "$gmail_css" && echo true) $(grep -q 'invert(0\.' "$gmail_css" && echo true) $(grep -q '{{' "$gmail_css" && echo true || echo false)"
 expect_eq "apply-app-colors.sh: Vesktop theme written" "true" "$(grep -q '#abcdef' "$home/.config/vesktop/themes/nixbook-shell.css" && echo true)"
@@ -459,6 +479,9 @@ in_home "$colors/apply-app-colors.sh" "$full_palette" ""
 expect_eq "apply-app-colors.sh: switched off, Vesktop theme turned off" '["other.css"]' "$(jq -c .enabledThemes "$home/.config/vesktop/settings/settings.json")"
 expect_eq "apply-app-colors.sh: ...YouTube Music CSS removed" "false" "$([ -e "$ytm_css" ] && echo true || echo false)"
 expect_eq "apply-app-colors.sh: ...Gmail CSS removed" "false" "$([ -e "$gmail_css" ] && echo true || echo false)"
+expect_eq "apply-app-colors.sh: ...Zen's web pages turned off in the running Zen" '{"cmd":"theme","theme":null}' "$(tail -1 "$tmp/zen-bridge.log")"
+expect_eq "apply-app-colors.sh: ...their colours removed" "false" "$([ -e "$zen_pages" ] && echo true || echo false)"
+kill "$zen_bridge_pid" 2>/dev/null || true
 expect_eq "apply-app-colors.sh: ...Zen import removed" 'body { color: red; }' "$(cat "$zen_profile/chrome/userChrome.css")"
 if [ -e "$zen_profile/chrome/nixbook-shell.css" ] || [ -e "$home/.config/vesktop/themes/nixbook-shell.css" ]; then
   fail "apply-app-colors.sh: ...generated files removed"
