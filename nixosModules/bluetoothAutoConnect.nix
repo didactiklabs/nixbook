@@ -146,6 +146,12 @@ in
         wants = [ "pipewire.service" ];
         serviceConfig = {
           Type = "oneshot";
+          # Active once it ran at login: a switch's "reloading user units"
+          # starts the inactive units default.target wants and waits for
+          # them, and this one retries up to attempts × (interval + a 10 s
+          # connect timeout): 4 minutes of every switch with the device
+          # away. Each login (a new user manager) still runs it.
+          RemainAfterExit = true;
           ExecStart = lib.getExe reconnect;
           Slice = "background.slice";
         };
