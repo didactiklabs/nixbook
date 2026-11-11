@@ -267,6 +267,18 @@ case "$*" in
   *"images set 9 "*) echo 'error: no image "9" (1 to 2)' ;;
   *"images "*) echo "ok: done" ;;
   # The equalizer (EqualizerAutoService.qml): genre tags once looked up.
+  # The right panel's sound (Audio.qml `audio`, EchoCancel.qml) and
+  # listening along (Mesh.qml `mesh` listen*): the panel tools.
+  *"audio status"*) echo '{"output":{"name":"Speakers","volume":40,"muted":false},"microphone":{"muted":false,"default":"Mic","devices":[{"name":"Mic","muted":false}]}}' ;;
+  *"echoCancel status"*) echo '{"available":true,"active":false,"mic":""}' ;;
+  *"audio setVolume"*) echo "ok: volume ${*: -1}%" ;;
+  *"audio outputMute true"*) echo "ok: muted" ;;
+  *"audio mic"* | *"echoCancel o"*) ;;
+  *"mesh listenStatus"*) echo '{"hosting":null,"track":null,"following":"","status":"","sessions":[{"sid":"s1","host":"bob","track":{"title":"One More Time"}}],"notice":""}' ;;
+  *"mesh listenJoin nobody"*) echo "error: nobody isn't sharing music" ;;
+  *"mesh listenJoin "*) echo "ok: listening along with ${*: -1}" ;;
+  *"mesh listenShare"*) echo "ok: sharing with everyone" ;;
+  *"mesh listen"*) echo "ok" ;;
   *"equalizer status"*)
     tags=null; [ -e "$STUB_CALLS.genre" ] && tags='{"artist":["electronic","house"],"track":[]}'
     echo "{\"auto\":true,\"preset\":\"Flat\",\"preamp\":0,\"presets\":[\"Flat\",\"Bass\"],\"playing\":{\"app\":\"Spotify\",\"title\":\"One More Time\",\"artist\":\"Daft Punk\"},\"genreTags\":$tags}" ;;
@@ -284,6 +296,22 @@ EOF
 # The shell's accounts backend: its arguments logged ($STUB_CALLS.google), a
 # request kept ($STUB_CALLS.contacts), each change answered (id "nope"
 # fails); STUB_GOOGLE_SIGNED_OUT: no account (exit 2).
+# YouTube Music in the background (scripts/ytmusic.py): its arguments and
+# stdin logged; a few answers.
+cat >"$bin/nixbook-ytmusic" <<'EOF'
+#!/usr/bin/env bash
+in=""; [ "$1" = play-tracks ] && in=" <$(cat)"
+echo "nixbook-ytmusic $*$in" >>"$STUB_CALLS"
+case "$1" in
+  status) echo '{"signedIn":true,"account":"Khoa","player":{"status":"Playing","volume":60}}' ;;
+  search) echo "{\"query\":\"${*:2}\",\"songs\":[{\"videoId\":\"song1111111\",\"title\":\"One\",\"kind\":\"song\"}],\"videos\":[]}" ;;
+  playlists) echo '{"playlists":[{"id":"LM","title":"Liked Music","own":true,"thumb":"/home/x/.cache/t.jpg"}]}' ;;
+  add) [ "$2" = PLtheirs ] && { echo '{"error":"YouTube Music didn'"'"'t add it (is the playlist yours?)"}'; exit 1; }
+    echo "{\"ok\":true,\"playlist\":\"$2\",\"videoId\":\"$3\",\"status\":\"added\"}" ;;
+  *) echo '{"ok":true}' ;;
+esac
+EOF
+chmod +x "$bin/nixbook-ytmusic"
 cat >"$bin/nixbook-accounts" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$STUB_CALLS.google"
@@ -412,7 +440,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 70 tools" 70 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 73 tools" 73 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -3361,6 +3389,60 @@ expect_contains "screen_capture record_start: a region, no sound by default" "$(
 out=$(call screen_capture '{"action":"record_stop"}')
 expect_contains "screen_capture record_stop: the video's path" "$out" "recording stopped: $STUB_VIDEOS/recording_2026-10-02_12.00.00.mp4"
 expect_contains "screen_capture record_start: not a window" "$(call screen_capture '{"action":"record_start","window_id":5}')" "(a window: its region from list_windows)"
+
+# The right panel's features: YouTube Music in the background, listening
+# along, the sound.
+out=$(call youtube_music_player '{"action":"search","query":"daft punk"}')
+expect_eq "youtube_music_player search: through nixbook-ytmusic" "song1111111" "$(jq -r '.songs[0].videoId' <<<"$out")"
+expect_eq "youtube_music_player search: the words" "nixbook-ytmusic search daft punk" "$(last_call)"
+expect_eq "youtube_music_player playlists: no cached picture paths" "LM true null" \
+  "$(call youtube_music_player '{"action":"playlists"}' | jq -r '.playlists[0] | "\(.id) \(.own) \(.thumb)"')"
+call youtube_music_player '{"action":"play","tracks":[{"videoId":"song1111111","title":"One","extra":"x"}],"index":0}' >/dev/null
+expect_eq "youtube_music_player play: search songs, only their fields" 'nixbook-ytmusic play-tracks <{"tracks": [{"videoId": "song1111111", "title": "One"}], "index": 0, "shuffle": false}' "$(last_call)"
+call youtube_music_player '{"action":"play","playlist":"LM","index":3,"shuffle":true}' >/dev/null
+expect_eq "youtube_music_player play: a playlist" "nixbook-ytmusic play LM --index 3 --shuffle" "$(last_call)"
+call youtube_music_player '{"action":"control","what":"volume","value":35}' >/dev/null
+expect_eq "youtube_music_player control: its own volume" "nixbook-ytmusic control volume 35" "$(last_call)"
+expect_contains "youtube_music_player control: volume checked" "$(call youtube_music_player '{"action":"control","what":"volume","value":300}')" "0-100 for volume"
+expect_contains "youtube_music_player control: repeat mode checked" "$(call youtube_music_player '{"action":"control","what":"repeat","value":"forever"}')" "none|playlist|track|cycle"
+expect_eq "youtube_music_player add: into a playlist" "added" "$(call youtube_music_player '{"action":"add","playlist":"LM","video":"song1111111"}' | jq -r .status)"
+expect_contains "youtube_music_player add: the player's refusal said" "$(call youtube_music_player '{"action":"add","playlist":"PLtheirs","video":"song1111111"}')" "is the playlist yours?"
+expect_contains "youtube_music_player add: ids checked" "$(call youtube_music_player '{"action":"add","playlist":"LM","video":"x; rm"}')" "invalid value"
+call youtube_music_player '{"action":"create","title":"From Bob","video":"song1111111"}' >/dev/null
+expect_eq "youtube_music_player create" "nixbook-ytmusic create From Bob song1111111" "$(last_call)"
+call youtube_music_player '{"action":"offline","op":"keep","playlist":"LM"}' >/dev/null
+expect_eq "youtube_music_player offline keep" "nixbook-ytmusic offline keep LM" "$(last_call)"
+
+expect_eq "listen_along status: the sessions shared" "bob" "$(call listen_along '{"action":"status"}' | jq -r '.sessions[0].host')"
+expect_contains "listen_along join" "$(call listen_along '{"action":"join","member":"bob"}')" "listening along with bob"
+expect_contains "listen_along join: the shell's refusal said" "$(call listen_along '{"action":"join","member":"nobody"}')" "isn't sharing music"
+echo deny >"$tmp/ask"
+expect_contains "listen_along share: the user's yes first, no is no" "$(STUB_ASK="$tmp/ask" call listen_along '{"action":"share","member":""}')" "the user said no"
+expect_contains "listen_along share: asked with Allow / No" "$(grep -- '-A allow=Allow' "$calls" | tail -n1)" "share what you listen to with everyone in the mesh"
+expect_eq "listen_along share: nothing shared on a no" "" "$(grep 'listenShare' "$calls" || true)"
+echo allow >"$tmp/ask"
+STUB_ASK="$tmp/ask" call listen_along '{"action":"share","member":""}' >/dev/null
+expect_contains "listen_along share: shared once allowed" "$(last_call)" "mesh listenShare"
+call listen_along '{"action":"leave"}' >/dev/null
+expect_eq "listen_along leave" "qs -c nixbook-shell ipc call -- mesh listenLeave" "$(last_call)"
+expect_contains "listen_along: the mesh's other functions stay out of reach" "$(call shell_ipc '{"target":"mesh","function":"sendTo","args":["bob","hi"]}')" "mesh"
+
+out=$(call sound '{"action":"status"}')
+expect_eq "sound status: output, microphones, echo cancellation" "40 false true" "$(jq -r '"\(.output.volume) \(.microphone.muted) \(.echoCancellation.available)"' <<<"$out")"
+call sound '{"action":"volume","percent":30}' >/dev/null
+expect_eq "sound volume" "qs -c nixbook-shell ipc call -- audio setVolume 30" "$(last_call)"
+expect_contains "sound volume: checked" "$(call sound '{"action":"volume","percent":150}')" "0 to 100"
+call sound '{"action":"mic_mute"}' >/dev/null
+expect_eq "sound mic_mute: every microphone, without asking" "qs -c nixbook-shell ipc call -- audio micMute" "$(last_call)"
+echo deny >"$tmp/ask"
+expect_contains "sound mic_unmute: asked, no is no" "$(STUB_ASK="$tmp/ask" call sound '{"action":"mic_unmute"}')" "the user said no"
+expect_eq "sound mic_unmute: not on a no" "" "$(grep 'micUnmute' "$calls" || true)"
+echo allow >"$tmp/ask"
+STUB_ASK="$tmp/ask" call sound '{"action":"mic_unmute"}' >/dev/null
+expect_eq "sound mic_unmute: allowed" "qs -c nixbook-shell ipc call -- audio micUnmute" "$(last_call)"
+expect_eq "sound mic_unmute: no Always allow (asked every time)" "" "$(grep -- '-A always=' "$calls" | grep 'microphone' || true)"
+call sound '{"action":"echo_cancel","on":true}' >/dev/null
+expect_eq "sound echo_cancel" "qs -c nixbook-shell ipc call -- echoCancel on" "$(last_call)"
 
 # The equalizer: the song playing and its genre, then a curve for it.
 out=$(call equalizer '{"action":"status"}')

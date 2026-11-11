@@ -120,6 +120,28 @@ Singleton {
         function micUnmute(): void { root.setMicMuted(false); }
         function micStatus(): string { return root.micMuted ? "muted" : "unmuted"; }
         function toggleMute(): void { root.toggleMute(); }
+        // The output and the microphones, for the desktop agents' `sound`
+        // tool (this target is denied to their generic shell_ipc: it could
+        // unmute the microphone; the tool asks the user first).
+        function status(): string {
+            return JSON.stringify({
+                output: { name: root.friendlyDeviceName(root.sink), volume: Math.round((root.sink?.audio?.volume ?? 0) * 100),
+                    muted: root.sink?.audio?.muted ?? false },
+                microphone: { muted: root.micMuted, default: root.friendlyDeviceName(root.source),
+                    devices: root.inputDevices.map(n => ({ name: root.friendlyDeviceName(n), muted: n.audio?.muted ?? false })) }
+            });
+        }
+        // 0-100 (audio.protection still applies: no sudden jump).
+        function setVolume(percent: int): string {
+            if (!root.sink?.audio) return "error: no output device";
+            root.sink.audio.volume = Math.max(0, Math.min(100, percent)) / 100;
+            return `ok: volume ${Math.round(root.sink.audio.volume * 100)}%`;
+        }
+        function outputMute(muted: bool): string {
+            if (!root.sink?.audio) return "error: no output device";
+            root.sink.audio.muted = muted;
+            return muted ? "ok: muted" : "ok: unmuted";
+        }
     }
 
     function incrementVolume() {

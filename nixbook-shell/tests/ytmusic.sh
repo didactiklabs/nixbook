@@ -214,6 +214,9 @@ busctl --user set-property org.mpris.MediaPlayer2.nixbook_ytmusic /org/mpris/Med
 echo "volume-mpris=\$(mp Volume)"
 sleep 1.4
 echo "volume-saved=\$(cat "$tmp/state/nixbook-ytmusic/volume.json")"
+echo "volume-cli=\$(y control volume 25 | j 'r["volume"]') \$(mp Volume)"
+echo "volume-bad=\$(y control volume 300 2>/dev/null | j 'r.get("error")')"
+busctl --user set-property org.mpris.MediaPlayer2.nixbook_ytmusic /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player Volume d 0.4
 # Songs that don't end on their own while skipping.
 echo 60 >"$tmp/len"
 y control repeat playlist >/dev/null
@@ -259,10 +262,12 @@ expect "mpris: LoopStatus set from there" 's "Track"' "$(get loop-mpris)"
 expect "player: repeat one song plays it again" "1 Track" "$(get track-repeat)"
 expect "mpris: Volume set from there" "d 0.4" "$(get volume-mpris)"
 expect "player: the volume kept for the next start" '{"volume": 0.4}' "$(get volume-saved)"
+expect "control volume: 0-100, the same volume as MPRIS's" "25 d 0.25" "$(get volume-cli)"
+expect "control volume: over 100 refused" "volume: 0 to 100" "$(get volume-bad)"
 expect "player: shuffle from MPRIS keeps the song playing first" "True 0 bbbbbbbbbbb" "$(get shuffle)"
 expect "player: shuffle off, the playlist's order back on the same song" "False bbbbbbbbbbb" "$(get unshuffle)"
 expect "player: repeat the playlist wraps to the first song" "0" "$(get wrap)"
-expect "player: the last song ended, nothing to repeat: stopped" "{'status': 'Stopped', 'track': None, 'index': -1, 'count': 0, 'playlist': '', 'position': 0, 'loading': False, 'shuffle': False, 'loop': 'None', 'lastfm': False}" "$(get end)"
+expect "player: the last song ended, nothing to repeat: stopped" "{'status': 'Stopped', 'track': None, 'index': -1, 'count': 0, 'playlist': '', 'position': 0, 'volume': 40, 'loading': False, 'shuffle': False, 'loop': 'None', 'lastfm': False}" "$(get end)"
 expect "player: the MPRIS name released once stopped" "0" "$(get names-after)"
 expect "player: a failing stream tried again through yt-dlp" "2 music.youtube.com" "$(get fallback)"
 expect "player: nothing left behind" "0" "$(find "$tmp/run/nixbook-ytmusic" -name 'cookies.txt' | wc -l)"
