@@ -8,7 +8,7 @@ import qs.modules.common.widgets
 // YouTube Music in the background (services/YouTubeMusic.qml): signing in
 // with the YouTube session of a browser (or of the YouTube Music app), what
 // to do first when there is none, and Last.fm scrobbling (its desktop
-// sign-in, or the YouTube Music app's own). In Settings > Services >
+// sign-in, or the YouTube Music app's own). In Settings > Apps & accounts >
 // YouTube Music and in the right sidebar's YouTube Music tab while signed out.
 ColumnLayout {
     id: root

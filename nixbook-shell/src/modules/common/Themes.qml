@@ -5,7 +5,7 @@ import Quickshell
 import Quickshell.Io
 
 /**
- * The shell's themes (Settings → Appearance → Theme, the desktop menu's
+ * The shell's themes (Settings → Themes, the desktop menu's
  * Theme submenu). The registry is modules/common/themes.json, also read by
  * the Nix options (lib.nix) and the login screen, so a theme is declared once.
  *
@@ -100,7 +100,7 @@ Singleton {
 
     // Every theme but the default (Material) brings its own sounds: the
     // notification chime and the timers' ringtones are then the theme's, and
-    // their settings (Settings → General → Sounds) are locked.
+    // their settings (Settings → Sound → Sounds) are locked.
     readonly property bool themeSounds: root.current !== root.defaultTheme
 
     // ----------------------------------------------------------- sounds

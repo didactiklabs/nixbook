@@ -1,0 +1,1409 @@
+import QtQuick
+import Quickshell
+import QtQuick.Layouts
+import qs
+import qs.services
+import qs.modules.common
+import qs.modules.common.widgets
+import qs.modules.common.functions
+import Quickshell.Io
+
+// Settings > Desktop widgets: the widgets drawn on the wallpaper (split out
+// of the Wallpaper page, formerly Desktop).
+ContentPage {
+    id: page
+    forceWidth: true
+
+    function goTo(term) {
+        const t = term.toLowerCase().trim()
+
+        function findTarget(rootItem) {
+            for (let i = 0; i < rootItem.children.length; i++) {
+                let child = rootItem.children[i]
+                if (child.title && child.title.toLowerCase().includes(t)) {
+                    return child
+                }
+            }
+
+            for (let i = 0; i < rootItem.children.length; i++) {
+                let found = findTarget(rootItem.children[i])
+                if (found) return found
+            }
+            return null
+        }
+
+        let target = findTarget(mainLayout)
+        if (target) {
+            let pos = target.mapToItem(mainLayout, 0, 0)
+            page.contentY = Math.max(0, pos.y - 0)
+        }
+    }
+
+    ColumnLayout {
+        id: mainLayout 
+        Layout.fillWidth: true   
+        Layout.fillHeight: true
+        spacing: 20
+            
+
+        ContentSection {
+            icon: "widgets"
+            shape: MaterialShape.Shape.Pill
+            title: Translation.tr("Widgets")
+
+            ContentSubsection {
+                title: Translation.tr("Show widgets on")
+                shown: Quickshell.screens.length > 1
+                Layout.bottomMargin: 10
+
+                WidgetsMonitorSelector {
+                    configEntry: Config.options.background
+                    configKey: "background.screenList"
+                }
+            }
+            
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 3
+                rowSpacing: 8
+                columnSpacing: 8
+                Repeater {
+                    model: [
+                        {
+                            icon: "weather_mix",
+                            name: Translation.tr("Weather"),
+                            key: "weather",
+                            enabled: Config.options.background.widgets.weather.enable
+                        },
+                        {
+                            icon: "image",
+                            name: Translation.tr("Image converter"),
+                            key: "images",
+                            enabled: Config.options.background.widgets.images.enable
+                        },
+                        {
+                            icon: "music_note",
+                            name: Translation.tr("Media Player"),
+                            key: "media",
+                            enabled: Config.options.background.widgets.media.enable
+                        },
+                        {
+                            icon: "memory",
+                            name: Translation.tr("Resources"),
+                            key: "resources",
+                            enabled: Config.options.background.widgets.resources.enable
+                        },
+                        {
+                            icon: "calendar_month",
+                            name: Translation.tr("Calendar"),
+                            key: "calendar",
+                            enabled: Config.options.background.widgets.calendar.enable
+                        },
+                        {
+                            icon: "event_upcoming",
+                            name: Translation.tr("Next Event"),
+                            key: "nextEvent",
+                            enabled: Config.options.background.widgets.nextEvent.enable
+                        },
+                        {
+                            icon: "contacts",
+                            name: Translation.tr("Contacts"),
+                            key: "contacts",
+                            enabled: Config.options.background.widgets.contacts.enable
+                        },
+                        {
+                            icon: "public",
+                            name: Translation.tr("World Clock"),
+                            key: "worldClock",
+                            enabled: Config.options.background.widgets.worldClock.enable
+                        },
+                        {
+                            icon: "person",
+                            name: Translation.tr("User Card"),
+                            key: "userCard",
+                            enabled: Config.options.background.widgets.userCard.enable
+                        },
+                        {
+                            icon: "note_stack_add",
+                            name: Translation.tr("Notes"),
+                            key: "notes",
+                            enabled: Config.options.background.widgets.notes.enable
+                        },
+                        {
+                            icon: "add_task",
+                            name: Translation.tr("To-Do"),
+                            key: "todo",
+                            enabled: Config.options.background.widgets.todo.enable
+                        },
+                        {
+                            icon: "timer",
+                            name: Translation.tr("Timers"),
+                            key: "timers",
+                            enabled: Config.options.background.widgets.timers.enable
+                        },
+                        {
+                            icon: "sticker",
+                            name: Translation.tr("Sticker"),
+                            key: "sticker",
+                            enabled: Config.options.background.widgets.sticker.enable
+                        },
+                        
+                    ]
+                    delegate: Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 105
+                        radius: Appearance.rounding.normal
+                        color: Appearance.colors.colLayer1
+                        border.width: 1
+                        border.color: Appearance.colors.colLayer0Border
+                        ColumnLayout {
+                            anchors {
+                                top: parent.top
+                                left: parent.left
+                                right: parent.right
+                                margins: 12
+                            }
+                            spacing: 0
+                            RowLayout {
+                                Layout.fillWidth: true
+                                MaterialSymbol {
+                                    text: modelData.icon
+                                    iconSize: Appearance.font.pixelSize.normal + 5
+                                    color: Appearance.colors.colPrimary
+                                }
+                                Item { Layout.fillWidth: true }
+                                ConfigSwitch {
+                                    configKey: `background.widgets.${modelData.key}.enable`;
+                                    enabled: !nixManaged;
+                                    Layout.fillWidth: false
+                                    checked: modelData.enabled
+                                    onCheckedChanged: Config.options.background.widgets[modelData.key].enable = checked
+                                }
+                            }
+                            StyledText {
+                                text: modelData.name
+                                font.pixelSize: Appearance.font.pixelSize.normal
+                                color: Appearance.colors.colOnLayer1
+                            }
+                            StyledText {
+                                text: modelData.enabled ? Translation.tr("Enabled") : Translation.tr("Disabled")
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                color: Appearance.colors.colSubtext
+                            }
+                        }
+                    }
+                }
+            }
+            ContentSubsection {
+                title: Translation.tr("Canvas")
+                Layout.bottomMargin: 10
+
+                GroupedList {
+                    ConfigSwitch {
+                        configKey: "background.showGrid";
+                        enabled: !nixManaged;
+                        Layout.fillWidth: true
+                        buttonIcon: "grid_4x4"
+                        text: Translation.tr("Show alignment grid while dragging")
+                        checked: Config.options.background.showGrid
+                        onCheckedChanged: {
+                            Config.options.background.showGrid = checked;
+                        }
+                    }
+                    ConfigSwitch {
+                        configKey: "background.showSnapLines";
+                        enabled: !nixManaged;
+                        Layout.fillWidth: true
+                        buttonIcon: "align_horizontal_center"
+                        text: Translation.tr("Show snap lines when dropping")
+                        checked: Config.options.background.showSnapLines
+                        onCheckedChanged: {
+                            Config.options.background.showSnapLines = checked;
+                        }
+                    }
+                }
+                ConfigSlider {
+                    configKey: "background.widgets.cardOpacity";
+                    enabled: !nixManaged;
+                    Layout.fillWidth: true
+                    text: Translation.tr("Widget background opacity")
+                    buttonIcon: "opacity"
+                    value: Config.options.background.widgets.cardOpacity ?? 0.75
+                    usePercentTooltip: true
+                    from: 0.2
+                    to: 1
+                    stopIndicatorValues: [0.75]
+                    onValueChanged: Config.options.background.widgets.cardOpacity = value
+                }
+            }
+        }
+
+        ContentSection {
+            id: settingsClock
+            icon: "clock_loader_40"
+            shape: MaterialShape.Shape.Bun
+            title: Translation.tr("Clock")
+
+            function stylePresent(styleName) {
+                if (!Config.options.background.widgets.clock.showOnlyWhenLocked && Config.options.background.widgets.clock.style === styleName) {
+                    return true;
+                }
+                if (Config.options.background.widgets.clock.styleLocked === styleName) {
+                    return true;
+                }
+                return false;
+            }
+
+            readonly property bool digitalPresent: stylePresent("digital")
+            readonly property bool cookiePresent: stylePresent("cookie")
+
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "background.widgets.clock.enable";
+                    enabled: !nixManaged;
+                    Layout.fillWidth: false
+                    buttonIcon: "check"
+                    text: Translation.tr("Enable")
+                    checked: Config.options.background.widgets.clock.enable
+                    onCheckedChanged: {
+                        Config.options.background.widgets.clock.enable = checked;
+                    }
+                }
+
+                ConfigSelectionArray {
+                    configKey: "background.widgets.clock.placementStrategy";
+                    enabled: !nixManaged;
+                    text: Translation.tr("Placement strategy")
+                    icon: "move"
+                    Layout.fillWidth: false
+                    currentValue: Config.options.background.widgets.clock.placementStrategy
+                    onSelected: newValue => {
+                        Config.options.background.widgets.clock.placementStrategy = newValue;
+                    }
+                    options: [
+                        {
+                            displayName: Translation.tr("Draggable"),
+                            icon: "drag_pan",
+                            value: "free"
+                        },
+                        {
+                            displayName: Translation.tr("Least busy"),
+                            icon: "category",
+                            value: "leastBusy"
+                        },
+                        {
+                            displayName: Translation.tr("Most busy"),
+                            icon: "shapes",
+                            value: "mostBusy"
+                        },
+                    ]
+                }
+                ConfigSelectionArray {
+                    configKey: "background.widgets.clock.style";
+                    enabled: !nixManaged;
+                    text: Translation.tr("Clock style")
+                    icon: "nest_clock_farsight_analog"
+                    currentValue: Config.options.background.widgets.clock.style
+                    onSelected: newValue => {
+                        Config.options.background.widgets.clock.style = newValue;
+                    }
+                    options: [
+                        {
+                            displayName: Translation.tr("Digital"),
+                            icon: "timer_10",
+                            value: "digital"
+                        },
+                        {
+                            displayName: Translation.tr("Cookie"),
+                            icon: "cookie",
+                            value: "cookie"
+                        },
+                        {
+                            displayName: Translation.tr("Pixel"),
+                            icon: "grid_view",
+                            value: "pixel"
+                        }
+                    ]
+                }
+                ConfigSelectionArray {
+                    configKey: "background.widgets.clock.styleLocked";
+                    enabled: !nixManaged;
+                    text: Translation.tr("Clock style (locked)")
+                    icon: "shield_watch"
+                    currentValue: Config.options.background.widgets.clock.styleLocked
+                    onSelected: newValue => {
+                        Config.options.background.widgets.clock.styleLocked = newValue;
+                    }
+                    options: [
+                        {
+                            displayName: Translation.tr("Digital"),
+                            icon: "timer_10",
+                            value: "digital"
+                        },
+                        {
+                            displayName: Translation.tr("Cookie"),
+                            icon: "cookie",
+                            value: "cookie"
+                        },
+                        {
+                            displayName: Translation.tr("Pixel"),
+                            icon: "grid_view",
+                            value: "pixel"
+                        }
+                    ]
+                }
+            }
+
+            ContentSubsection {
+                shown: settingsClock.digitalPresent
+                title: Translation.tr("Digital clock settings")
+
+                ConfigRow {
+                    uniform: true
+
+                    GroupedList {
+                        ConfigSwitch {
+                            configKey: "background.widgets.clock.digital.vertical";
+                            enabled: !nixManaged;
+                            buttonIcon: "vertical_distribute"
+                            text: Translation.tr("Vertical")
+                            checked: Config.options.background.widgets.clock.digital.vertical
+                            onCheckedChanged: { Config.options.background.widgets.clock.digital.vertical = checked }
+                        }
+                        ConfigSwitch {
+                            configKey: "background.widgets.clock.digital.showDate";
+                            enabled: !nixManaged;
+                            buttonIcon: "date_range"
+                            text: Translation.tr("Show date")
+                            checked: Config.options.background.widgets.clock.digital.showDate
+                            onCheckedChanged: { Config.options.background.widgets.clock.digital.showDate = checked }
+                        }
+                    }
+
+                    GroupedList {
+                        ConfigSwitch {
+                            configKey: "background.widgets.clock.digital.animateChange";
+                            enabled: !nixManaged;
+                            buttonIcon: "animation"
+                            text: Translation.tr("Animate time change")
+                            checked: Config.options.background.widgets.clock.digital.animateChange
+                            onCheckedChanged: { Config.options.background.widgets.clock.digital.animateChange = checked }
+                        }
+                        ConfigSwitch {
+                            configKey: "background.widgets.clock.digital.adaptiveAlignment";
+                            enabled: !nixManaged;
+                            buttonIcon: "activity_zone"
+                            text: Translation.tr("Use adaptive alignment")
+                            checked: Config.options.background.widgets.clock.digital.adaptiveAlignment
+                            onCheckedChanged: { Config.options.background.widgets.clock.digital.adaptiveAlignment = checked }
+                        }
+                    }
+                }
+
+                GroupedList {
+                    ConfigSwitch {
+                        configKey: "background.widgets.clock.color";
+                        enabled: !nixManaged;
+                        id: autoColorSwitch
+                        buttonIcon: "auto_awesome"
+                        text: Translation.tr("Automatic colors")
+                        checked: Config.options.background.widgets.clock.color === ""
+                        onCheckedChanged: {
+                            if (checked) {
+                                Config.options.background.widgets.clock.color = ""
+                            }
+                        }
+                    }
+
+                    ColorSelectionArray {
+                        configKey: "background.widgets.clock.color";
+                        enabled: !nixManaged;
+                        icon: "palette"
+                        text: Translation.tr("Color")
+                        currentValue: Config.options.background.widgets.clock.color
+                        onSelected: newValue => {
+                            Config.options.background.widgets.clock.color = newValue
+                            autoColorSwitch.checked = false
+                        }
+                    }
+                }
+
+                MaterialTextArea {
+                    Layout.fillWidth: true
+                    placeholderText: Translation.tr("Font family")
+                    text: Config.options.background.widgets.clock.digital.font.family
+                    wrapMode: TextEdit.Wrap
+
+                    Timer {
+                        id: debounceTimer
+                        interval: 500
+                        repeat: false
+                        onTriggered: {
+                            Config.options.background.widgets.clock.digital.font.family = parent.text
+                        }
+                    }
+
+                    onTextChanged: {
+                        debounceTimer.restart()
+                    }
+                }
+                GroupedList {
+                    Layout.topMargin: 10
+                    ConfigSlider {
+                        configKey: "background.widgets.clock.digital.font.weight";
+                        enabled: !nixManaged;
+                        text: Translation.tr("Font weight")
+                        value: Config.options.background.widgets.clock.digital.font.weight
+                        usePercentTooltip: false
+                        buttonIcon: "format_bold"
+                        from: 1
+                        to: 1000
+                        stopIndicatorValues: [350]
+                        onValueChanged: {
+                            Config.options.background.widgets.clock.digital.font.weight = value;
+                        }
+                    }
+
+                    ConfigSlider {
+                        configKey: "background.widgets.clock.digital.font.size";
+                        enabled: !nixManaged;
+                        text: Translation.tr("Font size")
+                        value: Config.options.background.widgets.clock.digital.font.size
+                        usePercentTooltip: false
+                        buttonIcon: "format_size"
+                        from: 50
+                        to: 700
+                        stopIndicatorValues: [90]
+                        onValueChanged: {
+                            Config.options.background.widgets.clock.digital.font.size = value;
+                        }
+                    }
+
+                    ConfigSlider {
+                        configKey: "background.widgets.clock.digital.font.width";
+                        enabled: !nixManaged;
+                        text: Translation.tr("Font width")
+                        value: Config.options.background.widgets.clock.digital.font.width
+                        usePercentTooltip: false
+                        buttonIcon: "fit_width"
+                        from: 25
+                        to: 125
+                        stopIndicatorValues: [100]
+                        onValueChanged: {
+                            Config.options.background.widgets.clock.digital.font.width = value;
+                        }
+                    }
+                    ConfigSlider {
+                        configKey: "background.widgets.clock.digital.font.roundness";
+                        enabled: !nixManaged;
+                        text: Translation.tr("Font roundness")
+                        value: Config.options.background.widgets.clock.digital.font.roundness
+                        usePercentTooltip: false
+                        buttonIcon: "line_curve"
+                        from: 0
+                        to: 100
+                        onValueChanged: {
+                            Config.options.background.widgets.clock.digital.font.roundness = value;
+                        }
+                    }
+                }
+            }
+
+            ContentSubsection {
+                shown: settingsClock.cookiePresent
+                title: Translation.tr("Cookie clock settings")
+                GroupedList {   
+                    ConfigSwitch {
+                        configKey: "background.widgets.clock.cookie.useSineCookie";
+                        enabled: !nixManaged;
+                        buttonIcon: "airwave"
+                        text: Translation.tr("Use old sine wave cookie implementation")
+                        checked: Config.options.background.widgets.clock.cookie.useSineCookie
+                        onCheckedChanged: {
+                            Config.options.background.widgets.clock.cookie.useSineCookie = checked;
+                        }
+                    }
+
+                    ConfigSpinBox {
+                        configKey: "background.widgets.clock.cookie.sides";
+                        enabled: !nixManaged;
+                        icon: "add_triangle"
+                        text: Translation.tr("Sides")
+                        value: Config.options.background.widgets.clock.cookie.sides
+                        from: 0
+                        to: 40
+                        stepSize: 1
+                        onValueChanged: {
+                            Config.options.background.widgets.clock.cookie.sides = value;
+                        }
+                    }
+
+                    ConfigSwitch {
+                        configKey: "background.widgets.clock.cookie.constantlyRotate";
+                        enabled: !nixManaged;
+                        buttonIcon: "autoplay"
+                        text: Translation.tr("Constantly rotate")
+                        checked: Config.options.background.widgets.clock.cookie.constantlyRotate
+                        onCheckedChanged: {
+                            Config.options.background.widgets.clock.cookie.constantlyRotate = checked;
+                        }
+                    }
+
+                    ConfigRow {
+
+                        ConfigSwitch {
+                            configKey: "background.widgets.clock.cookie.hourMarks";
+                            enabled: (Config.options.background.widgets.clock.cookie.dialNumberStyle === "dots" || Config.options.background.widgets.clock.cookie.dialNumberStyle === "full") && !nixManaged
+                            buttonIcon: "brightness_7"
+                            text: Translation.tr("Hour marks")
+                            checked: Config.options.background.widgets.clock.cookie.hourMarks
+                            onEnabledChanged: {
+                                checked = Config.options.background.widgets.clock.cookie.hourMarks;
+                            }
+                            onCheckedChanged: {
+                                Config.options.background.widgets.clock.cookie.hourMarks = checked;
+                            }
+                        }
+
+                        ConfigSwitch {
+                            configKey: "background.widgets.clock.cookie.timeIndicators";
+                            enabled: (Config.options.background.widgets.clock.cookie.dialNumberStyle !== "numbers") && !nixManaged
+                            buttonIcon: "timer_10"
+                            text: Translation.tr("Digits in the middle")
+                            checked: Config.options.background.widgets.clock.cookie.timeIndicators
+                            onEnabledChanged: {
+                                checked = Config.options.background.widgets.clock.cookie.timeIndicators;
+                            }
+                            onCheckedChanged: {
+                                Config.options.background.widgets.clock.cookie.timeIndicators = checked;
+                            }
+                        }
+                    }
+                }
+            }
+
+            GroupedList {
+                Layout.topMargin: 10
+                shown: settingsClock.cookiePresent
+                ConfigSelectionArray {
+                    configKey: "background.widgets.clock.cookie.dialNumberStyle";
+                    enabled: !nixManaged;
+                    text: "Dial Style"
+                    icon: "graph_6"
+                    currentValue: Config.options.background.widgets.clock.cookie.dialNumberStyle
+                    onSelected: newValue => {
+                        Config.options.background.widgets.clock.cookie.dialNumberStyle = newValue;
+                        if (newValue !== "dots" && newValue !== "full") {
+                            Config.options.background.widgets.clock.cookie.hourMarks = false;
+                        }
+                        if (newValue === "numbers") {
+                            Config.options.background.widgets.clock.cookie.timeIndicators = false;
+                        }
+                    }
+                    options: [
+                        {
+                            displayName: "",
+                            icon: "block",
+                            value: "none"
+                        },
+                        {
+                            displayName: Translation.tr("Dots"),
+                            icon: "graph_6",
+                            value: "dots"
+                        },
+                        {
+                            displayName: Translation.tr("Full"),
+                            icon: "history_toggle_off",
+                            value: "full"
+                        },
+                        {
+                            displayName: Translation.tr("Numbers"),
+                            icon: "counter_1",
+                            value: "numbers"
+                        }
+                    ]
+                }
+                ConfigSelectionArray {
+                    configKey: "background.widgets.clock.cookie.hourHandStyle";
+                    enabled: !nixManaged;
+                    icon: "highlighter_size_2"
+                    text: Translation.tr("Hour hand")
+                    currentValue: Config.options.background.widgets.clock.cookie.hourHandStyle
+                    onSelected: newValue => {
+                        Config.options.background.widgets.clock.cookie.hourHandStyle = newValue;
+                    }
+                    options: [
+                        {
+                            displayName: "",
+                            icon: "block",
+                            value: "hide"
+                        },
+                        {
+                            displayName: Translation.tr("Classic"),
+                            icon: "radio",
+                            value: "classic"
+                        },
+                        {
+                            displayName: Translation.tr("Hollow"),
+                            icon: "circle",
+                            value: "hollow"
+                        },
+                        {
+                            displayName: Translation.tr("Fill"),
+                            icon: "eraser_size_5",
+                            value: "fill"
+                        },
+                    ]
+                }
+                ConfigSelectionArray {
+                    configKey: "background.widgets.clock.cookie.minuteHandStyle";
+                    enabled: !nixManaged;
+                    text: Translation.tr("Minute hand")
+                    icon: "eraser_size_1" 
+                    currentValue: Config.options.background.widgets.clock.cookie.minuteHandStyle
+                    onSelected: newValue => {
+                        Config.options.background.widgets.clock.cookie.minuteHandStyle = newValue;
+                    }
+                    options: [
+                        {
+                            displayName: "",
+                            icon: "block",
+                            value: "hide"
+                        },
+                        {
+                            displayName: Translation.tr("Classic"),
+                            icon: "radio",
+                            value: "classic"
+                        },
+                        {
+                            displayName: Translation.tr("Thin"),
+                            icon: "line_end",
+                            value: "thin"
+                        },
+                        {
+                            displayName: Translation.tr("Medium"),
+                            icon: "eraser_size_2",
+                            value: "medium"
+                        },
+                        {
+                            displayName: Translation.tr("Bold"),
+                            icon: "eraser_size_4",
+                            value: "bold"
+                        },
+                    ]
+                }
+                ConfigSelectionArray {
+                    configKey: "background.widgets.clock.cookie.secondHandStyle";
+                    enabled: !nixManaged;
+                    text: Translation.tr("Second hand")
+                    icon: "pen_size_1"
+                    currentValue: Config.options.background.widgets.clock.cookie.secondHandStyle
+                    onSelected: newValue => {
+                        Config.options.background.widgets.clock.cookie.secondHandStyle = newValue;
+                    }
+                    options: [
+                        {
+                            displayName: "",
+                            icon: "block",
+                            value: "hide"
+                        },
+                        {
+                            displayName: Translation.tr("Classic"),
+                            icon: "radio",
+                            value: "classic"
+                        },
+                        {
+                            displayName: Translation.tr("Line"),
+                            icon: "line_end",
+                            value: "line"
+                        },
+                        {
+                            displayName: Translation.tr("Dot"),
+                            icon: "adjust",
+                            value: "dot"
+                        },
+                    ]
+                }
+                ConfigSelectionArray {
+                    configKey: "background.widgets.clock.cookie.dateStyle";
+                    enabled: !nixManaged;
+                    text: Translation.tr("Date style")
+                    icon: "date_range"
+                    currentValue: Config.options.background.widgets.clock.cookie.dateStyle
+                    onSelected: newValue => {
+                        Config.options.background.widgets.clock.cookie.dateStyle = newValue;
+                    }
+                    options: [
+                        {
+                            displayName: "",
+                            icon: "block",
+                            value: "hide"
+                        },
+                        {
+                            displayName: Translation.tr("Bubble"),
+                            icon: "bubble_chart",
+                            value: "bubble"
+                        },
+                        {
+                            displayName: Translation.tr("Border"),
+                            icon: "rotate_right",
+                            value: "border"
+                        },
+                        {
+                            displayName: Translation.tr("Rect"),
+                            icon: "rectangle",
+                            value: "rect"
+                        }
+                    ]
+                }
+            }
+            
+            ContentSubsection {
+                shown: Config.options.background.widgets.clock.style === "pixel"
+                title: Translation.tr("Pixel Clock Settings")
+                GroupedList {
+                    shown: Config.options.background.widgets.clock.style === "pixel"
+                    ConfigSelectionArray {
+                        configKey: "background.widgets.clock.pixel.orientation";
+                        enabled: !nixManaged;
+                        text: Translation.tr("Pixel clock orientation")
+                        shown: Config.options.background.widgets.clock.style === "pixel"
+                        icon: "screen_rotation"
+                        currentValue: Config.options.background.widgets.clock.pixel.orientation
+                        onSelected: newValue => {
+                            Config.options.background.widgets.clock.pixel.orientation = newValue;
+                        }
+                        options: [
+                            {
+                                displayName: Translation.tr("Horizontal"),
+                                icon: "swap_horiz",
+                                value: "horizontal"
+                            },
+                            {
+                                displayName: Translation.tr("Vertical"),
+                                icon: "swap_vert",
+                                value: "vertical"
+                            }
+                        ]
+                    }
+                }
+            }
+
+            ContentSubsection {
+                title: Translation.tr("Quote")
+                GroupedList {
+                    ConfigSwitch {
+                        configKey: "background.widgets.clock.quote.enable";
+                        enabled: !nixManaged;
+                        buttonIcon: "check"
+                        text: Translation.tr("Enable")
+                        checked: Config.options.background.widgets.clock.quote.enable
+                        onCheckedChanged: {
+                            Config.options.background.widgets.clock.quote.enable = checked;
+                        }
+                    }
+                    ConfigSwitch {
+                        configKey: "background.widgets.clock.quote.followClock";
+                        buttonIcon: "font_download"
+                        text: Translation.tr("Follow Clock Font")
+                        enabled: (Config.options.background.widgets.clock.style !== "pixel") && !nixManaged
+                        checked: Config.options.background.widgets.clock.quote.followClock
+                        onCheckedChanged: {
+                            Config.options.background.widgets.clock.quote.followClock = checked;
+                        }
+                    }
+                    ConfigTextArea {
+                        configKey: "background.widgets.clock.quote.text";
+                        enabled: !nixManaged;
+                        id: quoteField
+                        Layout.fillWidth: true
+                        fieldWidth: 300
+                        buttonIcon: "format_quote"
+                        text: Translation.tr("Quote")
+                        placeholderText: Translation.tr("Quote")
+                        value: Config.options.background.widgets.clock.quote.text
+                        onValueChanged: {
+                            quoteDebounceTimer.restart();
+                        }
+
+                        Timer {
+                            id: quoteDebounceTimer
+                            interval: 600
+                            repeat: false
+                            onTriggered: {
+                                Config.options.background.widgets.clock.quote.text = quoteField.value;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        ContentSection {
+            id: settingsCustomImage
+            icon: "panorama"
+            shape: MaterialShape.Shape.SoftBoom 
+            title: Translation.tr("Custom Image")
+
+            // The image the controls below edit: "customImage" (the first) or
+            // "customImage:<id>" (an extra one, DesktopWidgets.multiInstance).
+            property string selected: "customImage"
+            readonly property bool isExtra: selected !== "customImage"
+            readonly property var extraNames: DesktopWidgets.instanceNames("customImage")
+            readonly property var entry: DesktopWidgets.entry(selected) ?? Config.options.background.widgets.customImage
+            onExtraNamesChanged: {
+                if (!extraNames.includes(selected))
+                    selected = "customImage";
+            }
+            function set(values) {
+                DesktopWidgets.setEntry(selected, values);
+            }
+            // Nix locks the first image key by key, the extra ones as a whole.
+            function keyOf(prop) {
+                return "background.widgets.customImage." + (isExtra ? "instances" : prop);
+            }
+            readonly property bool instancesPinned: NixManaged.isPinned("background.widgets.customImage.instances")
+
+            GroupedList {
+                ConfigSelectionArray {
+                    text: Translation.tr("Image")
+                    icon: "photo_library"
+                    shown: settingsCustomImage.extraNames.length > 0
+                    currentValue: settingsCustomImage.selected
+                    options: [
+                        { displayName: "1", icon: "image", value: "customImage" },
+                        ...settingsCustomImage.extraNames.map((name, i) => ({
+                            displayName: `${i + 2}`, icon: "image", value: name
+                        }))
+                    ]
+                    onSelected: newValue => {
+                        settingsCustomImage.selected = newValue;
+                    }
+                }
+                ConfigRow {
+                    uniform: true
+                    RippleButtonWithIcon {
+                        Layout.fillWidth: true
+                        buttonRadius: Appearance.rounding.normal
+                        materialIcon: "add_photo_alternate"
+                        mainText: Translation.tr("Add another image")
+                        enabled: !settingsCustomImage.instancesPinned
+                        // Onto the monitor this window is on (the focused one).
+                        onClicked: settingsCustomImage.selected = DesktopWidgets.addInstance("customImage", WM.focusedMonitor?.name ?? "")
+                    }
+                    RippleButtonWithIcon {
+                        Layout.fillWidth: true
+                        visible: settingsCustomImage.isExtra
+                        buttonRadius: Appearance.rounding.normal
+                        materialIcon: "delete"
+                        mainText: Translation.tr("Delete this image")
+                        enabled: !settingsCustomImage.instancesPinned
+                        onClicked: DesktopWidgets.removeInstance(settingsCustomImage.selected)
+                    }
+                }
+                ConfigSwitch {
+                    configKey: settingsCustomImage.keyOf("enable");
+                    Layout.fillWidth: true
+                    buttonIcon: "check"
+                    text: Translation.tr("Enable")
+                    // On any monitor; switching it on shows it on all of them.
+                    checked: DesktopWidgets.shownAnywhere(settingsCustomImage.selected)
+                    onCheckedChanged: {
+                        if (checked !== DesktopWidgets.shownAnywhere(settingsCustomImage.selected))
+                            DesktopWidgets.setShownOn(settingsCustomImage.selected, checked ? [] : null);
+                        // A click replaces the binding; keep following the
+                        // selected image.
+                        checked = Qt.binding(() => DesktopWidgets.shownAnywhere(settingsCustomImage.selected));
+                    }
+                }
+                // Which monitors show this image (DesktopWidgets.setShownOn).
+                RowLayout {
+                    id: imageMonitors
+                    visible: Quickshell.screens.length > 1
+                    Layout.leftMargin: 8
+                    Layout.rightMargin: 8
+                    spacing: 10
+                    readonly property var screenNames: Quickshell.screens.map(s => s.name)
+                    readonly property var shownOn: screenNames.filter(n => DesktopWidgets.enabledOn(settingsCustomImage.selected, n))
+                    readonly property bool locked: NixManaged.isPinned(settingsCustomImage.keyOf("enable"))
+                    OptionalMaterialSymbol {
+                        icon: "monitor"
+                        iconSize: Appearance.font.pixelSize.larger
+                    }
+                    StyledText {
+                        text: Translation.tr("Monitors")
+                        color: Appearance.colors.colOnSecondaryContainer
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 2
+                        SelectionGroupButton {
+                            leftmost: true
+                            rightmost: false
+                            enabled: !imageMonitors.locked
+                            buttonIcon: "tv_displays"
+                            buttonText: Translation.tr("All")
+                            toggled: imageMonitors.shownOn.length === imageMonitors.screenNames.length
+                            onClicked: DesktopWidgets.setShownOn(settingsCustomImage.selected, [])
+                        }
+                        Repeater {
+                            model: imageMonitors.screenNames
+                            delegate: SelectionGroupButton {
+                                required property string modelData
+                                required property int index
+                                leftmost: false
+                                rightmost: index === imageMonitors.screenNames.length - 1
+                                enabled: !imageMonitors.locked
+                                buttonIcon: "monitor"
+                                buttonText: modelData
+                                toggled: imageMonitors.shownOn.includes(modelData)
+                                onClicked: {
+                                    const list = toggled
+                                        ? imageMonitors.shownOn.filter(n => n !== modelData)
+                                        : [...imageMonitors.shownOn, modelData];
+                                    DesktopWidgets.setShownOn(settingsCustomImage.selected,
+                                        list.length === 0 ? null
+                                            : list.length === imageMonitors.screenNames.length ? [] : list);
+                                }
+                            }
+                        }
+                    }
+                }
+                ConfigSelectionShapeArray {
+                    configKey: settingsCustomImage.keyOf("shape");
+                    currentValue: settingsCustomImage.entry.shape
+                    shapeColor: Appearance.colors.colPrimary
+                    backgroundColor: Appearance.colors.colPrimaryContainer
+                    options: [
+                        "Circle", "Square", "Slanted", "Arch", "Arrow", "SemiCircle", "Oval", "Pill",
+                        "Triangle", "Diamond", "ClamShell", "Pentagon", "Gem", "Sunny", "VerySunny",
+                        "Cookie4Sided", "Cookie6Sided", "Cookie7Sided", "Cookie9Sided", "Cookie12Sided",
+                        "Ghostish", "Clover4Leaf", "Clover8Leaf", "Burst", "SoftBurst", "Flower",
+                        "Puffy", "PuffyDiamond", "PixelCircle", "Bun", "Heart"
+                    ]
+                    onSelected: newValue => {
+                        settingsCustomImage.set({ shape: newValue });
+                    }
+                }
+            }
+
+            ContentSubsection {
+                title: Translation.tr("Framing")
+                GroupedList {
+                    ConfigSlider {
+                        configKey: settingsCustomImage.keyOf("zoom")
+                        text: Translation.tr("Zoom (%)")
+                        buttonIcon: "zoom_in"
+                        usePercentTooltip: false
+                        value: settingsCustomImage.entry.zoom * 100
+                        from: 100
+                        to: 400
+                        stopIndicatorValues: [100]
+                        onValueChanged: {
+                            settingsCustomImage.set({ zoom: Math.round(value) / 100 });
+                        }
+                    }
+                    ConfigSlider {
+                        configKey: settingsCustomImage.keyOf("offsetX")
+                        text: Translation.tr("Horizontal position")
+                        buttonIcon: "swap_horiz"
+                        usePercentTooltip: false
+                        value: settingsCustomImage.entry.offsetX * 100
+                        from: -100
+                        to: 100
+                        stopIndicatorValues: [0]
+                        onValueChanged: {
+                            settingsCustomImage.set({ offsetX: Math.round(value) / 100 });
+                        }
+                    }
+                    ConfigSlider {
+                        configKey: settingsCustomImage.keyOf("offsetY")
+                        text: Translation.tr("Vertical position")
+                        buttonIcon: "swap_vert"
+                        usePercentTooltip: false
+                        value: settingsCustomImage.entry.offsetY * 100
+                        from: -100
+                        to: 100
+                        stopIndicatorValues: [0]
+                        onValueChanged: {
+                            settingsCustomImage.set({ offsetY: Math.round(value) / 100 });
+                        }
+                    }
+                    ConfigRow {
+                        uniform: true
+                        RippleButtonWithIcon {
+                            Layout.fillWidth: true
+                            buttonRadius: Appearance.rounding.normal
+                            materialIcon: "center_focus_strong"
+                            mainText: Translation.tr("Recenter")
+                            enabled: !["zoom", "offsetX", "offsetY"].some(k => NixManaged.isPinned(settingsCustomImage.keyOf(k)))
+                            onClicked: settingsCustomImage.set({ zoom: 1, offsetX: 0, offsetY: 0 })
+                        }
+                        RippleButtonWithIcon {
+                            Layout.fillWidth: true
+                            buttonRadius: Appearance.rounding.normal
+                            materialIcon: "hide_image"
+                            mainText: Translation.tr("Remove image")
+                            enabled: settingsCustomImage.entry.path !== ""
+                                && !NixManaged.isPinned(settingsCustomImage.keyOf("path"))
+                            onClicked: settingsCustomImage.set({ path: "" })
+                        }
+                    }
+                }
+            }
+
+            ContentSubsection {
+                title: Translation.tr("Style")
+                GroupedList {
+                    ConfigSlider {
+                        configKey: settingsCustomImage.keyOf("rotation")
+                        text: Translation.tr("Rotation (°)")
+                        buttonIcon: "rotate_right"
+                        usePercentTooltip: false
+                        value: settingsCustomImage.entry.rotation
+                        from: -180
+                        to: 180
+                        stopIndicatorValues: [0]
+                        onValueChanged: {
+                            settingsCustomImage.set({ rotation: Math.round(value) });
+                        }
+                    }
+                    ConfigSlider {
+                        configKey: settingsCustomImage.keyOf("opacity")
+                        text: Translation.tr("Opacity")
+                        buttonIcon: "opacity"
+                        value: settingsCustomImage.entry.opacity
+                        from: 0.1
+                        to: 1
+                        onValueChanged: {
+                            settingsCustomImage.set({ opacity: value });
+                        }
+                    }
+                    ConfigSwitch {
+                        configKey: settingsCustomImage.keyOf("mirror")
+                        buttonIcon: "flip"
+                        text: Translation.tr("Mirror")
+                        checked: settingsCustomImage.entry.mirror
+                        onCheckedChanged: {
+                            settingsCustomImage.set({ mirror: checked });
+                            checked = Qt.binding(() => settingsCustomImage.entry.mirror);
+                        }
+                    }
+                    ConfigSwitch {
+                        configKey: settingsCustomImage.keyOf("grayscale")
+                        buttonIcon: "filter_b_and_w"
+                        text: Translation.tr("Black and white")
+                        checked: settingsCustomImage.entry.grayscale
+                        onCheckedChanged: {
+                            settingsCustomImage.set({ grayscale: checked });
+                            checked = Qt.binding(() => settingsCustomImage.entry.grayscale);
+                        }
+                    }
+                }
+            }
+        }
+
+        ContentSection {
+            id: settingsVisualizer
+            icon: "graphic_eq"
+            shape: MaterialShape.Shape.Burst
+            title: Translation.tr("Visualizer")
+
+            readonly property var entry: Config.options.background.widgets.visualizer
+            readonly property bool bandStyle: ["mirror", "aurora", "dots"].includes(entry.style)
+
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "background.widgets.visualizer.enable"
+                    Layout.fillWidth: true
+                    buttonIcon: "check"
+                    text: Translation.tr("Enable")
+                    checked: settingsVisualizer.entry.enable
+                    onCheckedChanged: {
+                        settingsVisualizer.entry.enable = checked;
+                    }
+                }
+                ConfigSwitch {
+                    configKey: "background.widgets.visualizer.pauseBehindWindows"
+                    Layout.fillWidth: true
+                    buttonIcon: "energy_savings_leaf"
+                    text: Translation.tr("Pause while windows cover the desktop")
+                    checked: settingsVisualizer.entry.pauseBehindWindows
+                    onCheckedChanged: settingsVisualizer.entry.pauseBehindWindows = checked
+                }
+                ConfigSelectionArray {
+                    configKey: "background.widgets.visualizer.style"
+                    text: Translation.tr("Style")
+                    icon: "style"
+                    currentValue: settingsVisualizer.entry.style
+                    onSelected: newValue => {
+                        settingsVisualizer.entry.style = newValue;
+                    }
+                    options: [
+                        {
+                            displayName: Translation.tr("Classic"),
+                            icon: "bar_chart",
+                            value: "bars"
+                        },
+                        {
+                            displayName: Translation.tr("Mirror"),
+                            icon: "equalizer",
+                            value: "mirror"
+                        },
+                        {
+                            displayName: Translation.tr("Aurora"),
+                            icon: "waves",
+                            value: "aurora"
+                        },
+                        {
+                            displayName: Translation.tr("Ring"),
+                            icon: "album",
+                            value: "ring"
+                        },
+                        {
+                            displayName: Translation.tr("Dots"),
+                            icon: "grid_on",
+                            value: "dots"
+                        }
+                    ]
+                }
+
+                ConfigSelectionArray {
+
+                    configKey: "background.widgets.visualizer.colorSource"
+                    text: Translation.tr("Colors")
+                    icon: "palette"
+                    enabled: settingsVisualizer.entry.style !== "bars"
+                    currentValue: settingsVisualizer.entry.colorSource
+                    onSelected: newValue => {
+                        settingsVisualizer.entry.colorSource = newValue;
+                    }
+                    options: [
+                        {
+                            displayName: Translation.tr("Theme"),
+                            icon: "palette",
+                            value: "theme"
+                        },
+                        {
+                            displayName: Translation.tr("Album cover"),
+                            icon: "album",
+                            value: "cover"
+                        }
+                    ]
+                }
+        
+                ConfigSlider {
+        
+                    configKey: "background.widgets.visualizer.sensitivity"
+                    text: Translation.tr("Sensitivity (%)")
+                    buttonIcon: "tune"
+                    usePercentTooltip: false
+                    enabled: settingsVisualizer.entry.style !== "bars"
+                    value: settingsVisualizer.entry.sensitivity * 100
+                    from: 50
+                    to: 300
+                    stopIndicatorValues: [100]
+                    onValueChanged: {
+                        settingsVisualizer.entry.sensitivity = Math.round(value) / 100;
+                    }
+                }
+                ConfigSlider {
+                    configKey: "background.widgets.visualizer.height"
+                    text: Translation.tr("Height")
+                    buttonIcon: "height"
+                    usePercentTooltip: false
+                    enabled: settingsVisualizer.entry.style !== "bars" && settingsVisualizer.bandStyle
+                    value: settingsVisualizer.entry.height
+                    from: 120
+                    to: 600
+                    stopIndicatorValues: [260]
+                    onValueChanged: {
+                        settingsVisualizer.entry.height = Math.round(value);
+                    }
+                }
+                ConfigSlider {
+                    configKey: "background.widgets.visualizer.ringSize"
+                    text: Translation.tr("Size")
+                    buttonIcon: "aspect_ratio"
+                    usePercentTooltip: false
+                    enabled: settingsVisualizer.entry.style === "ring"
+                    value: settingsVisualizer.entry.ringSize
+                    from: 200
+                    to: 900
+                    stopIndicatorValues: [380]
+                    onValueChanged: {
+                        settingsVisualizer.entry.ringSize = Math.round(value);
+                    }
+                }
+            }
+        }
+
+        ContentSection {
+            id: settingsCustomText
+            icon: "text_fields"
+            shape: MaterialShape.Shape.Cookie4Sided
+            title: Translation.tr("Text")
+
+            readonly property var entry: Config.options.background.widgets.customText
+
+            GroupedList {
+                ConfigSwitch {
+                    Layout.fillWidth: true
+                    buttonIcon: "check"
+                    text: Translation.tr("Enable")
+                    checked: settingsCustomText.entry.enable
+                    onCheckedChanged: {
+                        settingsCustomText.entry.enable = checked;
+                    }
+                }
+                ConfigSwitch {
+                    Layout.fillWidth: true
+                    buttonIcon: "shadow"
+                    text: Translation.tr("Shadow")
+                    checked: settingsCustomText.entry.shadow
+                    onCheckedChanged: {
+                        settingsCustomText.entry.shadow = checked;
+                    }
+                }
+            }
+
+            NoticeBox {
+                Layout.fillWidth: true
+                materialIcon: "touch_app"
+                text: Translation.tr("Double-click the text on your desktop to edit it, drag its corner to resize it")
+            }
+
+            MaterialTextArea {
+                Layout.fillWidth: true
+                placeholderText: Translation.tr("Text to display")
+                text: settingsCustomText.entry.content
+                wrapMode: TextEdit.Wrap
+
+                Timer {
+                    id: customTextContentDebounce
+                    interval: 500
+                    repeat: false
+                    onTriggered: {
+                        settingsCustomText.entry.content = parent.text
+                    }
+                }
+
+                onTextChanged: {
+                    if (activeFocus) customTextContentDebounce.restart()
+                }
+            }
+
+            ContentSubsection {
+                Layout.topMargin: 10
+                title: Translation.tr("Font")
+
+                GroupedList {
+                    ConfigComboBox {
+                        Layout.fillWidth: true
+                        buttonIcon: "font_download"
+                        fieldWidth: 50
+                        text: Translation.tr("Font family")
+                        textRole: "displayName"
+                        model: Fonts.handwritingFamilies.map(family => ({
+                            displayName: family,
+                            value: family
+                        }))
+                        currentValue: settingsCustomText.entry.fontFamily
+                        onSelected: newValue => { settingsCustomText.entry.fontFamily = newValue; }
+                    }
+                    ConfigTextArea {
+                        id: settingsCustomFontField
+                        buttonIcon: "custom_typography"
+                        text: Translation.tr("Custom Font")
+                        Layout.fillWidth: true
+                        Layout.topMargin: 6
+                        placeholderText: Translation.tr("Any installed font family")
+                        value: Fonts.handwritingFamilies.includes(settingsCustomText.entry.fontFamily) ? "" : settingsCustomText.entry.fontFamily
+
+                        onValueChanged: {
+                            customTextFontDebounce.restart();
+                        }
+
+                        Timer {
+                            id: customTextFontDebounce
+                            interval: 500
+                            repeat: false
+                            onTriggered: {
+                                if (settingsCustomFontField.value.trim() !== "")
+                                    settingsCustomText.entry.fontFamily = settingsCustomFontField.value.trim()
+                            }
+                        }
+                    }
+
+                    ConfigSlider {
+                        text: Translation.tr("Font size")
+                        value: settingsCustomText.entry.fontSize
+                        usePercentTooltip: false
+                        buttonIcon: "format_size"
+                        from: 12
+                        to: 400
+                        stopIndicatorValues: [72]
+                        onValueChanged: {
+                            settingsCustomText.entry.fontSize = Math.round(value);
+                        }
+                    }
+
+                    ConfigSelectionArray {
+                        text: Translation.tr("Alignment")
+                        icon: "format_align_center"
+                        currentValue: settingsCustomText.entry.alignment
+                        onSelected: newValue => {
+                            settingsCustomText.entry.alignment = newValue;
+                        }
+                        options: [
+                            {
+                                displayName: Translation.tr("Left"),
+                                icon: "format_align_left",
+                                value: "left"
+                            },
+                            {
+                                displayName: Translation.tr("Center"),
+                                icon: "format_align_center",
+                                value: "center"
+                            },
+                            {
+                                displayName: Translation.tr("Right"),
+                                icon: "format_align_right",
+                                value: "right"
+                            }
+                        ]
+                    }
+                }
+            }
+
+            ContentSubsection {
+                Layout.topMargin: 10
+                title: Translation.tr("Colors")
+                
+                GroupedList {
+                    ConfigSwitch {
+                        id: customTextAutoColorSwitch
+                        buttonIcon: "auto_awesome"
+                        text: Translation.tr("Automatic colors")
+                        checked: settingsCustomText.entry.color === ""
+                        onCheckedChanged: {
+                            if (checked) {
+                                settingsCustomText.entry.color = ""
+                            }
+                        }
+                    }
+
+                    ColorSelectionArray {
+                        icon: "palette"
+                        text: Translation.tr("Color")
+                        currentValue: settingsCustomText.entry.color
+                        onSelected: newValue => {
+                            settingsCustomText.entry.color = newValue
+                            customTextAutoColorSwitch.checked = false
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

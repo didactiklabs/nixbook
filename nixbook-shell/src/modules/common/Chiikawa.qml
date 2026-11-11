@@ -4,7 +4,7 @@ import QtQuick
 import Quickshell
 
 /**
- * "Chiikawa" theme — Settings → Appearance → Theme, `appearance.theme:
+ * "Chiikawa" theme — Settings → Themes, `appearance.theme:
  * "chiikawa"` (Themes.qml). Its palettes, rounder corners, rounded font and
  * bouncy motion are data in themes.json (`style`, applied by Appearance and
  * MaterialThemeLoader); this singleton adds what data can't: the character

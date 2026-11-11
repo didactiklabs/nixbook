@@ -84,18 +84,27 @@ Singleton {
     property var settingsKeywordsCache: ({})
 
     // Page names must match SettingsContent.qml's `pages` (GlobalStates.settingsPage
-    // looks them up by name).
+    // looks them up by name; "Page:section" opens the page holding that section,
+    // so a file shown as several pages — the AI ones — is listed once).
     property var settingsIndex: [
-        { page: "Quick",       path: "QuickConfig.qml" },
-        { page: "Appearance",  path: "AppearanceConfig.qml" },
-        { page: "Desktop",     path: "BackgroundConfig.qml" },
-        { page: "Bar",         path: "BarConfig.qml" },
-        { page: "Panels",      path: "PanelsConfig.qml" },
-        { page: "Lock screen", path: "LockScreenConfig.qml" },
-        { page: "General",     path: "GeneralConfig.qml" },
-        { page: "Services",    path: "ServicesConfig.qml" },
-        { page: "Niri",        path: "NiriConfig.qml" },
-        { page: "About",       path: "About.qml" },
+        { page: "Quick",           path: "QuickConfig.qml" },
+        { page: "Appearance",      path: "AppearanceConfig.qml" },
+        { page: "Themes",          path: "ThemesConfig.qml" },
+        { page: "Wallpaper",       path: "BackgroundConfig.qml" },
+        { page: "Desktop widgets", path: "DesktopWidgetsConfig.qml" },
+        { page: "Bar",             path: "BarConfig.qml" },
+        { page: "Notifications",   path: "NotificationsConfig.qml" },
+        { page: "Panels",          path: "PanelsConfig.qml" },
+        { page: "Lock screen",     path: "LockScreenConfig.qml" },
+        { page: "Window layouts",  path: "WindowLayoutsConfig.qml" },
+        { page: "Assistant",       path: "DesktopAgentsConfig.qml" },
+        { page: "Mesh",            path: "MeshConfig.qml" },
+        { page: "Apps & accounts", path: "AccountsConfig.qml" },
+        { page: "General",         path: "GeneralConfig.qml" },
+        { page: "Sound",           path: "SoundConfig.qml" },
+        { page: "Services",        path: "ServicesConfig.qml" },
+        { page: "Niri",            path: "NiriConfig.qml" },
+        { page: "About",           path: "About.qml" },
     ]
 
     // Load user action scripts from ~/.config/nixbook-shell/actions/
@@ -514,7 +523,7 @@ Singleton {
     readonly property string findQuery: root.findPrefixed ? StringUtils.cleanPrefix(root.query, Config.options.search.prefix.find).trim() : ""
     LauncherSearchResult {
         id: findStatusObject
-        name: FindAnything.off ? Translation.tr("AI features are off (Settings > Desktop agents)")
+        name: FindAnything.off ? Translation.tr("AI features are off (Settings > Assistant)")
             : root.findQuery.length === 0 ? Translation.tr("Find a file, a link, a message, a conversation…")
             : FindAnything.busy ? Translation.tr("Searching…")
             : Translation.tr("Nothing found for “%1”").arg(root.findQuery)

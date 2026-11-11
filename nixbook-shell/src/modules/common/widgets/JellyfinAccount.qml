@@ -9,8 +9,8 @@ import qs.modules.common.widgets
 
 // The Jellyfin account of this computer (services/Jellyfin.qml): its server,
 // signing in as the user (or an admin's API key), the player (mpv through
-// jellyfin-mpv-shim). Shown in Settings > Services > Jellyfin and in
-// Settings > Desktop agents.
+// jellyfin-mpv-shim). Shown in Settings > Apps & accounts > Jellyfin and in
+// Settings > Assistant.
 // Jellyfin: its server is a setting (ai.jellyfin.url, locked
 // when set in Nix). This computer signs in as the user (`jellyfin-mcp
 // credentials login`, the password — an app password with 2FA —

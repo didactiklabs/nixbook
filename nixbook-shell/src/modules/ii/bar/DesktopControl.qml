@@ -308,7 +308,7 @@ Item {
             chip: Appearance.colors.colPrimary
             onChip: Appearance.colors.colOnPrimary
             onClicked: {
-                GlobalStates.settingsPage = "Desktop agents";
+                GlobalStates.settingsPage = "Self-improvement";
                 GlobalStates.settingsOpen = true;
             }
             StyledPopup {

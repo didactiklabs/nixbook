@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Zen Browser's side of the app colours (Settings > Appearance > Apps).
+"""Zen Browser's side of the app colours (Settings > Appearance > Color generation > Apps).
 
 Usage: zen-theme.py profiles         print the profile directories
        zen-theme.py sync [CHANGED]   set the profiles up to load the colours;

@@ -153,7 +153,7 @@ def shared_image(want, fallback):
     path = os.path.realpath(os.path.expanduser(want))
     folders = shared_folders()
     if not folders:
-        raise ToolError("the user shares no folder with agents: ask them to add one in Settings > Desktop agents "
+        raise ToolError("the user shares no folder with agents: ask them to add one in Settings > Assistant > DAI in the side panel "
                         f"(e.g. a writable ~/Pictures/Assistant), or to {fallback}")
     if not any(path == f or path.startswith(f + os.sep) for f in folders):
         raise ToolError(f"refused: {want} isn't in a folder the user shares with agents ({', '.join(folders)})")
@@ -176,8 +176,8 @@ def shared_image(want, fallback):
     "set_wallpaper",
     "shell",
     "Set the user's wallpaper to an image file on their computer (JPEG, PNG, "
-    "WebP, AVIF), from a folder they share with agents (Settings > Desktop "
-    "agents: the folders agents may read or write; what your desktop's "
+    "WebP, AVIF), from a folder they share with agents (Settings > Assistant > "
+    "DAI in the side panel: the folders agents may read or write; what your desktop's "
     "browser downloads lands in the first writable one). The palette "
     "follows, as when the user picks it with Mod+W. A web address won't do: "
     "download the image first.",

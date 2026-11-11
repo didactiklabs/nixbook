@@ -15,7 +15,7 @@ import qs.modules.common.functions
 Item {
     id: root
 
-    // SettingsContent's `pages`: {name, icon, component}.
+    // SettingsContent's `pages`: {name, icon, component, tab?}.
     required property var pages
     // [{page: index, kind: "section" | "setting", label, section}]
     property var entries: []
@@ -25,16 +25,25 @@ Item {
     readonly property var settingControls: /^(Config\w+|RingtoneSetting)$/
     readonly property var sectionControls: /^(ContentSection|ContentSubsection)$/
 
-    function parse(source, pageIndex) {
+    // `tab`: only the sections of that tab, for a page file shown as several
+    // pages (its top-level sections say `readonly property string tab: "…"`).
+    function parse(source, pageIndex, tab) {
         const found = [];
         let component = "";
         let section = "";
+        let inTab = "";
         for (const line of source.split("\n")) {
             const open = /^\s*([A-Z]\w*)\s*\{/.exec(line);
             if (open) {
                 component = open[1];
                 continue;
             }
+            const tabLine = /^\s*readonly property string tab:\s*"(\w+)"/.exec(line);
+            if (tabLine) {
+                inTab = tabLine[1];
+                continue;
+            }
+            if (tab !== undefined && inTab !== tab) continue;
             const m = /^\s*(title|text):\s*Translation\.tr\("((?:[^"\\]|\\.)+)"\)/.exec(line);
             if (!m) continue;
             const label = m[2].replace(/\\"/g, '"');
@@ -66,7 +75,7 @@ Item {
             for (let i = 0; i < pageFiles.count; i++) {
                 const view = pageFiles.objectAt(i);
                 if (view && view.loaded)
-                    all = all.concat(root.parse(view.text(), i));
+                    all = all.concat(root.parse(view.text(), i, root.pages[i]?.tab));
             }
             root.entries = all;
         }

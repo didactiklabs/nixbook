@@ -322,7 +322,7 @@ def routine_do(cfg, do):
         raise ToolError("do.args: at most 2000 characters")
     if ROUTINE_LIKED in json.dumps(args) and not music_on(cfg):
         raise ToolError(f"do.args: {ROUTINE_LIKED} is picked from the user's listening history, which isn't "
-                        "recorded (Settings > Desktop agents > usage habits, music)")
+                        "recorded (Settings > Memory > usage habits, music)")
     return {"tool": tool_name, "args": args, "server": server}
 
 
@@ -918,7 +918,7 @@ def routine_undone(rid):
         m.save()
     if off:
         routine_say(r, f"You undid “{r['text']}” twice, so I turned it off. "
-                       "Turn it back on in Settings > Desktop agents whenever you like.")
+                       "Turn it back on in Settings > On its own > Routines whenever you like.")
     return off
 
 
@@ -954,7 +954,7 @@ def routine_command(cfg, argv):
     return 2
 
 
-# Routines learned from the user's habits (Settings > Desktop agents >
+# Routines learned from the user's habits (Settings > On its own >
 # Routines > Learn routines from my habits: off, suggest, on its own): once
 # a day (the shell, `routine learn`), plain code reads what usage habits
 # counted (apps opened, layouts restored, themes chosen, music started, and
@@ -1307,7 +1307,7 @@ def start_learning(cfg, episode):
 # What the user does, learned on this machine by counting (no model reads
 # it): which app has the focus and for how long, the windows opened, the
 # layouts restored and the themes chosen. `habits watch` (the nixbook-habits
-# user service; on from Settings > Desktop agents, `habits on`, or
+# user service; on from Settings > Memory > Usage habits, `habits on`, or
 # desktopMcp.habits.enable) records it from niri's event stream. The launcher ranks apps with it (habits-rank.json), a weekly
 # report sums it up, a theme switched at the same hour on several days is
 # suggested then, apps the user lists open at their usual time, and agents

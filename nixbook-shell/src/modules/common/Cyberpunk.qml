@@ -4,7 +4,7 @@ import QtQuick
 import Quickshell
 
 /**
- * "Cyberpunk 2077" theme — Settings → Appearance → Theme, `appearance.theme:
+ * "Cyberpunk 2077" theme — Settings → Themes, `appearance.theme:
  * "cyberpunk"` (Themes.qml). Its neon-on-black palettes, near-square
  * corners, condensed tech face (Rajdhani) and snappy motion are data in
  * themes.json (`style`, applied by Appearance and MaterialThemeLoader); this

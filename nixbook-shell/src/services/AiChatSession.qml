@@ -297,7 +297,7 @@ Scope {
     function maskFailed() {
         const message = requester.message;
         if (!message) return;
-        message.content += Translation.tr("**Not sent**: the private details couldn't be hidden (`nixbook-desktop-mcp privacy mask` failed). Turn off Settings > Desktop agents > Private details to send it as it is.");
+        message.content += Translation.tr("**Not sent**: the private details couldn't be hidden (`nixbook-desktop-mcp privacy mask` failed). Turn off Settings > Privacy & trust > Private details to send it as it is.");
         message.done = true;
         message.thinking = false;
     }
@@ -471,7 +471,7 @@ Scope {
             // AI features off or local only (policies.ai, switched while a
             // Claude chat was open): said, nothing sent.
             if ((Config.options.policies.ai ?? 1) !== 1) {
-                requester.message.content = Translation.tr("**Not sent**: online AI features are off (Settings > Desktop agents > AI features).");
+                requester.message.content = Translation.tr("**Not sent**: online AI features are off (Settings > Assistant > AI features).");
                 requester.message.rawContent = requester.message.content;
                 requester.message.done = true;
                 requester.message.thinking = false;

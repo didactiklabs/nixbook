@@ -621,7 +621,7 @@ Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
                         buttonText: Translation.tr("Always")
                         onClicked: trustBar.chat?.approve(true, true)
                         StyledToolTip {
-                            text: Translation.tr("Allow it and never ask again for this kind of step: DAI does it, then tells you (Settings > Desktop agents > Trust to change it back)")
+                            text: Translation.tr("Allow it and never ask again for this kind of step: DAI does it, then tells you (Settings > Privacy & trust > Trust to change it back)")
                         }
                     }
                     DialogButton {

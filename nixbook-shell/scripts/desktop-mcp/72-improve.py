@@ -60,7 +60,7 @@ def t_list_improvements(ctx, args):
     "limit, one at a time; while another is being made it waits in line and starts "
     "on its own once that one is done. Only when the user asked for that in this conversation "
     "(\"build that feature now\"), never on your own; only while its kind is on "
-    "(Settings > Desktop agents > Fixes it makes itself, Features it builds). It "
+    "(Settings > Self-improvement > Fixes it makes itself, Features it builds). It "
     "becomes a pull request the user reviews; list_improvements says how it goes.",
     obj({"id": {"type": "string", "description": "The item's id (list_improvements)"}}, ["id"]),
 )
@@ -72,8 +72,8 @@ def t_start_improvement(ctx, args):
         raise ToolError(f"no item {iid!r}: see list_improvements")
     feature = it.get("kind") == "feature"
     if not shell_setting("ai.improve.features.enable" if feature else "ai.improve.enable", False):
-        raise ToolError(("building features is off: Settings > Desktop agents > Features it builds" if feature
-                         else "the fixer is off: Settings > Desktop agents > Fixes it makes itself")
+        raise ToolError(("building features is off: Settings > Self-improvement > Features it builds" if feature
+                         else "the fixer is off: Settings > Self-improvement > Fixes it makes itself")
                         + ". Tell the user, don't retry.")
     ctx.guard.check_rate()
     return [text(improve_now(ctx, it, st))]
@@ -91,7 +91,7 @@ def improve_now(ctx, item, st=None):
         return "Not started: it is " + IMPROVE_STATUS[item["status"]] + "."
     if not st.get("token"):
         return ("Not started: the fixer has no GitHub token yet; the user saves it in Settings > "
-                "Desktop agents > Fixes it makes itself.")
+                "Self-improvement > Fixes it makes itself.")
     busy = improve_running(st)
     if busy:
         # One at a time: it waits in line and starts on its own after.
@@ -101,7 +101,7 @@ def improve_now(ctx, item, st=None):
             return f"Not started: {e}."
         return (f"Queued (#{pos}): “{busy.get('itemText', '')}” is being made (one at a time); it starts "
                 "on its own once the ones before it are done. The user can reorder or remove it in "
-                "Settings > Desktop agents.")
+                "Settings > Self-improvement.")
     env = [f"--setenv=PATH={os.environ.get('PATH', '')}"]
     claude = claude_path(ctx.cfg)
     if claude:
@@ -115,7 +115,7 @@ def improve_now(ctx, item, st=None):
     if proc.returncode != 0:
         return f"Not started: {(proc.stderr or '').strip()[-200:] or 'systemd-run failed'}."
     return (f"Started {what} it now ({item['id']}); it takes a while, list_improvements says how it goes, "
-            "and Settings > Desktop agents shows it too.")
+            "and Settings > Self-improvement shows it too.")
 
 
 def improve_queue(inbox):
@@ -167,7 +167,7 @@ IMPROVE_STATUS = {
     "requests (too big for a fix)", "failed": "failed (its change never passed the checks)",
     "dropped": "dropped by the user", "gone": "gone by itself",
     "unable": "dropped: it couldn't do it (why says what it tried and what would make it doable; "
-    "the user can press Retry in Settings > Desktop agents)",
+    "the user can press Retry in Settings > Self-improvement)",
 }
 IMPROVE_CI = {"pending": "checks running", "pass": "checks passing", "fail": "checks failing"}
 
@@ -193,7 +193,7 @@ def t_list_requests(ctx, args):
     if kind not in ("", "fix", "feature"):
         raise ToolError("kind: fix or feature")
     if not (shell_setting("ai.improve.enable", False) or shell_setting("ai.improve.features.enable", False)):
-        raise ToolError("the fixer is off: the user turns it on in Settings > Desktop agents > "
+        raise ToolError("the fixer is off: the user turns it on in Settings > Self-improvement > "
                         "Fixes it makes itself or Features it builds. Tell them, don't retry.")
     proc = run(["nixbook-improve", "status"], timeout=10, check=False)
     try:

@@ -14,7 +14,7 @@ The shell follows every MPRIS player (Spotify, browsers, mpv, YouTube Music, pho
 
 Your YouTube Music playlists, played without a window: the right sidebar's **YouTube Music** tab (Mod+N; Settings > Panels turns the tab off) lists them, Liked Music first. Click one for its songs, then **Play**, **Shuffle**, or a song to start from. It plays in mpv, audio only, and shows like any player: the bar, the media controls, the media keys and the synced lyrics. The tab has shuffle, previous, play/pause, next, repeat (off, the playlist, one song) and the lyrics.
 
-**Signing in** (the tab, or Settings > Services > YouTube Music):
+**Signing in** (the tab, or Settings > Apps & accounts > YouTube Music):
 
 1. Sign in to YouTube Music in your browser (Zen, Firefox, LibreWolf, Floorp, Waterfox, Mullvad Browser, Chrome, Chromium, Brave, Vivaldi, Edge, Opera, Thorium; Flatpak and Snap ones too) or in the YouTube Music app.
 2. Click **Use my browser's session**. When several have a login, pick one (the most recent is the default).
@@ -33,7 +33,7 @@ The equalizer panel drives **EasyEffects**: presets or a 10-band curve with prea
 
 ## Echo cancellation
 
-For calls: what plays on the computer (music, a film, the other side of the call) stays out of your microphone, and background noise is reduced. It is a setting for the whole computer, every app: **Settings → Services → Echo cancellation**, or the **Echo cancellation** quick toggle (add it from the quick toggles' edit mode), the switch in the audio input dialog (right click the microphone toggle), or the Mesh's listening-together bar. While it is on, an **Echo-cancelled microphone** is your default input, and calls using the default input move to it; turning it off brings your microphone back. It stays on across logins until you turn it off.
+For calls: what plays on the computer (music, a film, the other side of the call) stays out of your microphone, and background noise is reduced. It is a setting for the whole computer, every app: **Settings → Sound → Echo cancellation**, or the **Echo cancellation** quick toggle (add it from the quick toggles' edit mode), the switch in the audio input dialog (right click the microphone toggle), or the Mesh's listening-together bar. While it is on, an **Echo-cancelled microphone** is your default input, and calls using the default input move to it; turning it off brings your microphone back. It stays on across logins until you turn it off.
 
 It is PipeWire's own WebRTC echo canceller (`module-echo-cancel`, with noise suppression), in the `nixbook-echo-cancel` user service: what the default output plays is the reference it removes, so nothing is rerouted, and switching to headphones keeps working. It works with EasyEffects (your microphone's effects come first). No AI. `programs.nixbook-shell.echoCancel.enable` (on by default) installs it; `nixbook-shell ipc call echoCancel on|off|toggle|status`.
 

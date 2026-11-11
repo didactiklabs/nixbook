@@ -4,7 +4,7 @@
 
 The theme is `appearance.theme`. Switch it from:
 
-- **Settings → Appearance → Theme**;
+- **Settings → Themes**;
 - the desktop's right-click menu → _Theme_;
 - the **launcher's theme mode** — **Mod+X**, or type the `@` prefix: every theme and variant, type to filter, Enter applies;
 - an AI agent (`set_theme`: "switch to Persona 3 Reload").
@@ -28,7 +28,7 @@ Each theme keeps its own variant (`appearance.<theme>.variant`), so switching aw
 
 ## Wallpapers per theme
 
-With `appearance.wallpaperPerTheme` (on by default), each variant keeps its **own desktop, lock-screen and login-screen wallpapers**: switching variant puts back what it had (the first time, the bundled wallpaper for Chiikawa, Cyberpunk and Ghibli), and a wallpaper picked while in a variant becomes that variant's. Settings → Appearance → Theme shows them all in one table.
+With `appearance.wallpaperPerTheme` (on by default), each variant keeps its **own desktop, lock-screen and login-screen wallpapers**: switching variant puts back what it had (the first time, the bundled wallpaper for Chiikawa, Cyberpunk and Ghibli), and a wallpaper picked while in a variant becomes that variant's. Settings → Themes shows them all in one table.
 
 ## Sounds and cut-ins
 

@@ -116,7 +116,7 @@ ASK_TIMEOUT = 120
 # let go (tell) isn't asked by them either. Their notification's "Always
 # allow" is the same ladder: the one thing asked (its key, one Discord
 # channel, one button on one site, as a class: key_class) set to tell, so
-# Settings > Desktop agents > Trust lists it and Ask takes it back. An
+# Settings > Privacy & trust > Trust lists it and Ask takes it back. An
 # agent never sets a level: `trust set` is the shell's (its helper's
 # stdin) and the user's.
 TRUST_LEVELS = ("ask", "tell", "silent")

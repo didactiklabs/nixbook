@@ -90,7 +90,7 @@ Singleton {
     function scan() {
         if (!root.available) {
             Quickshell.execDetached(["notify-send", "-a", "Kiroshi", Translation.tr("Kiroshi scan"),
-                (Config.options?.policies?.ai ?? 1) !== 1 ? Translation.tr("AI is off (Settings > Desktop agents > AI features).")
+                (Config.options?.policies?.ai ?? 1) !== 1 ? Translation.tr("AI is off (Settings > Assistant > AI features).")
                     : Translation.tr("It needs Claude Code: install it and log in once (run claude in a terminal).")]);
             return;
         }

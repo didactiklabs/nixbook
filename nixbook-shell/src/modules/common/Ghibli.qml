@@ -4,7 +4,7 @@ import QtQuick
 import Quickshell
 
 /**
- * "Studio Ghibli" theme — Settings → Appearance → Theme, `appearance.theme:
+ * "Studio Ghibli" theme — Settings → Themes, `appearance.theme:
  * "ghibli"` (Themes.qml). Its watercolour palettes, soft corners, storybook
  * fonts (Zen Maru Gothic, Klee One titles) and unhurried motion are data in
  * themes.json (`style`, applied by Appearance and MaterialThemeLoader); this

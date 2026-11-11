@@ -895,7 +895,7 @@ def t_window_action(ctx, args):
 # (shortcuts, where things are, run_steps recipes). A digest goes to every
 # agent when it connects (MCP `instructions`) and to the shell's AI chat.
 # ~/.local/state/nixbook-shell/desktop-memory.json, private; the user
-# reviews it in Settings > Desktop agents or with `nixbook-desktop-mcp memory`.
+# reviews it in Settings > Memory or with `nixbook-desktop-mcp memory`.
 #
 # Kept the way a person keeps what they learned, in plain code (no model,
 # no tokens):

@@ -71,7 +71,7 @@ MouseArea {
         if (filePath && filePath.length > 0) {
             // Lock / login screen wallpapers: just remember the file.
             const target = GlobalStates.wallpaperSelectorTarget;
-            // A theme variant's wallpaper (Settings → Appearance → Theme):
+            // A theme variant's wallpaper (Settings → Themes):
             // "variant:<main|lock|login>:<theme>[/<variant>]".
             if (target.startsWith("variant:")) {
                 const [, slot, key] = target.split(":");

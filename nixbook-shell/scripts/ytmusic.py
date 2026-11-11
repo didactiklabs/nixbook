@@ -345,7 +345,7 @@ def ytmusic(cookie=None, signed_in=True):
         return YTMusic()
     cookie = cookie or session()
     if not cookie:
-        raise Error("not signed in: Settings > Services > YouTube Music > Use my browser's session")
+        raise Error("not signed in: Settings > Apps & accounts > YouTube Music > Use my browser's session")
     return YTMusic(auth=auth_headers(cookie))
 
 

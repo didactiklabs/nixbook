@@ -497,7 +497,7 @@ def server_url(server):
 def token_or_fail():
     token, _ = secret("token")
     if not token:
-        fail("no access token yet: paste yours in Settings > General > Mesh")
+        fail("no access token yet: paste yours in Settings > Mesh")
     return token
 
 

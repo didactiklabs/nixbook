@@ -54,7 +54,7 @@ The to-do list, the [Tasks window](./calendar#tasks) and the to-do widgets show 
 
 ## The contacts widget
 
-A desktop widget (desktop right-click → **Widgets → Contacts**, or Settings → Background): the **birthdays of the next two weeks** ("Today", "Tomorrow", the age turned), then your **starred contacts**. A contact opens the window on them. The button syncs, or opens the accounts window to add one.
+A desktop widget (desktop right-click → **Widgets → Contacts**, or Settings → Desktop widgets): the **birthdays of the next two weeks** ("Today", "Tomorrow", the age turned), then your **starred contacts**. A contact opens the window on them. The button syncs, or opens the accounts window to add one.
 
 ## For AI agents
 

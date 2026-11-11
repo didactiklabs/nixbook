@@ -457,7 +457,7 @@ Singleton {
         if (key === root.agentSong) return
         // Its agent is Claude: online models only.
         if (Config.options.policies.ai !== 1)
-            return root.agentProblem(Translation.tr("AI is off, or local models only (Settings > Desktop agents > AI features)."))
+            return root.agentProblem(Translation.tr("AI is off, or local models only (Settings > Assistant > AI features)."))
         const known = root.agentCurves[key]
         if (known?.gains) {
             // Tuned before: the same curve, no agent run. One still tuning

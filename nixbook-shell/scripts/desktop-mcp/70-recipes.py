@@ -316,7 +316,7 @@ def t_set_theme(ctx, args):
     "request_feature instead; the fixer moves one it finds too big to the feature "
     "requests itself. Not for other apps' bugs. Say what happens and what was "
     "expected, plainly; it stays on this computer. Only while the user has turned "
-    "it on (Settings > Desktop agents > Fixes it makes itself). fix_now starts "
+    "it on (Settings > Self-improvement > Fixes it makes itself). fix_now starts "
     "fixing it at once, as Settings' Fix now (in line after the one being made, if "
     "any): only when the user asked for that in "
     "this conversation (\"fix it now\"), never on your own.",
@@ -330,7 +330,7 @@ def t_report_problem(ctx, args):
     what = as_str(args, "what", max_len=1000)
     where = as_str(args, "where", required=False, max_len=200) or ""
     if not shell_setting("ai.improve.enable", False):
-        raise ToolError("the fixer is off: the user turns it on in Settings > Desktop agents > "
+        raise ToolError("the fixer is off: the user turns it on in Settings > Self-improvement > "
                         "Fixes it makes itself. Tell them, don't retry.")
     ctx.guard.check_rate()
     out = improve_file("note", what, where)
@@ -352,7 +352,7 @@ def t_report_problem(ctx, args):
     "something new (\"I wish the bar showed…\", \"add a way to…\"), or asks for a "
     "change too big for a fix. A bug or a rough edge is report_problem's. Say "
     "what it should do, for whom and where it fits, plainly; it stays on this "
-    "computer. Only while the user has turned it on (Settings > Desktop agents > "
+    "computer. Only while the user has turned it on (Settings > Self-improvement > "
     "Features it builds). build_now starts building it at once, as Settings' Build "
     "now (in line after the one being made, if any): only when the user asked for that in this conversation (\"build it now\"), "
     "never on your own.",
@@ -366,7 +366,7 @@ def t_request_feature(ctx, args):
     what = as_str(args, "what", max_len=1500)
     where = as_str(args, "where", required=False, max_len=200) or ""
     if not shell_setting("ai.improve.features.enable", False):
-        raise ToolError("building features is off: the user turns it on in Settings > Desktop agents > "
+        raise ToolError("building features is off: the user turns it on in Settings > Self-improvement > "
                         "Features it builds. Tell them, don't retry.")
     ctx.guard.check_rate()
     out = improve_file("request", what, where)

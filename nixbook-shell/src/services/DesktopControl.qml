@@ -65,7 +65,7 @@ Singleton {
         root.notifyOnControl = !root.notifyOnControl;
     }
 
-    // The desktop memory (Settings > Desktop agents): notes agents wrote,
+    // The desktop memory (Settings > Memory): notes agents wrote,
     // aliases and usage learned, as `nixbook-desktop-mcp memory show` prints.
     property var memory: ({ notes: [], aliases: {}, usage: { apps: {}, layouts: {}, tools: {} }, targets: {}, triggers: [], archive: [], routines: [] })
     function refreshMemory() {
@@ -86,7 +86,7 @@ Singleton {
         if (!parts.every(p => ["notes", "usage", "aliases", "targets", "triggers", "routines", "all"].includes(p))) return;
         root.memoryCommand(["clear", ...parts]);
     }
-    // What agents remember about the user's life (Settings > Desktop agents >
+    // What agents remember about the user's life (Settings > Memory >
     // About you), as `nixbook-desktop-mcp personal show` prints.
     property var personal: []
     function refreshPersonal() {
@@ -99,7 +99,7 @@ Singleton {
     function clearPersonal() {
         root.memoryCommand(["clear"], "personal");
     }
-    // Usage habits (Settings > Desktop agents > Usage habits), as
+    // Usage habits (Settings > Memory > Usage habits), as
     // `nixbook-desktop-mcp habits status` prints: on or not (and whether Nix
     // turned them on, then the switch is locked), paused, what they say now
     // and the week's report.

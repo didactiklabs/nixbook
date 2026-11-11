@@ -347,7 +347,7 @@ Rectangle {
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
                 StyledToolTip {
-                    text: Translation.tr("Change it in Settings > Services > AI")
+                    text: Translation.tr("Change it in Settings > Assistant > AI chat")
                     extraVisibleCondition: false
                     alternativeVisibleCondition: keepHover.containsMouse
                 }

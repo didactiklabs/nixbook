@@ -16,8 +16,8 @@ import QtQuick
  * set up (`jellyfin-mcp configured`). Watching along (MeshListen) works
  * whatever the AI switches say; DAI's own Jellyfin tool (the chat's MCP
  * server) and its instant "play …" (QuickIntent) also need the chat's
- * switch. Signed in from Settings > Services > Jellyfin (also shown in
- * Settings > Desktop agents).
+ * switch. Signed in from Settings > Apps & accounts > Jellyfin (also shown in
+ * Settings > Apps & accounts and Settings > Assistant).
  */
 Singleton {
     id: root

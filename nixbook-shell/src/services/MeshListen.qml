@@ -132,7 +132,7 @@ Singleton {
         if (root.installed(other)) return other;
         return "";
     }
-    // Jellyfin set up here (services/Jellyfin.qml, Settings > Services >
+    // Jellyfin set up here (services/Jellyfin.qml, Settings > Apps & accounts >
     // Jellyfin): a plain service, whatever the AI switches say.
     property var testJellyfin: null
     function jellyfinReady() {

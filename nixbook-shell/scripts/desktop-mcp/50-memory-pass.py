@@ -159,7 +159,7 @@ def apply_desktop_save(ctx, item, done):
         initiative_offer(ctx.cfg, "learned", f"learned:{ctx.last_note}",
                          f"I learned how to do \u201c{topic}\u201d: next time it takes me one step. "
                          "Want to see it, or should I forget it?",
-                         actions=[{"label": "Show it", "do": "settings", "page": "Desktop agents"},
+                         actions=[{"label": "Show it", "do": "settings", "page": "Memory:Desktop memory"},
                                   {"label": "Forget it", "do": "forget", "note": ctx.last_note}])
 
 
