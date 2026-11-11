@@ -21,6 +21,8 @@ friend's song with it.
   nixbook-ytmusic forget               the session out of the keyring
   nixbook-ytmusic playlists            your playlists (Liked Music first), JSON
   nixbook-ytmusic playlist ID          its songs, JSON
+  nixbook-ytmusic search WORDS...      songs and videos found on YouTube
+                                       Music, JSON
   nixbook-ytmusic play ID [--index N] [--shuffle]
                                        a playlist, from its song N
   nixbook-ytmusic play-tracks          {tracks, index, shuffle} on stdin
@@ -516,6 +518,51 @@ def cmd_playlist(args):
     for t in tracks:
         t["_art"] = t["art"]
     out({"id": args[0], "title": title, "tracks": with_thumbs(tracks, size=120)})
+
+
+SEARCH_LIMIT = 20
+
+
+def search_results(raw, kinds=("song", "video"), limit=SEARCH_LIMIT):
+    """The songs (and videos) of a search's answer, each once, as the player
+    knows them; `kind` says which."""
+    seen, found = set(), []
+    for r in raw or []:
+        if not isinstance(r, dict) or r.get("resultType") not in kinds:
+            continue
+        t = track_of(r)
+        if t and t["videoId"] not in seen:
+            seen.add(t["videoId"])
+            t["kind"] = r["resultType"]
+            found.append(t)
+        if len(found) >= limit:
+            break
+    return found
+
+
+def cmd_search(args):
+    query = " ".join(args).strip()[:200]
+    if not query:
+        out({"error": "usage: nixbook-ytmusic search WORDS..."}, 1)
+    try:
+        yt = ytmusic()
+    except Error:
+        yt = ytmusic(signed_in=False)  # the catalogue answers signed out too
+
+    def find(kind):
+        return yt.search(query, filter=kind + "s", limit=SEARCH_LIMIT) or []
+
+    # Songs and videos (covers, live versions, what isn't released as a song),
+    # asked together.
+    try:
+        with concurrent.futures.ThreadPoolExecutor(2) as pool:
+            songs, videos = pool.map(find, ("song", "video"))
+    except Exception as exc:  # noqa: BLE001
+        out({"error": f"YouTube Music didn't answer the search: {exc}"}, 1)
+    # The pictures stay links: the panel loads them as they come, so the
+    # answer doesn't wait for 40 downloads.
+    out({"query": query, "songs": search_results(songs, ("song",)),
+         "videos": search_results(videos, ("video",))})
 
 
 def song(vid):
@@ -1374,7 +1421,7 @@ def serve(_args):
 
 
 COMMANDS = {"browsers": cmd_browsers, "login-from-browser": cmd_login, "forget": cmd_forget, "status": cmd_status,
-            "playlists": cmd_playlists, "playlist": cmd_playlist, "play": cmd_play,
+            "playlists": cmd_playlists, "playlist": cmd_playlist, "search": cmd_search, "play": cmd_play,
             "play-tracks": cmd_play_tracks, "play-id": cmd_play_id, "control": cmd_control,
             "lastfm": cmd_lastfm, "serve": serve}
 
