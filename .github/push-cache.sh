@@ -3,13 +3,6 @@
 # job), only the paths cache.nixos.org doesn't serve.
 #
 #   push-cache.sh BUILD...    (store paths: the systems' toplevels)
-#   push-cache.sh --mark REV RESULT
-#
-# --mark writes nixbook/revs/REV ({rev, result, time}) to the bucket once
-# a main commit's push is over, whatever RESULT (success, failure,
-# skipped): osupdate waits for it before applying REV, so a machine
-# updated right after a merge fetches the systems instead of building
-# them itself (it always did: the push lands ~30 min after the merge).
 #
 # `nix copy` to a binary cache refuses a path whose references aren't in
 # that same cache ("cannot add ... because the reference ... does not
@@ -41,24 +34,6 @@ upstream_url=https://cache.nixos.org
 work=${RUNNER_TEMP:-$(mktemp -d)}/push-cache
 rm -rf "$work"
 mkdir -p "$work/stage"
-
-# Path-style requests: the endpoint isn't AWS. Checksums only when the
-# operation requires them: awscli ≥ 2.23 sends a CRC on every upload by
-# default, and the cache's S3 refuses it on multipart ones ("invalid/unknown
-# checksum sent"), so every NAR over the multipart threshold failed (since
-# 2026-10-31).
-export AWS_CONFIG_FILE="$work/aws-config"
-printf '[default]\nregion = us-east-1\nrequest_checksum_calculation = when_required\nresponse_checksum_validation = when_required\ns3 =\n  addressing_style = path\n' >"$AWS_CONFIG_FILE"
-
-if [ "${1:-}" = --mark ]; then
-  rev=${2:?usage: push-cache.sh --mark REV RESULT} result=${3:?usage: push-cache.sh --mark REV RESULT}
-  jq -nc --arg rev "$rev" --arg result "$result" --argjson time "$(date +%s)" \
-    '{rev: $rev, result: $result, time: $time}' |
-    aws s3 cp --endpoint-url "$S3_ENDPOINT" --only-show-errors --content-type application/json \
-      - "s3://$S3_BUCKET/nixbook/revs/$rev"
-  echo "marked $rev ($result)"
-  exit 0
-fi
 
 nix path-info --recursive "$@" | sort -u >"$work/closure"
 
@@ -101,6 +76,13 @@ echo "$(wc -l <"$work/refs") references staged"
 
 key=${CACHE_KEY:+&secret-key=$CACHE_KEY}
 
+# Path-style requests: the endpoint isn't AWS. Checksums only when the
+# operation requires them: awscli ≥ 2.23 sends a CRC on every upload by
+# default, and the cache's S3 refuses it on multipart ones ("invalid/unknown
+# checksum sent"), so every NAR over the multipart threshold failed (since
+# 2026-10-31).
+export AWS_CONFIG_FILE="$work/aws-config"
+printf '[default]\nregion = us-east-1\nrequest_checksum_calculation = when_required\nresponse_checksum_validation = when_required\ns3 =\n  addressing_style = path\n' >"$AWS_CONFIG_FILE"
 upload() { # DIR DEST CONTENT-TYPE
   aws s3 sync --endpoint-url "$S3_ENDPOINT" --only-show-errors --content-type "$3" "$1" "s3://$S3_BUCKET/$2"
 }
