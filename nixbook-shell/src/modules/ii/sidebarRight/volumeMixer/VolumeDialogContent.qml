@@ -11,7 +11,11 @@ ColumnLayout {
     id: root
     required property bool isSink
     readonly property list<var> appPwNodes: isSink ? Audio.outputAppNodes : Audio.inputAppNodes
-    readonly property list<var> devices: isSink ? Audio.outputDevices : Audio.inputDevices
+    // With echo cancellation in use, the microphones it can take (picking
+    // one moves the canceller onto it: EchoCancel.useMic).
+    readonly property bool throughCanceller: !isSink && EchoCancel.inUse
+    readonly property list<var> devices: isSink ? Audio.outputDevices
+        : root.throughCanceller ? Audio.inputDevices.filter(n => EchoCancel.canCapture(n)) : Audio.inputDevices
     readonly property bool hasApps: appPwNodes.length > 0
     spacing: 16
 
@@ -47,15 +51,18 @@ ColumnLayout {
         currentIndex: root.devices.findIndex(item => {
             if (root.isSink) {
                 return item.id === Pipewire.defaultAudioSink?.id
+            } else if (root.throughCanceller) {
+                return item.name === EchoCancel.mic
             } else {
                 return item.id === Pipewire.defaultAudioSource?.id
             }
         })
         onActivated: (index) => {
-            print(index)
             const item = root.devices[index]
             if (root.isSink) {
                 Audio.setDefaultSink(item)
+            } else if (root.throughCanceller) {
+                EchoCancel.useMic(item)
             } else {
                 Audio.setDefaultSource(item)
             }

@@ -704,6 +704,31 @@ echo 'not json' >"$uc/version"
 update_check "$repo"
 expect_eq "update-check: unreadable /etc/nixos/version" bad-version "$(jq -r .error "$uc_out")"
 
+# -- echo-cancel.sh: the canceller's capture pinned to the microphone -------------
+# `run` writes the config for the default input (or, when the default is
+# already the canceller, the one saved), its capture never movable: EasyEffects'
+# "process all input streams" made it record itself (no microphone at all).
+ec="$tmp/echo-cancel"
+mkdir -p "$ec/bin" "$ec/run"
+cat >"$ec/bin/wpctl" <<'EOF'
+#!/usr/bin/env bash
+[ "$1" = inspect ] && printf ' * node.name = "%s"\n' "$(cat "$EC_DEFAULT")"
+EOF
+cat >"$ec/bin/pipewire" <<'EOF'
+#!/usr/bin/env bash
+cp "$2" "$EC_CONF_OUT"
+EOF
+chmod +x "$ec/bin/wpctl" "$ec/bin/pipewire"
+ec_run() { EC_DEFAULT="$ec/default" EC_CONF_OUT="$ec/conf" XDG_RUNTIME_DIR="$ec/run" PATH="$ec/bin:$PATH" bash "$scripts/echo-cancel.sh" run; }
+echo alsa_input.laptop-mic >"$ec/default"
+ec_run
+expect_contains "echo-cancel: the capture takes the default microphone" "$(cat "$ec/conf")" 'target.object = "alsa_input.laptop-mic"'
+expect_contains "echo-cancel: the capture can't be moved (EasyEffects, a microphone gone a while)" "$(cat "$ec/conf")" "node.dont-move = true"
+echo nixbook-echo-cancel.source >"$ec/default"
+printf 'alsa_input.usb-headset\n' >"$ec/run/nixbook-shell/echo-cancel-previous-source"
+ec_run
+expect_contains "echo-cancel: already the default, the microphone saved (what the shell's picker writes)" "$(cat "$ec/conf")" 'target.object = "alsa_input.usb-headset"'
+
 if [ "$failures" -ne 0 ]; then
   echo "$failures nixbook-shell test(s) failed" >&2
   exit 1

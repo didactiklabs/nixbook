@@ -30,6 +30,63 @@ Singleton {
     readonly property bool inUse: Pipewire.defaultAudioSource?.name === root.sourceName
     property bool busy: false
     property string error: ""
+    // The microphone it cancels from (its node.name: scripts/echo-cancel.sh
+    // keeps it in the runtime dir); "" until known.
+    property string mic: ""
+    readonly property string micFile: `${Quickshell.env("XDG_RUNTIME_DIR")}/nixbook-shell/echo-cancel-previous-source`
+    FileView {
+        path: root.micFile
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        // Gone for a moment while it restarts: the last one is kept.
+        onLoaded: {
+            const name = text().trim();
+            if (name !== "") root.mic = name;
+        }
+    }
+    // A microphone it can take: a real one, not its own source nor
+    // EasyEffects' (which records the default input: this one, a loop).
+    function canCapture(node) {
+        const name = node?.name ?? "";
+        return name !== "" && name !== root.sourceName && name !== "easyeffects_source" && !name.endsWith(".monitor")
+            && !(node?.isStream ?? true);
+    }
+    // Another microphone: while it runs, the canceller takes it (a restart,
+    // about a second); otherwise it becomes the default input.
+    function useMic(node) {
+        if (!root.canCapture(node)) return;
+        if (!root.active) {
+            Pipewire.preferredDefaultAudioSource = node;
+            return;
+        }
+        root.mic = node.name;
+        root._restart(node.name);
+    }
+    function _restart(name) {
+        if (root.busy) return;
+        root.error = "";
+        root.busy = true;
+        ctl.command = ["sh", "-c", 'printf "%s\\n" "$1" > "$2" && systemctl --user restart "$3"', "_", name, root.micFile, root.unit];
+        ctl.running = true;
+    }
+    // Its microphone came back (a suspend, plugged in again): the canceller
+    // is put back on it, since WirePlumber left it on another meanwhile.
+    readonly property bool micHere: root.mic !== "" && Pipewire.nodes.values.some(n => n.name === root.mic)
+    property bool _micWasGone: false
+    onMicHereChanged: {
+        if (!root.micHere) {
+            if (root.mic !== "" && root.active) root._micWasGone = true;
+        } else if (root._micWasGone) {
+            root._micWasGone = false;
+            if (root.active) micBack.restart();
+        }
+    }
+    Timer {
+        id: micBack
+        interval: 1500 // the device settles (its profile, the other nodes) first
+        onTriggered: if (root.active && root.micHere) root._restart(root.mic)
+    }
 
     function set(on) {
         if (!root.available || root.busy) return;
@@ -85,7 +142,7 @@ Singleton {
             root.toggle();
         }
         function status(): string {
-            return JSON.stringify({ available: root.available, active: root.active, inUse: root.inUse, error: root.error });
+            return JSON.stringify({ available: root.available, active: root.active, inUse: root.inUse, mic: root.mic, error: root.error });
         }
     }
 }

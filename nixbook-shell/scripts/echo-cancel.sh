@@ -14,6 +14,16 @@
 #   post      once it is up, make it the default input (ExecStartPost)
 #   restore   the previous default input again (ExecStopPost)
 #   status    {"active": bool, "source": "<node.name of the default input>"}
+#
+# Another microphone while it runs (services/EchoCancel.qml useMic): its
+# node.name into $saved, then `systemctl --user restart` the unit — restore
+# makes it the default input, run takes the default, post saves it again.
+# The capture stream can't be moved (node.dont-move): EasyEffects' "process
+# all input streams" moved it to its own source, which records the default
+# input — this one —, a loop with no microphone in it (2026-11-11); and with
+# its microphone gone a while (a suspend, unplugged), WirePlumber had put it
+# on another one (the EarPods) and left it there. The shell restarts the
+# unit when its microphone comes back.
 set -euo pipefail
 
 SOURCE=nixbook-echo-cancel.source
@@ -66,6 +76,7 @@ context.modules = [
       capture.props = {
         node.name = "nixbook-echo-cancel.capture"
         node.passive = true
+        node.dont-move = true
         $target
       }
       source.props = {
