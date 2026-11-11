@@ -220,6 +220,107 @@ expect "player: the MPRIS name released once stopped" "0" "$(get names-after)"
 expect "player: a failing stream tried again through yt-dlp" "2 music.youtube.com" "$(get fallback)"
 expect "player: nothing left behind" "0" "$(find "$tmp/run/nixbook-ytmusic" -name 'cookies.txt' | wc -l)"
 
+# -- Offline listening ---------------------------------------------------------------
+# A kept playlist downloaded by the player's service (yt-dlp -o writes a
+# file), played from its copy, listed from its copy with the network down;
+# the garbage collection (least recently played first, never a kept
+# playlist's song, leftovers gone); unkeep and clear.
+cat >"$tmp/bin/yt-dlp-dl" <<'EOF'
+#!/usr/bin/env bash
+o=""; prev=""
+for a in "$@"; do [ "$prev" = -o ] && o=$a; prev=$a; case "$a" in *watch?v=*) id=${a##*v=};; esac; done
+[ -n "$o" ] || { echo "https://stream.example/$id"; exit 0; }
+case "$id" in nodown*) echo "ERROR: [youtube] $id: Video unavailable" >&2; exit 1;; esac
+f=$(printf '%s' "$o" | sed "s/%(id)s/$id/; s/%(ext)s/webm/")
+head -c 1000 /dev/zero >"$f"
+echo "$f"
+EOF
+chmod +x "$tmp/bin/yt-dlp-dl"
+cat >"$tmp/fakeapi/ytmusicapi/__init__.py" <<'EOF'
+import os
+def _down():
+    if os.path.exists(os.environ["FAKE_YTM_DOWN"]):
+        raise ConnectionError("no network")
+def _t(vid):
+    return {"videoId": vid, "title": "Kept " + vid, "artists": [{"name": "Artist"}], "duration_seconds": 100,
+            "thumbnails": []}
+class YTMusic:
+    def __init__(self, auth=None):
+        pass
+    def get_library_playlists(self, limit=None):
+        _down()
+        return [{"playlistId": "PLkeep", "title": "Keep me", "count": "4", "thumbnails": []}]
+    def get_playlist(self, pid, limit=None):
+        _down()
+        return {"title": "Keep me", "tracks": [_t("keep1111111"), _t("keep2222222"), _t("keep3333333"),
+                                              _t("nodown11111")]}
+EOF
+printf '{"cookie": "SAPISID=x; __Secure-3PAPISID=x"}' >"$tmp/keyring/session"
+cat >"$tmp/offline.sh" <<EOF
+set -u
+export PYTHONPATH="$tmp/fakeapi" FAKE_YTM_DOWN="$tmp/down" NIXBOOK_YTMUSIC_YT_DLP="$tmp/bin/yt-dlp-dl"
+export NIXBOOK_YTMUSIC_MPV="$tmp/bin/mpv" FAKE_MPV_LOG="$tmp/mpv2.log" FAKE_MPV_LEN=60
+y() { "$py" -P "$script" "\$@"; }
+j() { "$py" -c "import json,sys; d=json.load(sys.stdin); r=d.get('result', d); print(\$1)"; }
+echo "before=\$(y offline status | j 'r["limitMB"], r["auto"], r["count"], r["used"]')"
+echo "lists=\$(y playlists | j '[p["id"] for p in r["playlists"]], r.get("offline", False)')"
+"$py" -P "$script" serve 2>"$tmp/serve2.log" &
+for _ in \$(seq 100); do [ -S "$tmp/run/nixbook-ytmusic/player.sock" ] && break; sleep 0.05; done
+y offline keep PLkeep Keep me >/dev/null
+for _ in \$(seq 100); do [ "\$(y offline status | j 'r["count"], r["left"]')" = "3 0" ] && break; sleep 0.1; done
+echo "kept=\$(y offline status | j 'r["count"], r["used"], r["kept"], r["downloading"]')"
+echo "playlist=\$(y playlist PLkeep | j '[t["cached"] for t in r["tracks"]], r["kept"], r.get("offline", False)')"
+echo "play=\$(printf '{"tracks":[{"videoId":"keep2222222","title":"K"}],"index":0}' | y play-tracks | j 'r["status"]')"
+sleep 0.4
+echo "played-from=\$(tail -n1 "$tmp/mpv2.log" | "$py" -c 'import json,sys; print(json.load(sys.stdin)["url"].split("/nixbook-ytmusic/")[1])')"
+y control stop >/dev/null
+touch "$tmp/down"
+echo "lists-down=\$(y playlists | j '[(p["id"], p["count"], p["kept"]) for p in r["playlists"]], r.get("offline", False)')"
+echo "playlist-down=\$(y playlist PLkeep | j 'len(r["tracks"]), sum(t["cached"] for t in r["tracks"]), r["offline"]')"
+echo "on-this-computer=\$(y playlist _offline | j '[t["videoId"] for t in r["tracks"]][0], len(r["tracks"])')"
+EOF
+env -u DBUS_SESSION_BUS_ADDRESS dbus-run-session -- bash "$tmp/offline.sh" >"$tmp/offline.out" 2>&1
+[ -z "${YTM_DEBUG:-}" ] || cat "$tmp/offline.out" "$tmp/serve2.log"
+oget() { grep "^$1=" "$tmp/offline.out" | head -n1 | cut -d= -f2-; }
+expect "offline: the defaults (4 GB, songs heard kept), nothing yet" "4096 True 0 0" "$(oget before)"
+expect "offline: no 'on this computer' list while nothing is kept" "['PLkeep'] False" "$(oget lists)"
+expect "offline: a kept playlist downloaded by the player (an unavailable song skipped)" \
+  "3 3000 [{'id': 'PLkeep', 'title': 'Keep me', 'total': 4, 'cached': 3}] None" "$(oget kept)"
+expect "offline: its songs flagged as on this computer" "[True, True, True, False] True False" "$(oget playlist)"
+expect "offline: a kept song plays from its copy" "Playing" "$(oget play)"
+expect "offline: … the file, not the network" "offline/keep2222222.webm" "$(oget played-from)"
+expect "offline: no network, the last copy of the playlists, 'on this computer' after them" \
+  "[('_offline', '3', False), ('PLkeep', '4', True)] True" "$(oget lists-down)"
+expect "offline: no network, a playlist from its copy" "4 3 True" "$(oget playlist-down)"
+expect "offline: 'on this computer', the last played first" "keep2222222 3" "$(oget on-this-computer)"
+
+gc=$(XDG_CACHE_HOME="$tmp/cache" "$py" -c "
+import importlib.util, json, os, time
+s = importlib.util.spec_from_file_location('y', '$script'); y = importlib.util.module_from_spec(s); s.loader.exec_module(y)
+print(y.gc_plan({'a': {'size': 10, 'played': 3}, 'b': {'size': 10, 'played': 1}, 'c': {'size': 10, 'added': 2}}, {'b'}, 15))
+d = y.offline_dir()
+with y.IndexLock() as idx:
+    for vid, when in (('heard111111', 100), ('heard222222', 200)):
+        open(os.path.join(d, vid + '.webm'), 'wb').write(b'x' * 1000)
+        idx['songs'][vid] = {'file': vid + '.webm', 'size': 1000, 'track': {'videoId': vid}, 'added': when, 'played': 0}
+for name, age in (('old.part', 7200), ('new.part', 10)):
+    open(os.path.join(d, name), 'w').close(); os.utime(os.path.join(d, name), (time.time() - age,) * 2)
+st = dict(y.offline_settings(), limitMB=4089 / 1024 / 1024)
+print(y.collect_garbage(st), sorted(y.read_index()['songs']), sorted(n for n in os.listdir(d) if n.endswith('.part')))
+")
+expect "gc: the least recently played first, never a kept one" "(['c', 'a'], 10)" "$(sed -n 1p <<<"$gc")"
+expect "gc: over the limit the oldest heard song goes, the kept playlist's stay; an old leftover goes" \
+  "{'removed': 1, 'freed': 1000, 'used': 4000} ['heard222222', 'keep1111111', 'keep2222222', 'keep3333333'] ['new.part']" \
+  "$(sed -n 2p <<<"$gc")"
+expect "offline: unkeep takes its songs away, the others stay" "1 []" \
+  "$(PYTHONPATH="$tmp/fakeapi" FAKE_YTM_DOWN="$tmp/down" ytm offline unkeep PLkeep | "$py" -c 'import json,sys; r=json.load(sys.stdin); print(r["count"], r["kept"])')"
+expect "offline: clear --all, nothing left" "0 0" \
+  "$(ytm offline clear --all | "$py" -c 'import json,sys; r=json.load(sys.stdin); print(r["count"], r["used"])')"
+expect "offline: a limit under 256 MB is 256 MB" "256" \
+  "$(ytm offline set limit 1 | "$py" -c 'import json,sys; print(json.load(sys.stdin)["limitMB"])')"
+expect "offline: songs heard no longer kept" "False" \
+  "$(ytm offline set auto off | "$py" -c 'import json,sys; print(json.load(sys.stdin)["auto"])')"
+
 if [ "$failures" -gt 0 ]; then
   echo "$failures failure(s)"
   exit 1

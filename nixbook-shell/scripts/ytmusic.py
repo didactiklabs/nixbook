@@ -29,6 +29,14 @@ friend's song with it.
   nixbook-ytmusic play-id VIDEO [--start SECONDS]
   nixbook-ytmusic control play|pause|toggle|next|previous|stop|seek S
                        shuffle [on|off|toggle]  repeat [none|playlist|track|cycle]
+  nixbook-ytmusic offline status|keep ID [TITLE]|unkeep ID|set limit MB|
+                       set auto on|off|clear [--all]|gc|sync
+                                       songs kept on this computer for
+                                       offline listening: a playlist kept
+                                       whole, the songs heard 30 s (auto);
+                                       over the limit (4 GB) the least
+                                       recently played go, never a kept
+                                       playlist's
   nixbook-ytmusic lastfm start|finish  Last.fm's desktop sign-in: start gives
                                        the page where you allow it (your own
                                        API key and secret as {apiKey, secret}
@@ -478,22 +486,46 @@ def track_of(t):
             "duration": int(t.get("duration_seconds") or 0), "art": best(t.get("thumbnails"))}
 
 
+def offline_card(index=None):
+    index = index or read_index()
+    n = len(index["songs"])
+    return [{"id": OFFLINE_PLAYLIST, "title": "", "count": str(n), "author": "", "thumb": ""}] if n else []
+
+
+def with_kept(playlists):
+    kept = offline_settings()["kept"]
+    for p in playlists:
+        p["kept"] = p.get("id") in kept
+    return playlists
+
+
 def cmd_playlists(_args):
-    yt = ytmusic()
+    copy = os.path.join(offline_dir(), "playlists.json")
     try:
-        raw = yt.get_library_playlists(limit=None) or []
+        raw = ytmusic().get_library_playlists(limit=None) or []
+    except Error:
+        raise
     except Exception as exc:  # noqa: BLE001
+        # No network (or YouTube Music not answering): the last copy.
+        last = read_json(copy, {}) or {}
+        if last.get("playlists"):
+            out({"playlists": with_kept(offline_card() + last["playlists"]), "offline": True,
+                 "why": f"{exc}"[:200]})
         out({"error": f"YouTube Music didn't list your playlists: {exc}"}, 1)
     items = []
     for p in raw:
         pid = p.get("playlistId") or ""
-        if not PLAYLIST_ID.match(pid):
+        if not PLAYLIST_ID.match(pid) or pid == OFFLINE_PLAYLIST:
             continue
         items.append({"id": pid, "title": p.get("title") or "", "count": p.get("count") or "",
                       "author": ", ".join(a.get("name", "") for a in (p.get("author") or []) if isinstance(a, dict)),
                       "_art": best(p.get("thumbnails"))})
     items.sort(key=lambda p: p["id"] != "LM")  # Liked Music first
-    out({"playlists": with_thumbs(items)})
+    items = with_thumbs(items)
+    write_private(copy, {"playlists": items, "at": int(time.time())})
+    # The songs on this computer right after Liked Music.
+    n = 1 if items and items[0]["id"] == "LM" else 0
+    out({"playlists": with_kept(items[:n] + offline_card() + items[n:])})
 
 
 def playlist_tracks(pid, yt=None):
@@ -508,16 +540,30 @@ def playlist_tracks(pid, yt=None):
     return raw.get("title") or "", tracks
 
 
+def save_playlist_copy(pid, title, tracks):
+    write_private(playlist_copy_path(pid), {"id": pid, "title": title, "tracks": tracks, "at": int(time.time())})
+
+
 def cmd_playlist(args):
     if len(args) != 1:
         out({"error": "usage: nixbook-ytmusic playlist ID"}, 1)
+    pid = args[0]
+    if pid == OFFLINE_PLAYLIST:
+        out({"id": pid, "title": "", "tracks": offline_tracks(), "offline": True, "kept": False})
+    kept = pid in offline_settings()["kept"]
     try:
-        title, tracks = playlist_tracks(args[0])
+        title, tracks = playlist_tracks(pid)
     except Error as exc:
+        last = read_json(playlist_copy_path(pid), {}) or {}
+        if last.get("tracks"):
+            out({"id": pid, "title": last.get("title") or "", "tracks": with_cached(last["tracks"]),
+                 "offline": True, "kept": kept})
         out({"error": str(exc)}, 1)
     for t in tracks:
         t["_art"] = t["art"]
-    out({"id": args[0], "title": title, "tracks": with_thumbs(tracks, size=120)})
+    tracks = with_thumbs(tracks, size=120)
+    save_playlist_copy(pid, title, tracks)
+    out({"id": pid, "title": title, "tracks": with_cached(tracks), "kept": kept})
 
 
 SEARCH_LIMIT = 20
@@ -577,6 +623,269 @@ def song(vid):
         d = {}
     return {"videoId": vid, "title": d.get("title") or "", "artist": d.get("author") or "", "album": "",
             "duration": int(d.get("lengthSeconds") or 0), "art": best((d.get("thumbnail") or {}).get("thumbnails"))}
+
+
+# -- offline: songs kept on this computer ---------------------------------
+# Each song is yt-dlp's best audio as it comes (Opus or AAC, ~3-5 MB),
+# $XDG_CACHE_HOME/nixbook-ytmusic/offline/<videoId>.<ext>, listed in
+# index.json ({songs: {videoId: {file, size, track, added, played}}}, written
+# under offline/.lock, replaced by rename so a reader never sees half of it).
+# Songs come there two ways: one heard AUTO_AFTER seconds (the `auto`
+# setting), and every song of a playlist kept offline (`kept`). The settings
+# ({limitMB, auto, kept: {id: {title, at}}}) are the user's, in the state
+# dir; the songs are a cache. Over `limitMB`, the least recently played go
+# first; a kept playlist's songs never do (when they alone fill the space,
+# what is left of them waits: `full`). The last copy of each playlist opened
+# (playlists.json, playlist-<id>.json) answers when YouTube Music doesn't:
+# no network, the panel lists them from there and plays what is kept.
+OFFLINE_LIMIT_MB = 4096
+OFFLINE_PLAYLIST = "_offline"  # the virtual playlist of every song kept
+AUTO_AFTER = 30
+OFFLINE_REFRESH = 3 * 3600  # the kept playlists looked at again (new songs)
+
+
+def offline_dir():
+    return cache_dir("offline")
+
+
+def offline_settings_path():
+    return os.path.join(state_dir(), "offline.json")
+
+
+def offline_settings():
+    s = read_json(offline_settings_path(), {}) or {}
+    kept = s.get("kept") if isinstance(s.get("kept"), dict) else {}
+    try:
+        limit = int(s.get("limitMB") or OFFLINE_LIMIT_MB)
+    except (TypeError, ValueError):
+        limit = OFFLINE_LIMIT_MB
+    return {"limitMB": max(256, min(limit, 1024 * 1024)), "auto": s.get("auto", True) is not False,
+            "kept": {k: v for k, v in kept.items() if PLAYLIST_ID.match(k) and k != OFFLINE_PLAYLIST
+                     and isinstance(v, dict)}}
+
+
+def save_offline_settings(s):
+    write_private(offline_settings_path(), s)
+
+
+def read_index():
+    idx = read_json(os.path.join(offline_dir(), "index.json"), {}) or {}
+    songs = idx.get("songs") if isinstance(idx.get("songs"), dict) else {}
+    return {"songs": {k: v for k, v in songs.items() if VIDEO_ID.match(k) and isinstance(v, dict)}}
+
+
+class IndexLock:
+    """The index, read under the lock and written back when left."""
+
+    def __enter__(self):
+        import fcntl
+        self.f = open(os.path.join(offline_dir(), ".lock"), "a")
+        fcntl.flock(self.f, fcntl.LOCK_EX)
+        self.index = read_index()
+        return self.index
+
+    def __exit__(self, kind, *_):
+        try:
+            if kind is None:
+                write_private(os.path.join(offline_dir(), "index.json"), self.index)
+        finally:
+            self.f.close()
+
+
+def offline_file(vid, index=None):
+    """The song's file when it is kept here, else ""."""
+    s = (index or read_index())["songs"].get(vid)
+    if not s or "/" in str(s.get("file") or "/"):
+        return ""
+    path = os.path.join(offline_dir(), s["file"])
+    return path if os.path.isfile(path) else ""
+
+
+def playlist_copy_path(pid):
+    return os.path.join(offline_dir(), f"playlist-{pid}.json")
+
+
+def kept_ids(settings, index=None):
+    """The songs of the playlists kept offline (their last copy)."""
+    ids = set()
+    for pid in settings["kept"]:
+        for t in (read_json(playlist_copy_path(pid), {}) or {}).get("tracks") or []:
+            if isinstance(t, dict) and VIDEO_ID.match(t.get("videoId") or ""):
+                ids.add(t["videoId"])
+    return ids
+
+
+def gc_plan(songs, keep, limit):
+    """The songs to let go so the rest fits in `limit` bytes, the least
+    recently played first, never one in `keep`; and the total left."""
+    total = sum(int(s.get("size") or 0) for s in songs.values())
+    gone = []
+    for vid, s in sorted(songs.items(), key=lambda kv: (kv[1].get("played") or kv[1].get("added") or 0, kv[0])):
+        if total <= limit:
+            break
+        if vid in keep:
+            continue
+        gone.append(vid)
+        total -= int(s.get("size") or 0)
+    return gone, total
+
+
+def remove_songs(index, vids):
+    freed = 0
+    for vid in vids:
+        s = index["songs"].pop(vid, None)
+        if not s:
+            continue
+        freed += int(s.get("size") or 0)
+        try:
+            os.remove(os.path.join(offline_dir(), os.path.basename(s.get("file") or "")))
+        except OSError:
+            pass
+    return freed
+
+
+def collect_garbage(settings=None):
+    """Over the limit, the least recently played go (never a kept
+    playlist's); songs whose file is gone leave the index, and files no song
+    names (a download cut off, an older copy) the folder, once an hour old."""
+    settings = settings or offline_settings()
+    keep = kept_ids(settings)
+    d, now = offline_dir(), time.time()
+    with IndexLock() as index:
+        for vid in [v for v in index["songs"] if not offline_file(v, index)]:
+            index["songs"].pop(vid)
+        gone, total = gc_plan(index["songs"], keep, settings["limitMB"] * 1024 * 1024)
+        freed = remove_songs(index, gone)
+        named = {s["file"] for s in index["songs"].values()}
+        copies = {os.path.basename(playlist_copy_path(p)) for p in settings["kept"]}
+        for name in os.listdir(d):
+            path = os.path.join(d, name)
+            if name in named or name in ("index.json", ".lock", "playlists.json", "status.json") or name in copies:
+                continue
+            try:
+                age = now - os.path.getmtime(path)
+                # Another playlist's copy stays a month (offline browsing).
+                if age > (30 * 86400 if name.startswith("playlist-") else 3600):
+                    os.remove(path)
+            except OSError:
+                pass
+    return {"removed": len(gone), "freed": freed, "used": total}
+
+
+def mark_played(vid):
+    with IndexLock() as index:
+        if vid in index["songs"]:
+            index["songs"][vid]["played"] = int(time.time())
+
+
+def with_cached(tracks, index=None):
+    index = index or read_index()
+    for t in tracks:
+        t["cached"] = t.get("videoId") in index["songs"]
+    return tracks
+
+
+def offline_tracks(index=None):
+    """Every song kept, the last played first."""
+    index = index or read_index()
+    songs = sorted(index["songs"].values(), key=lambda s: -(s.get("played") or s.get("added") or 0))
+    return [dict(s.get("track") or {}, cached=True) for s in songs
+            if VIDEO_ID.match((s.get("track") or {}).get("videoId") or "")]
+
+
+def download_song(vid, cookies_file=None):
+    """The song's audio into the offline folder (its path), at low priority."""
+    d = offline_dir()
+    cmd = [YT_DLP, "-f", "bestaudio/best", "--no-playlist", "--no-warnings", "--quiet", "--no-progress",
+           "--no-mtime", "-o", os.path.join(d, "%(id)s.%(ext)s"), "--print", "after_move:filepath",
+           WATCH_URL.format(vid)]
+    if cookies_file:
+        cmd[1:1] = ["--cookies", cookies_file]
+    if shutil.which("nice"):  # not preexec_fn: the player has threads
+        cmd[:0] = ["nice", "-n", "10"]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=900, stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise Error(f"yt-dlp didn't finish: {exc}") from None
+    path = (r.stdout.strip().splitlines() or [""])[-1]
+    real = os.path.realpath(path) if path else ""
+    if r.returncode != 0 or not real or os.path.dirname(real) != os.path.realpath(d) or not os.path.isfile(real):
+        raise Error((r.stderr.strip().splitlines() or ["yt-dlp gave no file"])[-1][:300])
+    return real
+
+
+def offline_status_path():
+    return os.path.join(offline_dir(), "status.json")
+
+
+def offline_summary():
+    s, index = offline_settings(), read_index()
+    used = sum(int(x.get("size") or 0) for x in index["songs"].values())
+    st = read_json(offline_status_path(), {}) or {}
+    alive = False
+    try:
+        os.kill(int(st.get("pid") or 0), 0)
+        alive = int(st.get("pid") or 0) > 0
+    except (OSError, ValueError):
+        pass
+    kept = []
+    for pid, meta in s["kept"].items():
+        tracks = (read_json(playlist_copy_path(pid), {}) or {}).get("tracks") or []
+        ids = [t.get("videoId") for t in tracks if isinstance(t, dict)]
+        kept.append({"id": pid, "title": meta.get("title") or (read_json(playlist_copy_path(pid), {}) or {}).get("title") or pid,
+                     "total": len(ids), "cached": sum(1 for v in ids if v in index["songs"])})
+    return {"limitMB": s["limitMB"], "auto": s["auto"], "used": used, "count": len(index["songs"]), "kept": kept,
+            "downloading": st.get("downloading") if alive else None, "left": int(st.get("left") or 0) if alive else 0,
+            "full": bool(st.get("full")), "error": st.get("error") or ""}
+
+
+def cmd_offline(args):
+    what = args[0] if args else "status"
+    s = offline_settings()
+    if what == "status":
+        out(offline_summary())
+    if what == "keep" and len(args) >= 2 and PLAYLIST_ID.match(args[1]) and args[1] != OFFLINE_PLAYLIST:
+        s["kept"][args[1]] = {"title": " ".join(args[2:])[:200], "at": int(time.time())}
+        save_offline_settings(s)
+        ask_player({"cmd": "offlineSync"})  # started if it isn't: it downloads
+        out(offline_summary())
+    if what == "unkeep" and len(args) == 2:
+        before = kept_ids(s)
+        s["kept"].pop(args[1], None)
+        save_offline_settings(s)
+        # Its songs go, but those another kept playlist has.
+        with IndexLock() as index:
+            remove_songs(index, before - kept_ids(s))
+        out(offline_summary())
+    if what == "set" and len(args) == 3 and args[1] == "limit":
+        try:
+            s["limitMB"] = int(args[2])
+        except ValueError:
+            out({"error": "usage: nixbook-ytmusic offline set limit MB"}, 1)
+        save_offline_settings(s)
+        collect_garbage()
+        ask_player({"cmd": "offlineSync"}, start=False)  # room for what waited
+        out(offline_summary())
+    if what == "set" and len(args) == 3 and args[1] == "auto" and args[2] in ("on", "off"):
+        s["auto"] = args[2] == "on"
+        save_offline_settings(s)
+        out(offline_summary())
+    if what == "clear":
+        # The songs no kept playlist has; --all: every song, and nothing kept.
+        if "--all" in args:
+            s["kept"] = {}
+            save_offline_settings(s)
+        keep = kept_ids(s)
+        with IndexLock() as index:
+            remove_songs(index, [v for v in index["songs"] if v not in keep])
+        collect_garbage()
+        out(offline_summary())
+    if what == "gc":
+        out(collect_garbage())
+    if what == "sync":
+        reply(ask_player({"cmd": "offlineSync"}))
+    out({"error": "usage: nixbook-ytmusic offline status|keep ID [TITLE]|unkeep ID|set limit MB|"
+                  "set auto on|off|clear [--all]|gc|sync"}, 1)
 
 
 # -- the player's socket, from the command line ----------------------------
@@ -918,6 +1227,106 @@ class Scrobbler:
         threading.Thread(target=go, daemon=True).start()
 
 
+class Downloader:
+    """Brings songs to the offline folder, one at a time, at low priority,
+    in the player's service: the kept playlists' songs (looked at again
+    every OFFLINE_REFRESH, and when told: `offline keep`, `offline sync`),
+    then the songs heard (`want`). What it does goes to offline/status.json,
+    which `offline status` reads."""
+
+    def __init__(self, cookies_file):
+        self.cookies_file = cookies_file  # () → the session's cookie file, or None
+        self.wake, self.lock, self.heard = threading.Event(), threading.Lock(), []
+        self.state = {"pid": os.getpid(), "downloading": None, "left": 0, "full": False, "error": ""}
+        offline_dir()  # made now: not under the socket's umask, a thread later
+
+    def start(self):
+        # Once the socket is bound: its umask (0177) is the process's, and a
+        # folder this thread made meanwhile had no x bit.
+        threading.Thread(target=self.run, daemon=True).start()
+
+    def want(self, track):
+        with self.lock:
+            if track["videoId"] not in [t["videoId"] for t in self.heard]:
+                self.heard.append(dict(track))
+        self.wake.set()
+
+    def run(self):
+        self.wake.set()  # once at start: what a stopped run left
+        while True:
+            self.wake.wait(OFFLINE_REFRESH)
+            self.wake.clear()
+            try:
+                self.sync()
+            except Exception as exc:  # noqa: BLE001 — logged, the next run tries again
+                print(f"{APP}: offline: {exc}", file=sys.stderr, flush=True)
+                self.say(downloading=None, left=0, error=str(exc)[:300])
+
+    def say(self, **kw):
+        self.state.update(kw)
+        try:
+            write_private(offline_status_path(), self.state)
+        except OSError:
+            pass
+
+    def sync(self):
+        s = offline_settings()
+        todo = []
+        for pid, meta in s["kept"].items():
+            try:
+                title, tracks = playlist_tracks(pid)
+                for t in tracks:
+                    t["_art"] = t["art"]
+                tracks = with_thumbs(tracks, size=120)
+                save_playlist_copy(pid, title, tracks)
+            except Error:
+                tracks = (read_json(playlist_copy_path(pid), {}) or {}).get("tracks") or []
+            todo += [(t, True) for t in tracks if isinstance(t, dict)]
+        with self.lock:
+            heard, self.heard = self.heard, []
+        todo += [(t, False) for t in heard if s["auto"]]
+        index = read_index()
+        todo = [(t, k) for t, k in todo if VIDEO_ID.match(t.get("videoId") or "")
+                and not offline_file(t["videoId"], index)]
+        seen, queue = set(), []
+        for t, k in todo:
+            if t["videoId"] not in seen:
+                seen.add(t["videoId"])
+                queue.append((t, k))
+        limit, keep, full, failed = s["limitMB"] * 1024 * 1024, kept_ids(s), False, 0
+        for n, (t, kept) in enumerate(queue):
+            index = read_index()
+            kept_size = sum(int(x.get("size") or 0) for v, x in index["songs"].items() if v in keep)
+            if kept_size >= limit:
+                # The kept playlists fill the space: nothing more fits.
+                full = True
+                break
+            self.say(downloading={k: t.get(k, "") for k in ("videoId", "title", "artist")},
+                     left=len(queue) - n, full=False, error="")
+            try:
+                path = download_song(t["videoId"])
+            except Error as exc:
+                try:
+                    if not self.cookies_file():
+                        raise
+                    path = download_song(t["videoId"], self.cookies_file())  # some songs need the account
+                except Error:
+                    failed += 1
+                    print(f"{APP}: offline: {t['videoId']}: {exc}", file=sys.stderr, flush=True)
+                    if failed >= 5 and failed > n // 2:
+                        self.say(error=str(exc)[:300])
+                        break
+                    continue
+            track = {k: t.get(k) for k in ("videoId", "title", "artist", "album", "duration", "art")}
+            track["thumb"] = t.get("thumb") or thumb(t.get("art") or "", 120)
+            with IndexLock() as idx:
+                idx["songs"][t["videoId"]] = {"file": os.path.basename(path), "size": os.path.getsize(path),
+                                              "track": track, "added": int(time.time()), "played": 0,
+                                              "why": "kept" if kept else "heard"}
+            collect_garbage(s)
+        self.say(downloading=None, left=0, full=full)
+
+
 def write_cookies_file(cookie):
     """The session as a Netscape cookie file for yt-dlp (0600, runtime dir)."""
     path = os.path.join(runtime_dir(), "cookies.txt")
@@ -980,6 +1389,8 @@ def serve(_args):
             self.mpv = Mpv(lambda ev: GLib.idle_add(self.mpv_event, ev),
                            write_cookies_file(cookie) if cookie else None)
             self.scrobbler = Scrobbler()
+            self.offline = Downloader(lambda: self.mpv.cookies_file)
+            self.heard = False  # the song playing given to the downloader
             GLib.timeout_add_seconds(2, self.tick)
 
         # -- state
@@ -1039,18 +1450,29 @@ def serve(_args):
                     "lastfm": bool(self.scrobbler.creds)}
 
         # -- playing
-        # How a song is opened, tried in this order when one fails: its
-        # stream already resolved while the previous song played ("direct":
-        # no pause between songs; yt-dlp takes 5-8 s), yt-dlp through mpv,
-        # yt-dlp with the account's session.
-        ATTEMPTS = ("direct", "ytdl", "signed")
+        # How a song is opened, tried in this order when one fails: its copy
+        # on this computer ("offline": no network), its stream already
+        # resolved while the previous song played ("direct": no pause
+        # between songs; yt-dlp takes 5-8 s), yt-dlp through mpv, yt-dlp
+        # with the account's session.
+        ATTEMPTS = ("offline", "direct", "ytdl", "signed")
+
+        def can(self, attempt, vid):
+            if attempt == "offline":
+                return bool(offline_file(vid))
+            if attempt == "direct":
+                got = self.streams.get(vid)
+                return bool(got and got[1] > time.monotonic())
+            if attempt == "signed":
+                return bool(self.mpv.cookies_file)
+            return True
 
         def prefetch(self, index):
             if not 0 <= index < len(self.queue):
                 return
             vid = self.queue[index]["videoId"]
             got = self.streams.get(vid)
-            if got and got[1] > time.monotonic():
+            if (got and got[1] > time.monotonic()) or offline_file(vid):
                 return
 
             def run():
@@ -1073,12 +1495,15 @@ def serve(_args):
             t = self.queue[index]
             cached = self.streams.get(t["videoId"])
             if attempt is None:
-                attempt = "direct" if cached and cached[1] > time.monotonic() else "ytdl"
-            self.index, self.loading, self.attempt = index, True, attempt
+                attempt = next(a for a in self.ATTEMPTS if self.can(a, t["videoId"]))
+            self.index, self.loading, self.attempt, self.heard = index, True, attempt, attempt == "offline"
+            local = offline_file(t["videoId"]) if attempt == "offline" else ""
             self.mpv.command("set_property", "volume", round(self.volume * 100))
             opts = f"start={max(0.0, float(start)):.1f}"
             url = WATCH_URL.format(t["videoId"])
-            if attempt == "direct":
+            if attempt == "offline":
+                url = local
+            elif attempt == "direct":
                 url = cached[0]
             elif attempt == "signed":
                 opts += f",ytdl-raw-options-append=cookies={self.mpv.cookies_file}"
@@ -1197,6 +1622,9 @@ def serve(_args):
                 self.resync()
             elif name == "file-loaded":
                 self.loading, self.errors = False, 0
+                t = self.track()
+                if t and self.attempt == "offline":
+                    threading.Thread(target=mark_played, args=(t["videoId"],), daemon=True).start()
                 nxt = self.after(self.index)
                 if nxt is not None:
                     self.prefetch(nxt)
@@ -1211,10 +1639,17 @@ def serve(_args):
                           file=sys.stderr, flush=True)
                     if t:
                         self.streams.pop(t["videoId"], None)
+                    if t and self.attempt == "offline":
+                        # A copy that doesn't play: gone, the network next.
+                        def drop(vid=t["videoId"]):
+                            with IndexLock() as index:
+                                remove_songs(index, [vid])
+                        threading.Thread(target=drop, daemon=True).start()
                     # The next way to open it (some songs need the account:
                     # age-restricted…), else the next song.
                     later = [a for a in self.ATTEMPTS[self.ATTEMPTS.index(self.attempt) + 1:]
-                             if a != "signed" or self.mpv.cookies_file]
+                             if a != "offline" and (a != "direct" or self.can(a, t["videoId"] if t else ""))
+                             and (a != "signed" or self.mpv.cookies_file)]
                     if t and later:
                         self.load(self.index, self.base, attempt=later[0])
                         return False
@@ -1235,6 +1670,11 @@ def serve(_args):
             if self.track() and not self.paused:
                 self.scrobbler.tick(2)
                 self.idle_since = time.monotonic()
+                # Heard long enough: kept for offline listening (`auto`).
+                if not self.heard and not self.loading and self.position() >= AUTO_AFTER:
+                    self.heard = True
+                    if offline_settings()["auto"]:
+                        self.offline.want(self.track())
             elif self.mpv.running() and time.monotonic() - self.idle_since > IDLE_QUIT:
                 self.base = self.position()
                 self.mpv.stop()
@@ -1356,6 +1796,9 @@ def serve(_args):
                 if action not in acts:
                     raise Error(f"unknown action {action!r}")
                 return on_main(acts[action])
+            if cmd == "offlineSync":
+                self.offline.wake.set()
+                return on_main(self.summary)
             if cmd == "reload":
                 def reload():
                     self.scrobbler.creds = lastfm_creds()
@@ -1377,6 +1820,7 @@ def serve(_args):
     srv.bind(path)
     os.umask(old)
     srv.listen(8)
+    player.offline.start()
 
     def client(conn):
         with conn:
@@ -1423,7 +1867,7 @@ def serve(_args):
 COMMANDS = {"browsers": cmd_browsers, "login-from-browser": cmd_login, "forget": cmd_forget, "status": cmd_status,
             "playlists": cmd_playlists, "playlist": cmd_playlist, "search": cmd_search, "play": cmd_play,
             "play-tracks": cmd_play_tracks, "play-id": cmd_play_id, "control": cmd_control,
-            "lastfm": cmd_lastfm, "serve": serve}
+            "lastfm": cmd_lastfm, "offline": cmd_offline, "serve": serve}
 
 
 def main(argv):

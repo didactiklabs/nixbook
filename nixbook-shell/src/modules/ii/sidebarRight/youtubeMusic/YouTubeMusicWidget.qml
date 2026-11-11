@@ -20,6 +20,13 @@ import Quickshell.Widgets
  * on Enter; a found one plays with the rest of its list after it), then your
  * playlists (Liked Music first); one opens its songs: Play, Shuffle, or a
  * song to start from. How a play goes shows at the bottom.
+ *
+ * Offline listening: the songs heard 30 s and the playlists kept offline
+ * (the detail's download button) are on this computer ("On this computer"
+ * lists them); the storage button opens the space it may use, whether heard
+ * songs are kept, the kept playlists and what downloads. Without network,
+ * the playlists come from their last copy and only what is here plays.
+ * The song playing has a seek bar with its time.
  */
 Item {
     id: root
@@ -45,7 +52,7 @@ Item {
     property bool detailLoading: false
     function open(pl) {
         root.detailLoading = true;
-        root.detail = { id: pl.id, title: pl.title, tracks: [] };
+        root.detail = { id: pl.id, title: root.playlistTitle(pl), tracks: [] };
         YouTubeMusic.playlist(pl.id, (ok, answer) => {
             root.detailLoading = false;
             if (!ok) {
@@ -53,11 +60,38 @@ Item {
                 root.say(answer?.error || Translation.tr("YouTube Music didn't give that playlist"), "error");
                 return;
             }
+            answer.title = root.playlistTitle(answer);
             root.detail = answer;
         });
     }
+    // The open playlist read again (what is on this computer now), in place.
+    function refreshDetail() {
+        const id = root.detail?.id;
+        if (!id || root.detailLoading) return;
+        YouTubeMusic.playlist(id, (ok, answer) => {
+            if (!ok || root.detail?.id !== id) return;
+            answer.title = root.playlistTitle(answer);
+            root.detail = answer;
+        });
+    }
+    Connections {
+        target: YouTubeMusic
+        function onDownloadingChanged() {
+            if (!YouTubeMusic.downloading) root.refreshDetail();
+        }
+    }
     function play(tracks, index, shuffle, playlistId, name) {
         if (!tracks?.length) return;
+        // No network (the playlist from its copy): only what is here.
+        if (root.detail?.offline && tracks === root.detail.tracks) {
+            const from = tracks[index];
+            tracks = tracks.filter(t => t.cached);
+            if (!tracks.length) {
+                root.say(Translation.tr("No song of it is on this computer, and YouTube Music can't be reached"), "error");
+                return;
+            }
+            index = Math.max(0, tracks.indexOf(from));
+        }
         root.starting = tracks[index]?.videoId ?? "";
         root.say(Translation.tr("Starting %1…").arg(name), "busy");
         YouTubeMusic.playTracks(tracks, index, shuffle, playlistId, (ok, answer) => {
@@ -111,11 +145,27 @@ Item {
         return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
     }
 
-    onVisibleChanged: if (root.visible) {
+    onVisibleChanged: {
+        YouTubeMusic.offlineWatched = root.visible;
+        if (!root.visible) return;
         YouTubeMusic.refresh();
         YouTubeMusic.refreshPlaylists(false);
+        YouTubeMusic.refreshOffline();
     }
-    Component.onCompleted: YouTubeMusic.refreshPlaylists(false)
+    Component.onCompleted: {
+        YouTubeMusic.offlineWatched = root.visible;
+        YouTubeMusic.refreshPlaylists(false);
+        YouTubeMusic.refreshOffline();
+    }
+    // The offline page (space, kept playlists, downloads).
+    property bool offlinePage: false
+    function size(bytes) {
+        const gb = bytes / 1073741824;
+        return gb >= 1 ? Translation.tr("%1 GB").arg(gb.toFixed(gb >= 10 ? 0 : 1)) : Translation.tr("%1 MB").arg(Math.round(bytes / 1048576));
+    }
+    function playlistTitle(pl) {
+        return pl?.id === "_offline" ? Translation.tr("On this computer") : (pl?.title ?? "");
+    }
 
     // A picture, rounded, with a symbol until it loads.
     component Picture: Rectangle {
@@ -172,6 +222,9 @@ Item {
         property var track
         signal activated
         readonly property bool current: (row.track?.videoId ?? "") !== "" && String(root.player?.metadata?.["xesam:url"] ?? "").endsWith(row.track.videoId)
+        // Offline, a song that isn't here can't play.
+        property bool reachable: true
+        opacity: row.reachable ? 1 : 0.45
         implicitHeight: 48
         buttonRadius: Appearance.rounding.small
         colBackground: row.current ? Appearance.colors.colLayer2 : ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 1)
@@ -207,6 +260,20 @@ Item {
                     elide: Text.ElideRight
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     color: Appearance.colors.colSubtext
+                }
+            }
+            MaterialSymbol {
+                visible: row.track?.cached ?? false
+                // StyledToolTip shows while its parent is hovered.
+                readonly property bool hovered: cachedHover.hovered
+                HoverHandler {
+                    id: cachedHover
+                }
+                text: "download_done"
+                iconSize: Appearance.font.pixelSize.normal
+                color: Appearance.colors.colPrimary
+                StyledToolTip {
+                    text: Translation.tr("On this computer: plays without network")
                 }
             }
             StyledText {
@@ -294,6 +361,10 @@ Item {
                         }
                     }
                 }
+                MediaProgressBar {
+                    Layout.fillWidth: true
+                    player: root.player
+                }
                 RowLayout {
                     Layout.alignment: Qt.AlignHCenter
                     spacing: 4
@@ -349,7 +420,7 @@ Item {
         // Searching YouTube Music.
         RowLayout {
             Layout.fillWidth: true
-            visible: root.detail === null
+            visible: root.detail === null && !root.offlinePage
             spacing: 4
             ToolbarTextField {
                 id: searchField
@@ -386,7 +457,7 @@ Item {
         }
         StyledText {
             Layout.fillWidth: true
-            visible: root.detail === null && root.inSearch && root.searchError !== ""
+            visible: root.detail === null && !root.offlinePage && root.inSearch && root.searchError !== ""
             wrapMode: Text.WordWrap
             text: root.searchError
             color: Appearance.m3colors.m3error
@@ -394,7 +465,7 @@ Item {
         }
         StyledText {
             Layout.fillWidth: true
-            visible: root.detail === null && root.inSearch && !root.searching && root.searchError === ""
+            visible: root.detail === null && !root.offlinePage && root.inSearch && !root.searching && root.searchError === ""
                 && root.results !== null && root.resultRows.length === 0
             text: Translation.tr("Nothing found for “%1”").arg(root.results?.query ?? "")
             color: Appearance.colors.colSubtext
@@ -403,7 +474,7 @@ Item {
         StyledListView {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.detail === null && root.inSearch
+            visible: root.detail === null && !root.offlinePage && root.inSearch
             clip: true
             spacing: 2
             popin: false
@@ -441,11 +512,12 @@ Item {
         // The playlists.
         RowLayout {
             Layout.fillWidth: true
-            visible: root.detail === null && !root.inSearch
+            visible: root.detail === null && !root.offlinePage && !root.inSearch
             spacing: 6
             StyledText {
                 Layout.fillWidth: true
                 text: Translation.tr("Your playlists")
+                elide: Text.ElideRight
                 font.pixelSize: Appearance.font.pixelSize.normal
                 font.weight: Font.DemiBold
                 color: Appearance.colors.colOnLayer1
@@ -454,6 +526,35 @@ Item {
                 implicitSize: 18
                 visible: YouTubeMusic.playlistsLoading
                 loading: visible
+            }
+            Rectangle {
+                visible: YouTubeMusic.playlistsOffline
+                implicitWidth: offlineChip.implicitWidth + 16
+                implicitHeight: 24
+                radius: Appearance.rounding.full
+                color: Appearance.colors.colSecondaryContainer
+                readonly property bool hovered: chipHover.hovered
+                HoverHandler {
+                    id: chipHover
+                }
+                StyledText {
+                    id: offlineChip
+                    anchors.centerIn: parent
+                    text: Translation.tr("Offline")
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colOnSecondaryContainer
+                }
+                StyledToolTip {
+                    text: Translation.tr("YouTube Music can't be reached: your playlists as they were, and only the songs on this computer play")
+                }
+            }
+            IconButton {
+                symbol: YouTubeMusic.downloading ? "downloading" : "download_for_offline"
+                lit: YouTubeMusic.downloading
+                tip: YouTubeMusic.downloading
+                    ? Translation.tr("Downloading %1 (%2 left)").arg(YouTubeMusic.offline?.downloading?.title || "").arg(YouTubeMusic.offline?.left ?? 0)
+                    : Translation.tr("Offline listening")
+                onClicked: root.offlinePage = true
             }
             IconButton {
                 symbol: "refresh"
@@ -464,7 +565,7 @@ Item {
         }
         StyledText {
             Layout.fillWidth: true
-            visible: root.detail === null && !root.inSearch && YouTubeMusic.playlistsError !== ""
+            visible: root.detail === null && !root.offlinePage && !root.inSearch && YouTubeMusic.playlistsError !== ""
             wrapMode: Text.WordWrap
             text: YouTubeMusic.playlistsError
             color: Appearance.m3colors.m3error
@@ -473,7 +574,7 @@ Item {
         StyledFlickable {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.detail === null && !root.inSearch
+            visible: root.detail === null && !root.offlinePage && !root.inSearch
             contentHeight: grid.implicitHeight
             clip: true
             GridLayout {
@@ -499,11 +600,27 @@ Item {
                                 Layout.fillWidth: true
                                 implicitHeight: grid.cell
                                 source: card.modelData.thumb ?? ""
-                                symbol: card.modelData.id === "LM" ? "favorite" : "queue_music"
+                                symbol: card.modelData.id === "LM" ? "favorite" : card.modelData.id === "_offline" ? "download_done" : "queue_music"
+                                Rectangle {
+                                    visible: YouTubeMusic.isKept(card.modelData.id) || (card.modelData.kept ?? false)
+                                    anchors.right: parent.right
+                                    anchors.bottom: parent.bottom
+                                    anchors.margins: 4
+                                    width: 22
+                                    height: 22
+                                    radius: 11
+                                    color: Appearance.colors.colPrimary
+                                    MaterialSymbol {
+                                        anchors.centerIn: parent
+                                        text: "download_done"
+                                        iconSize: 14
+                                        color: Appearance.colors.colOnPrimary
+                                    }
+                                }
                             }
                             StyledText {
                                 Layout.fillWidth: true
-                                text: card.modelData.title ?? ""
+                                text: root.playlistTitle(card.modelData)
                                 elide: Text.ElideRight
                                 font.pixelSize: Appearance.font.pixelSize.smaller
                                 font.weight: Font.DemiBold
@@ -518,7 +635,232 @@ Item {
                             }
                         }
                         StyledToolTip {
-                            text: Translation.tr("%1: its songs").arg(card.modelData.title ?? "")
+                            text: Translation.tr("%1: its songs").arg(root.playlistTitle(card.modelData))
+                        }
+                    }
+                }
+            }
+        }
+
+        // Offline listening: the space, songs heard kept, the kept
+        // playlists, what downloads.
+        RowLayout {
+            Layout.fillWidth: true
+            visible: root.detail === null && root.offlinePage
+            spacing: 6
+            IconButton {
+                symbol: "arrow_back"
+                tip: Translation.tr("Back")
+                onClicked: root.offlinePage = false
+            }
+            StyledText {
+                Layout.fillWidth: true
+                text: Translation.tr("Offline listening")
+                elide: Text.ElideRight
+                font.pixelSize: Appearance.font.pixelSize.normal
+                font.weight: Font.DemiBold
+                color: Appearance.colors.colOnLayer1
+            }
+        }
+        StyledFlickable {
+            id: offlineFlick
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.detail === null && root.offlinePage
+            contentHeight: offlineCol.implicitHeight
+            clip: true
+            readonly property var o: YouTubeMusic.offline
+            readonly property real limit: (o?.limitMB ?? 4096) * 1048576
+            ColumnLayout {
+                id: offlineCol
+                width: parent.width
+                spacing: 10
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                    text: Translation.tr("Songs on this computer play without network. When the space is used up, the songs played longest ago make room; a kept playlist's songs stay.")
+                }
+                // The space used.
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    StyledText {
+                        text: Translation.tr("%1 of %2 used · %3 songs").arg(root.size(offlineFlick.o?.used ?? 0)).arg(root.size(offlineFlick.limit)).arg(offlineFlick.o?.count ?? 0)
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colOnLayer1
+                    }
+                    StyledProgressBar {
+                        Layout.fillWidth: true
+                        value: Math.min(1, (offlineFlick.o?.used ?? 0) / offlineFlick.limit)
+                    }
+                }
+                // How much it may use.
+                StyledText {
+                    text: Translation.tr("Space it may use")
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    font.weight: Font.DemiBold
+                    color: Appearance.colors.colOnLayer1
+                }
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    Repeater {
+                        model: [1, 2, 4, 8, 16, 32]
+                        delegate: RippleButton {
+                            id: chip
+                            required property int modelData
+                            readonly property bool on: (offlineFlick.o?.limitMB ?? 4096) === chip.modelData * 1024
+                            implicitWidth: chipText.implicitWidth + 24
+                            implicitHeight: 30
+                            buttonRadius: Appearance.rounding.full
+                            colBackground: chip.on ? Appearance.colors.colSecondaryContainer : Appearance.colors.colLayer2
+                            onClicked: YouTubeMusic.offlineDo(["set", "limit", String(chip.modelData * 1024)])
+                            contentItem: StyledText {
+                                id: chipText
+                                horizontalAlignment: Text.AlignHCenter
+                                text: Translation.tr("%1 GB").arg(chip.modelData)
+                                font.pixelSize: Appearance.font.pixelSize.smaller
+                                color: chip.on ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                            }
+                        }
+                    }
+                }
+                // Songs heard kept.
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 0
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: Translation.tr("Keep the songs I listen to")
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            text: Translation.tr("A song heard for 30 seconds is downloaded too")
+                            font.pixelSize: Appearance.font.pixelSize.smallest
+                            color: Appearance.colors.colSubtext
+                        }
+                    }
+                    StyledSwitch {
+                        checked: offlineFlick.o?.auto ?? true
+                        onClicked: YouTubeMusic.offlineDo(["set", "auto", checked ? "on" : "off"])
+                    }
+                }
+                // What downloads.
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: YouTubeMusic.downloading || (offlineFlick.o?.full ?? false) || (offlineFlick.o?.error ?? "") !== ""
+                    spacing: 8
+                    MaterialLoadingIndicator {
+                        implicitSize: 18
+                        visible: YouTubeMusic.downloading
+                        loading: visible
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: !YouTubeMusic.downloading && (offlineFlick.o?.error ?? "") !== "" ? Appearance.m3colors.m3error : Appearance.colors.colOnLayer1
+                        text: YouTubeMusic.downloading
+                            ? Translation.tr("Downloading %1 · %2 left").arg(offlineFlick.o?.downloading?.title || offlineFlick.o?.downloading?.videoId || "").arg(offlineFlick.o?.left ?? 0)
+                            : offlineFlick.o?.full ? Translation.tr("Full: the kept playlists use all the space. Give it more room, or keep fewer playlists.")
+                            : Translation.tr("The last download stopped: %1").arg(offlineFlick.o?.error ?? "")
+                    }
+                }
+                // The kept playlists.
+                StyledText {
+                    visible: (offlineFlick.o?.kept ?? []).length > 0
+                    text: Translation.tr("Kept playlists")
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    font.weight: Font.DemiBold
+                    color: Appearance.colors.colOnLayer1
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    visible: (offlineFlick.o?.kept ?? []).length === 0
+                    wrapMode: Text.WordWrap
+                    text: Translation.tr("To keep a whole playlist, open it and click its download button.")
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                }
+                Repeater {
+                    model: offlineFlick.o?.kept ?? []
+                    delegate: RowLayout {
+                        id: keptRow
+                        required property var modelData
+                        Layout.fillWidth: true
+                        spacing: 8
+                        MaterialSymbol {
+                            text: keptRow.modelData.cached >= keptRow.modelData.total && keptRow.modelData.total > 0 ? "download_done" : "downloading"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colPrimary
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+                            StyledText {
+                                Layout.fillWidth: true
+                                text: keptRow.modelData.title
+                                elide: Text.ElideRight
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                color: Appearance.colors.colOnLayer1
+                            }
+                            StyledText {
+                                text: Translation.tr("%1 of %2 songs").arg(keptRow.modelData.cached).arg(keptRow.modelData.total)
+                                font.pixelSize: Appearance.font.pixelSize.smallest
+                                color: Appearance.colors.colSubtext
+                            }
+                        }
+                        IconButton {
+                            symbol: "delete"
+                            tip: Translation.tr("No longer keep it: its songs are removed")
+                            onClicked: YouTubeMusic.unkeepOffline(keptRow.modelData.id)
+                        }
+                    }
+                }
+                // Freeing space (a second click within 3 s confirms).
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    property string confirm: ""
+                    id: freeRow
+                    Timer {
+                        id: confirmOff
+                        interval: 3000
+                        onTriggered: freeRow.confirm = ""
+                    }
+                    function ask(what, args) {
+                        if (freeRow.confirm !== what) {
+                            freeRow.confirm = what;
+                            confirmOff.restart();
+                            return;
+                        }
+                        freeRow.confirm = "";
+                        YouTubeMusic.offlineDo(args, () => YouTubeMusic.refreshPlaylists(true));
+                    }
+                    RippleButtonWithIcon {
+                        enabled: (offlineFlick.o?.count ?? 0) > 0
+                        materialIcon: "cleaning_services"
+                        mainText: freeRow.confirm === "free" ? Translation.tr("Click again") : Translation.tr("Free space")
+                        onClicked: freeRow.ask("free", ["clear"])
+                        StyledToolTip {
+                            text: Translation.tr("Remove the songs no kept playlist has")
+                        }
+                    }
+                    RippleButtonWithIcon {
+                        enabled: (offlineFlick.o?.count ?? 0) > 0 || (offlineFlick.o?.kept ?? []).length > 0
+                        materialIcon: "delete_sweep"
+                        mainText: freeRow.confirm === "all" ? Translation.tr("Click again") : Translation.tr("Remove everything")
+                        onClicked: freeRow.ask("all", ["clear", "--all"])
+                        StyledToolTip {
+                            text: Translation.tr("Every song on this computer, and no playlist kept")
                         }
                     }
                 }
@@ -548,6 +890,21 @@ Item {
                 visible: root.detailLoading
                 loading: visible
             }
+            IconButton {
+                readonly property bool kept: YouTubeMusic.isKept(root.detail?.id ?? "")
+                visible: (root.detail?.id ?? "_offline") !== "_offline"
+                symbol: kept ? "download_done" : "download_for_offline"
+                lit: kept
+                tip: kept ? Translation.tr("Kept on this computer: click to remove its songs") : Translation.tr("Keep on this computer, for offline listening")
+                onClicked: {
+                    const id = root.detail.id;
+                    if (kept) YouTubeMusic.unkeepOffline(id, () => root.open({ id: id, title: root.detail?.title }));
+                    else {
+                        YouTubeMusic.keepOffline(id, root.detail.title);
+                        root.say(Translation.tr("Downloading %1 for offline listening").arg(root.detail.title), "ok");
+                    }
+                }
+            }
             RippleButtonWithIcon {
                 enabled: (root.detail?.tracks ?? []).length > 0
                 materialIcon: "play_arrow"
@@ -561,6 +918,21 @@ Item {
                 onClicked: root.play(root.detail.tracks, Math.floor(Math.random() * root.detail.tracks.length), true, root.detail.id, root.detail.title)
             }
         }
+        // How much of a kept playlist is here.
+        StyledText {
+            readonly property var kept: (YouTubeMusic.offline?.kept ?? []).find(k => k.id === root.detail?.id) ?? null
+            Layout.fillWidth: true
+            visible: root.detail !== null && (kept !== null || (root.detail?.offline ?? false))
+            wrapMode: Text.WordWrap
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            color: Appearance.colors.colSubtext
+            text: root.detail?.offline && root.detail?.id !== "_offline"
+                ? Translation.tr("Offline: the songs on this computer play, the others wait for the network")
+                : kept === null ? ""
+                : kept.cached >= kept.total ? Translation.tr("All %1 songs on this computer").arg(kept.total)
+                : YouTubeMusic.offline?.full ? Translation.tr("%1 of %2 songs on this computer: the space for offline songs is full").arg(kept.cached).arg(kept.total)
+                : Translation.tr("%1 of %2 songs on this computer, downloading…").arg(kept.cached).arg(kept.total)
+        }
         StyledListView {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -573,6 +945,7 @@ Item {
                 required property int index
                 width: ListView.view.width
                 track: modelData
+                reachable: !root.detail?.offline || (modelData.cached ?? false)
                 onActivated: root.play(root.detail.tracks, index, false, root.detail.id, modelData.title)
             }
         }

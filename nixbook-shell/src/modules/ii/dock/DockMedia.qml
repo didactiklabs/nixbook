@@ -167,6 +167,91 @@ Item {
             z: 2
         }
 
+        // Where the song is: a thin line along the card's bottom, read once a
+        // second while it shows and plays (no animation: the dock is always
+        // mapped, and each frame of it makes niri recomposite the output);
+        // a click or a drag on the bottom strip seeks, hovering it says the time.
+        Item {
+            id: progress
+            z: 4
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: 5
+            readonly property real length: root.player?.length ?? 0
+            property real position: 0
+            visible: root.shown && progress.length > 0
+            function read() {
+                if (root.player) root.player.positionChanged();
+            }
+            Connections {
+                target: root.player
+                function onPositionChanged() { progress.position = root.player.position; }
+                function onPostTrackChanged() { progress.read(); }
+                function onPlaybackStateChanged() { progress.read(); }
+            }
+            Timer {
+                interval: 1000
+                repeat: true
+                triggeredOnStart: true
+                running: progress.visible && root.isPlaying && ObjectUtils.shown(progress)
+                onTriggered: progress.read()
+            }
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: seekArea.containsMouse ? 4 : 2
+                color: ColorUtils.transparentize(root.blendedColors.colOnLayer0, 0.8)
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: parent.width * Math.max(0, Math.min(1, progress.position / Math.max(1, progress.length)))
+                    color: root.blendedColors.colPrimary
+                }
+            }
+            MouseArea {
+                id: seekArea
+                anchors.fill: parent
+                hoverEnabled: true
+                enabled: root.player?.canSeek ?? false
+                cursorShape: Qt.PointingHandCursor
+                function seek(x) {
+                    const at = Math.max(0, Math.min(1, x / width)) * progress.length;
+                    root.player.position = at;
+                    progress.position = at;
+                }
+                onPressed: mouse => seekArea.seek(mouse.x)
+                onPositionChanged: mouse => { if (pressed) seekArea.seek(mouse.x); }
+            }
+        }
+        // The time, while the line is hovered (inside the card: a tooltip
+        // would be cut by the dock's window).
+        Rectangle {
+            z: 5
+            visible: seekArea.containsMouse || seekArea.pressed
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.rightMargin: 6
+            anchors.bottomMargin: 7
+            implicitWidth: timeText.implicitWidth + 10
+            implicitHeight: timeText.implicitHeight + 4
+            radius: Appearance.rounding.small
+            color: root.blendedColors.colLayer0
+            StyledText {
+                id: timeText
+                anchors.centerIn: parent
+                function time(s) {
+                    s = Math.max(0, Math.round(s || 0));
+                    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+                }
+                text: `${time(progress.position)} / ${time(progress.length)}`
+                font.pixelSize: Appearance.font.pixelSize.smallest
+                color: root.blendedColors.colOnLayer0
+            }
+        }
+
         RowLayout {
             width:  card.width
             height: card.height
