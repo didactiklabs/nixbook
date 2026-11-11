@@ -109,6 +109,27 @@ def style_less(text, lib):
     return functions(text)
 
 
+# nixbook's own rules, after Catppuccin's: the parts of Gmail its style
+# leaves (Gmail changed them), matched by role and structure rather than
+# Gmail's class names where they can be. Placeholders as in the template.
+EXTRA = """
+/* nixbook additions (scripts/gmail-template.py's EXTRA) */
+/* Compose: text given its own colour (a signature made for white paper)
+ * shown in the theme's text colour, links in its accent. Only how it is
+ * shown while writing: the mail sent keeps its colours. (Not skipping text
+ * with a background: pasted signatures carry background-color:
+ * transparent on every span.) */
+:root [contenteditable="true"][role="textbox"] [style*="color"]:not(a),
+:root [contenteditable="true"][role="textbox"] font[color] {
+  color: {{colors.on_surface_variant.default.hex}} !important;
+}
+:root [contenteditable="true"][role="textbox"] a,
+:root [contenteditable="true"][role="textbox"] a * {
+  color: {{colors.primary.default.hex}} !important;
+}
+"""
+
+
 def placeholders(css):
     # Their userstyle header (its @name, @var…): this file has its own.
     css = re.sub(r"/\* ==UserStyle==.*?==/UserStyle== \*/\n?", "", css, count=1, flags=re.S)
@@ -148,7 +169,7 @@ def main():
         " * palette changes) and again after each load. */\n\n"
     )
     with open(OUT, "w") as f:
-        f.write(header + placeholders(css))
+        f.write(header + placeholders(css) + EXTRA)
     print(f"wrote {os.path.normpath(OUT)}")
 
 
