@@ -336,7 +336,8 @@ line.
 
 ## Desktop control for AI agents
 
-`nixbook-desktop-mcp` (`scripts/desktop-mcp.py`, also `nixbook-shell mcp`)
+`nixbook-desktop-mcp` (`scripts/desktop-mcp.py`, its source split by area in
+`scripts/desktop-mcp/`; also `nixbook-shell mcp`)
 lets an AI agent see and drive the desktop: list windows, workspaces and
 apps; focus, move, resize, close windows; launch apps; take screenshots (a
 monitor, a zoomed-in region, a window on screen), silently; save screenshots

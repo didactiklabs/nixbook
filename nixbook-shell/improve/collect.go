@@ -44,7 +44,7 @@ func collect() (map[string]any, error) {
 	for _, c := range toolCrashes(since) {
 		fs = append(fs, found{
 			kind: "crash", key: "crash:" + c.tool + ":" + c.msg, times: 1,
-			text: fmt.Sprintf("The desktop tool %s crashed: %s", c.tool, c.msg), where: "nixbook-shell/scripts/desktop-mcp.py",
+			text: fmt.Sprintf("The desktop tool %s crashed: %s", c.tool, c.msg), where: "nixbook-shell/scripts/desktop-mcp/",
 		})
 	}
 	failed, stillFailed := failedUnits(o)
