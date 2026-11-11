@@ -83,14 +83,14 @@ Quick settings on top, and one page at a time below them, so each gets the whole
 
 The panel remembers the page you left it on, but opens on Notifications when something arrived while it was closed; from another page, a badge on the bell counts them. Settings → Panels → Right Sidebar turns off the pages other than Notifications.
 
-It can be **pinned** too: the pin in its header, or Ctrl+P inside it (`nixbook-shell ipc call sidebarRight pin|unpin|togglePin`). Pinned, it stays open beside your windows, which make room for it, on the monitor it was pinned on, even across reboots; closing it is refused until you unpin it. Notification popups still show while it is pinned, unless its Notifications page is the one in view.
+It can be **pinned** too: the pin in its header, or Ctrl+P inside it (`nixbook-shell ipc call sidebarRight pin|unpin|togglePin`). Pinned, it stays open beside your windows, which make room for it, on the monitor it was pinned on, even across reboots; Escape and clicks elsewhere don't close it; **Mod+N** does, freeing its room, and Mod+N again opens it pinned, on its monitor (even after a restart). Notification popups still show while it is pinned, unless its Notifications page is the one in view.
 
 ### Left sidebar — Mod+Space
 
 - the [AI chat](./ai-assistant);
 - a **translator**.
 
-It can be **pinned** (Ctrl+P) to stay open beside your windows — on the monitor it was pinned on, even across reboots — or extended (Ctrl+O).
+It can be **pinned** (Ctrl+P) to stay open beside your windows — on the monitor it was pinned on, even across reboots — or extended (Ctrl+O). Pinned, **Mod+Space** still closes it, freeing its room, and Mod+Space again opens it pinned.
 
 ## Dock
 

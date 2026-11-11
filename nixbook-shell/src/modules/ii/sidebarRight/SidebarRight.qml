@@ -30,15 +30,31 @@ Scope {
 
     // Pinned (the header's pin, Ctrl+P, IPC `sidebarRight pin`): the sidebar
     // stays open beside the windows and reserves its strip (exclusiveZone),
-    // like the left one pinned. Every close (Escape, Mod+N, a click outside,
-    // links, toggles) is refused; unpin first. It survives restarts and
-    // reboots (Persistent states.json), on the monitor it was pinned on.
+    // like the left one pinned. Every close (Escape, a click outside, links,
+    // toggles) is refused, but its key's: Mod+N (IPC toggle/close) closes it
+    // and frees the strip, "parked", and Mod+N again (IPC toggle/open) opens
+    // it pinned, on its monitor. It survives restarts and reboots
+    // (Persistent states.json), on the monitor it was pinned on.
     readonly property bool pin: GlobalStates.sidebarRightPinned
     function togglePin() {
         GlobalStates.sidebarRightPinned = !GlobalStates.sidebarRightPinned;
     }
     function enforcePinnedOpen() {
         if (root.pin && !GlobalStates.sidebarRightOpen) GlobalStates.sidebarRightOpen = true;
+    }
+    readonly property bool parked: Persistent.states.sidebar.right.parked
+    function park() {
+        Persistent.states.sidebar.right.parked = true;
+        GlobalStates.sidebarRightPinned = false;
+        GlobalStates.sidebarRightOpen = false;
+    }
+    function unpark() {
+        Persistent.states.sidebar.right.parked = false;
+        root.restoringPin = true; // back on the monitor it was pinned on
+        GlobalStates.sidebarRightPinned = true;
+        root.restoringPin = false;
+        panelWindow.restorePinnedScreen();
+        GlobalStates.sidebarRightOpen = true;
     }
     property bool restoringPin: false
     function restorePin() {
@@ -59,6 +75,7 @@ Scope {
         root.enforcePinnedOpen();
         if (!Persistent.ready) return;
         Persistent.states.sidebar.right.pinned = root.pin;
+        if (root.pin) Persistent.states.sidebar.right.parked = false;
         if (root.pin && !root.restoringPin)
             Persistent.states.sidebar.right.screen = panelWindow.screen?.name ?? WM.focusedMonitor?.name ?? "";
         // Kept mapped since before the bar was created, it would squeeze the
@@ -442,16 +459,21 @@ Scope {
         IpcHandler {
             target: "sidebarRight"
 
+            // Pinned, its key (Mod+N) parks it; parked, it opens it pinned.
             function toggle(): void {
-                GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen;
+                if (root.pin && GlobalStates.sidebarRightOpen) root.park();
+                else if (root.parked && !GlobalStates.sidebarRightOpen) root.unpark();
+                else GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen;
             }
 
             function close(): void {
-                GlobalStates.sidebarRightOpen = false;
+                if (root.pin) root.park();
+                else GlobalStates.sidebarRightOpen = false;
             }
 
             function open(): void {
-                GlobalStates.sidebarRightOpen = true;
+                if (root.parked && !GlobalStates.sidebarRightOpen) root.unpark();
+                else GlobalStates.sidebarRightOpen = true;
             }
 
             // Pinned: open beside the windows, its strip reserved.
@@ -460,6 +482,7 @@ Scope {
             }
 
             function unpin(): void {
+                Persistent.states.sidebar.right.parked = false;
                 GlobalStates.sidebarRightPinned = false;
             }
 

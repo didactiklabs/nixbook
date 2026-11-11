@@ -51,13 +51,30 @@ Scope { // Scope
     }
 
     // Pinned and docked, the sidebar reserves its strip (exclusiveZone):
-    // closed, it would leave a blank space. Every close (Escape, toggle/close
-    // IPC, keybinds, links) is refused; unpin first.
+    // closed, it would leave a blank space. Every close (Escape, links…) is
+    // refused, but its key's: Mod+Space (IPC toggle/close) closes it and frees
+    // the strip, "parked", and Mod+Space again (IPC toggle/open) opens it
+    // pinned, on its monitor.
     readonly property bool forcedOpen: root.pin && !root.detach
     function enforcePinnedOpen() {
         if (root.forcedOpen && !GlobalStates.sidebarLeftOpen) GlobalStates.sidebarLeftOpen = true;
     }
     onForcedOpenChanged: root.enforcePinnedOpen()
+
+    readonly property bool parked: Persistent.states.sidebar.left.parked
+    function park() {
+        Persistent.states.sidebar.left.parked = true;
+        root.pin = false;
+        GlobalStates.sidebarLeftOpen = false;
+    }
+    function unpark() {
+        Persistent.states.sidebar.left.parked = false;
+        root.restoringPin = true; // back on the monitor it was pinned on
+        root.pin = true;
+        root.restoringPin = false;
+        sidebarLoader.item?.restorePinnedScreen();
+        GlobalStates.sidebarLeftOpen = true;
+    }
 
     // Pinned survives restarts and reboots (Persistent states.json); a
     // pinned sidebar is always open, on the monitor it was pinned on.
@@ -78,6 +95,7 @@ Scope { // Scope
     onPinChanged: {
         if (!Persistent.ready) return;
         Persistent.states.sidebar.left.pinned = root.pin;
+        if (root.pin) Persistent.states.sidebar.left.parked = false;
         Persistent.states.sidebar.left.open = root.pin && GlobalStates.sidebarLeftOpen;
         if (root.pin && !root.restoringPin)
             Persistent.states.sidebar.left.screen = sidebarLoader.item?.screen?.name ?? WM.focusedMonitor?.name ?? "";
@@ -91,6 +109,8 @@ Scope { // Scope
     }
 
     function togglePin() {
+        // Unpinned by hand: not pinned again by Mod+Space.
+        if (root.pin) Persistent.states.sidebar.left.parked = false;
         root.pin = !root.pin;
     }
 
@@ -566,16 +586,22 @@ Scope { // Scope
     IpcHandler {
         target: "sidebarLeft"
 
+        // Pinned (docked), its key (Mod+Space) parks it; parked, it opens
+        // it pinned.
         function toggle(): void {
-            GlobalStates.sidebarLeftOpen = !GlobalStates.sidebarLeftOpen
+            if (root.forcedOpen && GlobalStates.sidebarLeftOpen) root.park()
+            else if (root.parked && !root.detach && !GlobalStates.sidebarLeftOpen) root.unpark()
+            else GlobalStates.sidebarLeftOpen = !GlobalStates.sidebarLeftOpen
         }
 
         function close(): void {
-            GlobalStates.sidebarLeftOpen = false
+            if (root.forcedOpen) root.park()
+            else GlobalStates.sidebarLeftOpen = false
         }
 
         function open(): void {
-            GlobalStates.sidebarLeftOpen = true
+            if (root.parked && !root.detach && !GlobalStates.sidebarLeftOpen) root.unpark()
+            else GlobalStates.sidebarLeftOpen = true
         }
     }
 }
