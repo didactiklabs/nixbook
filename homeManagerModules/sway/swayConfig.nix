@@ -2,6 +2,7 @@
   config,
   pkgs,
   lib,
+  osConfig ? null,
   ...
 }:
 let
@@ -49,7 +50,9 @@ let
     #GTK_USE_PORTAL = "1";
   };
   mod = "Mod4";
-  modeSystem = "System (l) lock, (e) logout, (s) suspend, (r) reboot, (Shift+s) shutdown, (Shift+r) BIOS";
+  # A machine with suspend off (anya) gets no suspend key: it did nothing.
+  canSuspend = if osConfig == null then true else osConfig.systemd.targets.suspend.enable;
+  modeSystem = "System (l) lock, (e) logout, ${lib.optionalString canSuspend "(s) suspend, "}(r) reboot, (Shift+s) shutdown, (Shift+r) BIOS";
   modeResize = "Resize";
   ## Custom Workspace
   ## cf https://fontawesome.com/cheatsheet
@@ -369,14 +372,16 @@ in
             "${modeSystem}" = {
               "l" = ''exec --no-startup-id ${swaylock} --color '${colorDarkGrey}', mode "default"'';
               "e" = ''exec --no-startup-id ${swaymsg} exit, mode "default"'';
-              "s" =
-                ''exec --no-startup-id ${swaylock} --color '${colorDarkGrey}' && sleep 1 && ${systemctl} suspend, mode "default"'';
               "r" = ''exec --no-startup-id ${systemctl} reboot, mode "default"'';
               "Shift+s" = ''exec --no-startup-id ${systemctl} poweroff -i, mode "default"'';
               "Shift+r" = ''exec --no-startup-id ${systemctl} reboot --firmware-setup, mode "default"'';
               # back to normal: Enter or Escape
               "Return" = ''mode "default"'';
               "Escape" = ''mode "default"'';
+            }
+            // lib.optionalAttrs canSuspend {
+              "s" =
+                ''exec --no-startup-id ${swaylock} --color '${colorDarkGrey}' && sleep 1 && ${systemctl} suspend, mode "default"'';
             };
             "${modeResize}" = {
               "j" = "resize shrink width 10 px";
