@@ -28,7 +28,7 @@ var forbidden = []string{
 // agents may do (tools, permissions, the switches and their defaults) and
 // the shell's packaging.
 var sensitive = []string{
-	"nixbook-shell/scripts/desktop-mcp.py",
+	"nixbook-shell/scripts/desktop-mcp.py", "nixbook-shell/scripts/desktop-mcp/**",
 	"nixbook-shell/src/services/Ai.qml", "nixbook-shell/src/services/AiChatSession.qml",
 	"nixbook-shell/src/services/Initiative.qml", "nixbook-shell/src/services/Routines.qml",
 	"nixbook-shell/src/modules/common/Config.qml", "nixbook-shell/builtin-defaults.json",

@@ -65,6 +65,9 @@ func TestAutoMergeable(t *testing.T) {
 	if autoMergeable([]Change{{Path: "nixbook-shell/scripts/desktop-mcp.py"}}, []string{"**"}) {
 		t.Error("a sensitive file: auto-mergeable")
 	}
+	if autoMergeable([]Change{{Path: "nixbook-shell/scripts/desktop-mcp/85-pages.py"}}, []string{"**"}) {
+		t.Error("a part of the desktop MCP server: auto-mergeable")
+	}
 }
 
 func TestCommitMessage(t *testing.T) {

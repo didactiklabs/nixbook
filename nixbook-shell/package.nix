@@ -127,11 +127,19 @@ let
     exec ${desktopMcpPython}/bin/python3 -P ${desktopMcpPyc} "$@"
   '';
   desktopMcpPython = pkgs.python3.withPackages (ps: [ ps.pygobject3 ]);
+  # Its source is split by area (scripts/desktop-mcp/NN-area.py, which
+  # scripts/desktop-mcp.py runs in order in one namespace): joined here into
+  # the one file they were.
+  desktopMcpSource = pkgs.runCommand "desktop-mcp.py" { } ''
+    for part in $(LC_ALL=C ls ${./scripts/desktop-mcp}/*.py); do
+      cat "$part" >>$out
+    done
+  '';
   # Precompiled: the shell runs it on every habit cue, memory lookup and agent
   # tool call, and a script run as __main__ is never cached (compiling its
-  # 12k lines was ~160 ms of CPU per run). Tracebacks still show the source.
+  # 18k lines was ~160 ms of CPU per run). Tracebacks still show the source.
   desktopMcpPyc = pkgs.runCommand "desktop-mcp.pyc" { } ''
-    ${desktopMcpPython}/bin/python3 -c 'import py_compile, sys; py_compile.compile(sys.argv[1], cfile=sys.argv[2], dfile=sys.argv[1], doraise=True, invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)' ${./scripts/desktop-mcp.py} $out
+    ${desktopMcpPython}/bin/python3 -c 'import py_compile, sys; py_compile.compile(sys.argv[1], cfile=sys.argv[2], dfile=sys.argv[1], doraise=True, invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)' ${desktopMcpSource} $out
   '';
 
   # The desktop agents in Zen (nixbook-desktop-mcp's page_* tools): the
