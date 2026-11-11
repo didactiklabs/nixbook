@@ -508,6 +508,10 @@ in
 
     programs.nixbook-shell = {
       enable = true;
+      # nixbook's own Google OAuth client (a published "Desktop app" client):
+      # every nixbook user adds a Google account with no Google Cloud project.
+      # In clear on purpose: a desktop app's client secret isn't confidential.
+      accounts.googleClient = lib.mkDefault ./nixbookShellConfig/google-oauth-client.json;
       # The repository's quickshell pin, shared with dmsConfig.nix so the two
       # shells never disagree on the QML runtime.
       package =

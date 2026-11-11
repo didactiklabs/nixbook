@@ -164,23 +164,65 @@ func findClientFile() (string, error) {
 	return files[0], nil
 }
 
-// Configured says whether the client is set up.
-func Configured() (bool, error) {
-	var c Client
-	return core.SecretGet(clientKind, &c)
+// ProvidedClientPath is a client the system provides (nixbook ships its
+// own, so its users make no Google Cloud project): used when none was set
+// up here. $NIXBOOK_ACCOUNTS_GOOGLE_CLIENT_FILE, else
+// $XDG_CONFIG_HOME/nixbook-accounts/google-client.json (the downloaded
+// client JSON, as `setup google` takes it).
+func ProvidedClientPath() string {
+	if p := core.Getenv("NIXBOOK_ACCOUNTS_GOOGLE_CLIENT_FILE"); p != "" {
+		return p
+	}
+	dir := core.Getenv("XDG_CONFIG_HOME")
+	if dir == "" {
+		dir = expandHome("~/.config")
+	}
+	return filepath.Join(dir, "nixbook-accounts", "google-client.json")
 }
 
-// LoadClient is the saved client.
+func providedClient() (Client, bool) {
+	data, err := os.ReadFile(ProvidedClientPath())
+	if err != nil {
+		return Client{}, false
+	}
+	c, err := ParseClient(data)
+	return c, err == nil
+}
+
+// Configured says whether a client is there: set up here, or provided.
+func Configured() (bool, error) {
+	var c Client
+	ok, err := core.SecretGet(clientKind, &c)
+	if ok || err != nil {
+		return ok, err
+	}
+	_, provided := providedClient()
+	return provided, nil
+}
+
+// ProvidedOnly says whether the client in use is the provided one (none set
+// up here).
+func ProvidedOnly() bool {
+	var c Client
+	ok, _ := core.SecretGet(clientKind, &c)
+	_, provided := providedClient()
+	return !ok && provided
+}
+
+// LoadClient is the client set up here, else the one provided.
 func LoadClient() (Client, error) {
 	var c Client
 	ok, err := core.SecretGet(clientKind, &c)
 	if err != nil {
 		return c, err
 	}
-	if !ok {
-		return c, core.AuthErrorf("no Google OAuth client yet: set one up first (nixbook-accounts setup google)")
+	if ok {
+		return c, nil
 	}
-	return c, nil
+	if p, provided := providedClient(); provided {
+		return p, nil
+	}
+	return c, core.AuthErrorf("no Google OAuth client yet: set one up first (nixbook-accounts setup google)")
 }
 
 // LoadToken is the account's token, if it has one.
