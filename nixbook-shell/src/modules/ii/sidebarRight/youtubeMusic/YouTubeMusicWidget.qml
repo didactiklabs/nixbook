@@ -33,6 +33,7 @@ Item {
 
     readonly property MprisPlayer player: YouTubeMusic.player
     property bool showLyrics: false
+    property bool addingSong: false
     // How the last play goes: { text, kind: busy|ok|error }.
     property var status: null
     property string starting: ""
@@ -399,6 +400,12 @@ Item {
                         onClicked: YouTubeMusic.control("repeat", "cycle")
                     }
                     IconButton {
+                        symbol: "playlist_add"
+                        lit: root.addingSong
+                        tip: Translation.tr("Add this song to a playlist")
+                        onClicked: root.addingSong = !root.addingSong
+                    }
+                    IconButton {
                         symbol: "lyrics"
                         lit: root.showLyrics
                         tip: Translation.tr("Lyrics")
@@ -432,6 +439,14 @@ Item {
                         font.pixelSize: Appearance.font.pixelSize.smaller
                         color: Appearance.colors.colSubtext
                     }
+                }
+                YouTubeMusicAddToPlaylist {
+                    Layout.fillWidth: true
+                    visible: root.addingSong && root.player !== null
+                    songTitle: root.player?.trackTitle ?? ""
+                    // The song playing: its id is the end of its link.
+                    resolve: then => then((String(root.player?.metadata?.["xesam:url"] ?? "").match(/[?&]v=([A-Za-z0-9_-]{11})/) ?? [])[1] ?? "")
+                    onClosed: root.addingSong = false
                 }
                 Lyrics {
                     Layout.fillWidth: true

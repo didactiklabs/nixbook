@@ -107,6 +107,26 @@ Singleton {
     }
     onDownloadingChanged: if (!root.downloading && root.signedIn) root.refreshPlaylists(true)
 
+    // The playlists songs can be added to (yours; Liked Music likes the
+    // song); a copy of the list from before `own` existed counts them all.
+    readonly property var ownPlaylists: (root.playlists ?? []).filter(p => p.id !== "_offline" && (p.own ?? true))
+    // A song into one of them: then(ok, answer {status: added|already} or
+    // {error}); the playlists read again (their counts).
+    function addToPlaylist(playlistId, videoId, then) {
+        root.run(["add", playlistId, videoId], "", (ok, answer) => {
+            if (ok) root.refreshPlaylists(true);
+            if (then) then(ok, answer);
+        });
+    }
+    // A new private playlist with the song in it: then(ok, {playlist, title}).
+    function createPlaylist(title, videoId, then) {
+        const words = String(title ?? "").trim().split(/\s+/).filter(w => w !== "");
+        root.run(["create", ...words, videoId], "", (ok, answer) => {
+            if (ok) root.refreshPlaylists(true);
+            if (then) then(ok, answer);
+        });
+    }
+
     // A playlist's songs ({id, title, tracks: [{videoId, title, artist,
     // album, duration, art, thumb, cached}], kept, offline: from its last
     // copy}); then(ok, answer). "_offline": every song on this computer.

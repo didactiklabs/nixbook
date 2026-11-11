@@ -118,6 +118,23 @@ class YTMusic:
         if filter == "videos":
             return [_r("video", "video111111", query + " live")]
         raise AssertionError(filter)
+    # Playlist edits, logged: PLtheirs isn't yours, dupe1111111 is already in.
+    def _log(self, *what):
+        import os
+        with open(os.environ["FAKE_YTM_LOG"], "a") as f:
+            f.write(" ".join(map(str, what)) + "\n")
+    def rate_song(self, vid, rating="INDIFFERENT"):
+        self._log("rate", vid, rating)
+    def add_playlist_items(self, pid, vids, duplicates=False):
+        self._log("add", pid, ",".join(vids), duplicates)
+        if pid == "PLtheirs":
+            return {"error": "forbidden"}
+        if vids == ["dupe1111111"]:
+            return {"status": "STATUS_FAILED", "actions": [{"confirmDialogEndpoint": {"content": "This song is already in the playlist"}}]}
+        return {"status": "STATUS_SUCCEEDED", "playlistEditResults": []}
+    def create_playlist(self, title, description, privacy_status="PRIVATE", video_ids=None):
+        self._log("create", title, privacy_status, video_ids)
+        return "PLnew123"
 EOF
 found="$(PYTHONPATH="$tmp/fakeapi" "$py" -P "$script" search persona 5 | "$py" -c 'import json,sys
 a = json.load(sys.stdin)
@@ -128,6 +145,30 @@ expect "search: no words refused" "1" "$(
   PYTHONPATH="$tmp/fakeapi" "$py" -P "$script" search >/dev/null 2>&1
   echo $?
 )"
+
+# -- Adding a song to a playlist (listening along, the tab) --------------------------------
+export FAKE_YTM_LOG="$tmp/ytm-edits.log"
+printf '{"cookie": "SAPISID=x; __Secure-3PAPISID=x"}' >"$tmp/keyring/session"
+ya() { PYTHONPATH="$tmp/fakeapi" "$py" -P "$script" "$@" 2>/dev/null; }
+field() { "$py" -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$1"; }
+expect "add: into a playlist of yours, duplicates refused" '{"ok": true, "playlist": "PLmine", "videoId": "song1111111", "status": "added"}' "$(ya add PLmine song1111111)"
+expect "add: a song already in it said so" "already" "$(ya add PLmine dupe1111111 | field status)"
+expect "add: Liked Music likes the song" "added" "$(ya add LM song2222222 | field status)"
+expect "add: a playlist that isn't yours refused" "1" "$(
+  ya add PLtheirs song1111111 >/dev/null
+  echo $?
+)"
+expect "add: ids checked before anything is asked" "1" "$(
+  ya add PLmine 'not an id' >/dev/null
+  echo $?
+)"
+expect "create: a private playlist with the song" '{"ok": true, "playlist": "PLnew123", "title": "From Victor", "videoId": "song1111111"}' "$(ya create From Victor song1111111)"
+expect "edits: what YouTube Music was asked" "add PLmine song1111111 False
+add PLmine dupe1111111 False
+rate song2222222 LIKE
+add PLtheirs song1111111 False
+create From Victor PRIVATE ['song1111111']" "$(cat "$tmp/ytm-edits.log")"
+rm -f "$tmp/keyring/session" # the player's tests run signed out
 
 # -- The player ------------------------------------------------------------------------
 track() { printf '{"videoId":"%s","title":"Song %s","artist":"Artist A, Artist B","album":"Album","duration":200,"art":"https://img.example/%s.jpg"}' "$1" "$1" "$1"; }
