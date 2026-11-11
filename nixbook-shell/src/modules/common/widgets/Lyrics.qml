@@ -45,6 +45,9 @@ Item {
 
                 Item {
                     Layout.alignment: Qt.AlignHCenter
+                    // Only while it looks: no lyrics is said, not shown as a
+                    // spinner that never turns.
+                    visible: LyricsService.status === "loading"
                     implicitWidth: 48
                     implicitHeight: 48
 
@@ -62,6 +65,16 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: LyricsService.restartLyrics()
                     }
+                }
+
+                StyledText {
+                    Layout.alignment: Qt.AlignHCenter
+                    visible: LyricsService.status !== "loading"
+                    horizontalAlignment: Text.AlignHCenter
+                    text: LyricsService.status === "no_info" ? Translation.tr("No song playing")
+                        : Translation.tr("No lyrics for this song")
+                    color: root.dimColor
+                    font.pixelSize: Appearance.font.pixelSize.normal
                 }
             }
         }

@@ -1088,6 +1088,13 @@ def serve(_args):
                 return index + 1
             return 0 if self.loop == "Playlist" and self.queue else None
 
+        def resync(self):
+            pos = self.mpv.command("get_property", "time-pos", timeout=2) if self.mpv.running() else None
+            if isinstance(pos, (int, float)):
+                self.base, self.at = float(pos), time.monotonic()
+                self.Seeked(dbus.Int64(int(float(pos) * 1e6)))
+            return False
+
         def set_paused(self, paused):
             if not self.track():
                 return self.summary()
@@ -1097,6 +1104,8 @@ def serve(_args):
             self.mpv.command("set_property", "pause", bool(paused))
             self.paused, self.base, self.at = bool(paused), pos, time.monotonic()
             self.changed("PlaybackStatus")
+            if not paused:
+                self.resync()
             return self.summary()
 
         def seek_to(self, seconds):
@@ -1134,6 +1143,11 @@ def serve(_args):
                 if ev["data"] != self.paused and not self.loading:
                     self.base, self.at, self.paused = self.position(), time.monotonic(), ev["data"]
                     self.changed("PlaybackStatus")
+            elif name == "playback-restart":
+                # Sound actually starts (a song loaded — yt-dlp takes
+                # seconds —, a seek done): where it is, said to MPRIS, whose
+                # clients (lyrics, progress bars) count from the last Seeked.
+                self.resync()
             elif name == "file-loaded":
                 self.loading, self.errors = False, 0
                 nxt = self.after(self.index)
