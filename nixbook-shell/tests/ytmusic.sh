@@ -301,6 +301,11 @@ class YTMusic:
         pass
     def get_library_playlists(self, limit=None):
         _down()
+        # YouTube Music answering an empty library, no error (it happens).
+        if os.path.exists(os.environ["FAKE_YTM_DOWN"] + ".empty"):
+            with open(os.environ["FAKE_YTM_DOWN"] + ".asked", "a") as f:
+                f.write("x")
+            return []
         return [{"playlistId": "PLkeep", "title": "Keep me", "count": "4", "thumbnails": []}]
     def get_playlist(self, pid, limit=None):
         _down()
@@ -326,6 +331,10 @@ echo "play=\$(printf '{"tracks":[{"videoId":"keep2222222","title":"K"}],"index":
 sleep 0.4
 echo "played-from=\$(tail -n1 "$tmp/mpv2.log" | "$py" -c 'import json,sys; print(json.load(sys.stdin)["url"].split("/nixbook-ytmusic/")[1])')"
 y control stop >/dev/null
+touch "$tmp/down.empty"
+echo "lists-empty=\$(y playlists | j '[p["id"] for p in r["playlists"]], r.get("stale", False)') \$(cat "$tmp/down.asked")"
+echo "copy-kept=\$("$py" -c 'import json,sys; print([p["id"] for p in json.load(open(sys.argv[1]))["playlists"]])' "$tmp/cache/nixbook-ytmusic/offline/playlists.json")"
+rm "$tmp/down.empty"
 touch "$tmp/down"
 echo "lists-down=\$(y playlists | j '[(p["id"], p["count"], p["kept"]) for p in r["playlists"]], r.get("offline", False)')"
 echo "playlist-down=\$(y playlist PLkeep | j 'len(r["tracks"]), sum(t["cached"] for t in r["tracks"]), r["offline"]')"
@@ -343,6 +352,8 @@ expect "offline: a kept song plays from its copy" "Playing" "$(oget play)"
 expect "offline: … the file, not the network" "offline/keep2222222.webm" "$(oget played-from)"
 expect "offline: no network, the last copy of the playlists, 'on this computer' after them" \
   "[('_offline', '3', False), ('PLkeep', '4', True)] True" "$(oget lists-down)"
+expect "playlists: an empty answer asked again, then the last copy (stale), Liked Music order kept" "['_offline', 'PLkeep'] True xx" "$(oget lists-empty)"
+expect "playlists: an empty answer doesn't overwrite the copy" "['PLkeep']" "$(oget copy-kept)"
 expect "offline: no network, a playlist from its copy" "4 3 True" "$(oget playlist-down)"
 expect "offline: 'on this computer', the last played first" "keep2222222 3" "$(oget on-this-computer)"
 
