@@ -5,32 +5,12 @@ Singleton {
     id: root
 
     /**
-     * Formats a string according to the args that are passed inc
-     * @param { string } str
-     * @param  {...any} args
-     * @returns { string }
-     */
-    function format(str, ...args) {
-        return str.replace(/{(\d+)}/g, (match, index) => typeof args[index] !== 'undefined' ? args[index] : match);
-    }
-
-    /**
      * Returns the domain of the passed in url or null
      * @param { string } url
      * @returns { string| null }
      */
     function getDomain(url) {
         const match = url.match(/^(?:https?:\/\/)?(?:www\.)?([^\/]+)/);
-        return match ? match[1] : null;
-    }
-
-    /**
-     * Returns the base url of the passed in url or null
-     * @param { string } url
-     * @returns { string | null }
-     */
-    function getBaseUrl(url) {
-        const match = url.match(/^(https?:\/\/[^\/]+)(\/.*)?$/);
         return match ? match[1] : null;
     }
 
@@ -163,41 +143,6 @@ Singleton {
         }
         // console.log(JSON.stringify(result, null, 2));
         return result;
-    }
-
-    /**
-     * Returns the original string with backslashes escaped
-     * @param { string } str
-     * @returns { string }
-     */
-    function escapeBackslashes(str) {
-        return str.replace(/\\/g, '\\\\');
-    }
-
-    /**
-     * Wraps words to supplied maximum length
-     * @param { string | null } str
-     * @param { number } maxLen
-     * @returns { string }
-     */
-    function wordWrap(str, maxLen) {
-        if (!str)
-            return "";
-        let words = str.split(" ");
-        let lines = [];
-        let current = "";
-        for (let i = 0; i < words.length; ++i) {
-            if ((current + (current.length > 0 ? " " : "") + words[i]).length > maxLen) {
-                if (current.length > 0)
-                    lines.push(current);
-                current = words[i];
-            } else {
-                current += (current.length > 0 ? " " : "") + words[i];
-            }
-        }
-        if (current.length > 0)
-            lines.push(current);
-        return lines.join("\n");
     }
 
     /**
@@ -352,13 +297,4 @@ Singleton {
         return str;
     }
 
-    function toTitleCase(str) {
-        // Replace "-" and "_" with space, then capitalize each word
-        return str.replace(/[-_]/g, " ").replace(
-            /\w\S*/g,
-            function(txt) {
-            return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
-            }
-        );
-    }
 }

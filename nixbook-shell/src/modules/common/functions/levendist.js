@@ -6,10 +6,6 @@ function min3(a, b, c) {
   return a < b && a < c ? a : b < c ? b : c;
 }
 
-function max3(a, b, c) {
-  return a > b && a > c ? a : b > c ? b : c;
-}
-
 function min2(a, b) {
   return a < b ? a : b;
 }

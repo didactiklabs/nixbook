@@ -175,7 +175,6 @@
     "networkEthernet": "nm-connection-editor",
     "taskManager": "plasma-systemmonitor --page-name Processes",
     "terminal": "kitty -1",
-    "update": "systemctl start --no-block nixos-upgrade-manual.service",
     "volumeMixer": "pavucontrol-qt || pavucontrol"
   },
   "audio": {
@@ -306,7 +305,6 @@
       "media": {
         "enable": false,
         "placementStrategy": "free",
-        "showLyrics": false,
         "sizeMode": "1x3",
         "x": 800,
         "y": 500,
@@ -337,7 +335,6 @@
       "shadow": true,
       "sticker": {
         "enable": false,
-        "items": [],
         "outlineColor": "#ffffff",
         "outlineWidth": 8,
         "path": "",
@@ -388,7 +385,6 @@
       },
       "weather": {
         "enable": false,
-        "expanded": false,
         "placementStrategy": "free",
         "sizeMode": "1x3",
         "x": 400,
@@ -496,7 +492,6 @@
       "enable": true
     },
     "utilButtons": {
-      "isRecording": false,
       "showColorPicker": false,
       "showDarkModeToggle": false,
       "showKeyboardToggle": false,
@@ -510,7 +505,6 @@
     "vertical": false,
     "weather": {
       "city": "",
-      "enable": false,
       "enableGPS": true,
       "fetchInterval": 10,
       "useUSCS": false
@@ -533,7 +527,6 @@
     "suspend": 3
   },
   "calendar": {
-    "locale": "en-GB",
     "refreshMinutes": 30
   },
   "conflictKiller": {
@@ -586,7 +579,6 @@
   },
   "language": {
     "translator": {
-      "engine": "auto",
       "sourceLanguage": "auto",
       "targetLanguage": "auto"
     },

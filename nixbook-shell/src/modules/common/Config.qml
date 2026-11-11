@@ -641,7 +641,6 @@ Singleton {
                 property string networkEthernet: "nm-connection-editor"
                 property string taskManager: "plasma-systemmonitor --page-name Processes"
                 property string terminal: "kitty -1" // This is only for shell actions
-                property string update: "systemctl start --no-block nixos-upgrade-manual.service"
                 property string volumeMixer: "pavucontrol-qt || pavucontrol"
             }
 
@@ -727,7 +726,6 @@ Singleton {
                         property real y: 100
                         property real z: 0
                         property string sizeMode: "1x3"
-                        property bool expanded: false
                     }
 
                     property JsonObject calendar: JsonObject {
@@ -843,7 +841,6 @@ Singleton {
 
                     property JsonObject sticker: JsonObject {
                         property bool enable: false
-                        property list<var> items: [] // if someone sees this and wants to add more stickers, make a PR too lazy 
                         property string placementStrategy: "free"
                         property real x: 400
                         property real y: 100
@@ -875,7 +872,6 @@ Singleton {
 
                     property JsonObject media: JsonObject {
                         property bool enable: false
-                        property bool showLyrics: false
                         property string placementStrategy: "free" // "free", "leastBusy", "mostBusy"
                         property real x: 800
                         property real y: 500
@@ -967,7 +963,6 @@ Singleton {
                     property bool showDarkModeToggle: false
                     property bool showPerformanceProfileToggle: false
                     property bool showScreenRecord: true
-                    property bool isRecording: false
                 }
 
                 property JsonObject workspaces: JsonObject {
@@ -980,7 +975,6 @@ Singleton {
                     property bool useNerdFont: false
                 }
                 property JsonObject weather: JsonObject {
-                    property bool enable: false
                     property bool enableGPS: true // gps based location
                     property string city: "" // When 'enableGPS' is false
                     property bool useUSCS: false // Instead of metric (SI) units
@@ -1014,7 +1008,6 @@ Singleton {
             }
 
             property JsonObject calendar: JsonObject {
-                property string locale: "en-GB"
                 property int refreshMinutes: 30 // Sync the accounts' calendars (the refresh button syncs now)
             }
 
@@ -1080,7 +1073,6 @@ Singleton {
             property JsonObject language: JsonObject {
                 property string ui: "auto" // UI language. "auto" for system locale, or specific language code like "zh_CN", "en_US"
                 property JsonObject translator: JsonObject {
-                    property string engine: "auto" // Run `trans -list-engines` for available engines. auto should use google
                     property string targetLanguage: "auto" // Run `trans -list-all` for available languages
                     property string sourceLanguage: "auto"
                 }

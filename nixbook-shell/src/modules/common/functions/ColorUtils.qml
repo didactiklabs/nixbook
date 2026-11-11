@@ -25,25 +25,6 @@ Singleton {
     }
 
     /**
-     * Returns a color with the saturation of color2 and the hue/value/alpha of color1.
-     *
-     * @param {string} color1 - The base color (any Qt.color-compatible string).
-     * @param {string} color2 - The color to take saturation from.
-     * @returns {Qt.rgba} The resulting color.
-     */
-    function colorWithSaturationOf(color1, color2) {
-        var c1 = Qt.color(color1);
-        var c2 = Qt.color(color2);
-
-        var hue = c1.hsvHue;
-        var sat = c2.hsvSaturation;
-        var val = c1.hsvValue;
-        var alpha = c1.a;
-
-        return Qt.hsva(hue, sat, val, alpha);
-    }
-
-    /**
      * Returns a color with the given lightness and the hue, saturation, and alpha of the input color (using HSL).
      *
      * @param {string} color - The base color (any Qt.color-compatible string).
@@ -53,18 +34,6 @@ Singleton {
     function colorWithLightness(color, lightness) {
         var c = Qt.color(color);
         return Qt.hsla(c.hslHue, c.hslSaturation, lightness, c.a);
-    }
-
-    /**
-     * Returns a color with the lightness of color2 and the hue, saturation, and alpha of color1 (using HSL).
-     *
-     * @param {string} color1 - The base color (any Qt.color-compatible string).
-     * @param {string} color2 - The color to take lightness from.
-     * @returns {Qt.rgba} The resulting color.
-     */
-    function colorWithLightnessOf(color1, color2) {
-        var c2 = Qt.color(color2);
-        return colorWithLightness(color1, c2.hslLightness);
     }
 
     /**
@@ -123,17 +92,6 @@ Singleton {
         var c = Qt.color(color);
         var a = Math.max(0, Math.min(1, alpha));
         return Qt.rgba(c.r, c.g, c.b, a);
-    }
-
-    /**
-     * Returns true if the color is considered "dark" (hslLightness < 0.5).
-     *
-     * @param {string} color - The color to check (any Qt.color-compatible string).
-     * @returns {boolean} True if dark, false otherwise.
-     */
-    function isDark(color) {
-        var c = Qt.color(color);
-        return c.hslLightness < 0.5;
     }
 
     /**
