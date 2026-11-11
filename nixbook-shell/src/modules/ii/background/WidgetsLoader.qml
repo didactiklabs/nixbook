@@ -30,6 +30,10 @@ Item {
     required property var screen
     required property var wallpaperItem
     required property bool wallpaperSafetyTriggered
+    // Built at once, without the one-by-one reveal: a desktop window made to
+    // replace another (Background.qml, above a new video player) shows the
+    // same widgets the moment it takes over.
+    property bool instant: false
 
     readonly property bool onThisScreen: Config.options.background.screenList.length === 0
         || Config.options.background.screenList.includes(root.screen.name)
@@ -46,6 +50,8 @@ Item {
         required property Component widgetComponent
 
         property bool enableLoading: true
+        property bool instant: false
+        fade: !loaderDelegate.instant
 
         // Per monitor (DesktopWidgets.enabledOn: this monitor's own choice,
         // else the shared switch on the monitors of background.screenList).
@@ -65,6 +71,11 @@ Item {
         function requestReveal() {
             if (!loaderDelegate.wanted || loaderDelegate.built)
                 return;
+            if (loaderDelegate.instant) {
+                loaderDelegate.built = true;
+                loaderDelegate.revealed = true;
+                return;
+            }
             Preloader.queueReveal(() => {
                 loaderDelegate.built = true;
                 revealTimer.restart();
@@ -147,6 +158,7 @@ Item {
             widgetKey: modelData.key
             alwaysOnLock: modelData.alwaysOnLock ?? false
             screenName: root.screen?.name ?? ""
+            instant: root.instant
             widgetComponent: root.componentFor(modelData.key)
         }
     }
@@ -188,6 +200,7 @@ Item {
             required property string name
             widgetKey: extraImage.name
             screenName: root.screen?.name ?? ""
+            instant: root.instant
             widgetComponent: Component {
                 CustomImage {
                     configEntryName: extraImage.name

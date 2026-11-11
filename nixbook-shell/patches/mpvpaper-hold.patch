@@ -1,0 +1,77 @@
+mpvpaper: start held (transparent) until released
+
+A layer surface stacks over those of its layer mapped before it, so a new
+player covered the desktop widgets the shell keeps on the same (Bottom) layer
+until the shell had re-stacked them above it, and the gap showed. With
+MPVPAPER_HOLD=<seconds> every frame is drawn fully transparent until SIGUSR1
+(or the timeout): the surface takes its place without covering anything, the
+shell puts its own above it, then releases it.
+
+--- a/src/main.c
++++ b/src/main.c
+@@ -84,6 +84,24 @@
+ static mpv_handle *mpv;
+ static mpv_render_context *mpv_glcontext;
+ static int wakeup_fd;
++// Held (MPVPAPER_HOLD=<seconds>): every frame is drawn fully transparent until
++// SIGUSR1 or the timeout, so a new player's surface takes its place in the
++// layer without covering what is already shown there (the caller moves its
++// own surfaces above it first, then releases it).
++static volatile sig_atomic_t held = 0;
++static struct timespec hold_deadline;
++
++static void release_hold(void) {
++    held = 0;
++    // Draw the frame again: a paused video sends no new one.
++    uint64_t inc = 1;
++    if (wakeup_fd > 0 && write(wakeup_fd, &inc, sizeof(inc)) < 0) { /* the next frame draws it */ }
++}
++
++static void handle_release(int signum) {
++    (void)signum;
++    if (held) release_hold();
++}
+ static char *video_path;
+ static char *mpv_options = "";
+ 
+@@ -199,6 +217,11 @@
+     if (mpv_err < 0)
+         cflp_error("Failed to render frame with mpv, %s", mpv_error_string(mpv_err));
+ 
++    if (held) {
++        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
++        glClear(GL_COLOR_BUFFER_BIT);
++    }
++
+     // Callback new frame
+     output->frame_callback = wl_surface_frame(output->surface);
+     wl_callback_add_listener(output->frame_callback, &wl_surface_frame_listener, output);
+@@ -1430,6 +1453,13 @@
+     signal(SIGINT, handle_signal);
+     signal(SIGQUIT, handle_signal);
+     signal(SIGTERM, handle_signal);
++    const char *hold = getenv("MPVPAPER_HOLD");
++    if (hold && atoi(hold) > 0) {
++        clock_gettime(CLOCK_MONOTONIC, &hold_deadline);
++        hold_deadline.tv_sec += atoi(hold);
++        held = 1;
++    }
++    signal(SIGUSR1, handle_release);
+ 
+     check_paper_processes();
+ 
+@@ -1523,6 +1553,14 @@
+         if (wl_display_dispatch_pending(state.display) == -1)
+             break;
+ 
++        if (held) {
++            struct timespec now;
++            clock_gettime(CLOCK_MONOTONIC, &now);
++            if (now.tv_sec > hold_deadline.tv_sec
++                    || (now.tv_sec == hold_deadline.tv_sec && now.tv_nsec >= hold_deadline.tv_nsec))
++                release_hold();
++        }
++
+         if (halt_info.stop_render_loop) {
+             halt_info.stop_render_loop = 0;
+             sleep(2); // Wait at least 2 secs to be killed

@@ -207,14 +207,77 @@ Singleton {
             }
             const run = liveProc.run;
             if (!run || !run.video || run.video !== root.configuredPath) return;
-            // 0: new players started and shown (lift the widgets above them);
+            // 0: new players started (held: transparent, see holdPlayers);
             // 11: switched inside the running players; 10: (ensure) already
             // playing.
-            if (code === 0) {
-                GlobalStates.backgroundRestack += 1;
-                root.playerGeneration += 1; // new players: tell them to play
-            }
-            if (code === 0 || code === 10 || code === 11) root.playingPath = run.video;
+            if (code === 0) root.holdPlayers(run);
+            else if (code === 10 || code === 11) root.playingPath = run.video;
+        }
+    }
+    // New players start held, drawn transparent (patches/mpvpaper-hold.patch):
+    // their surfaces stack over the desktop layer (Background.qml, widgets
+    // included, on the same Bottom layer), so each screen's desktop window is
+    // replaced by a new one above them — the old one dropped once the new one
+    // is drawn: nothing disappears — and only then are they shown. Not during
+    // a wallpaper transition: the new window would cut it short.
+    property var _heldRun: null
+    property var _restacked: ({})
+    property bool _restackWaiting: false
+    function holdPlayers(run) {
+        root._heldRun = run;
+        root._restacked = {};
+        releaseCap.restart();
+        if (GlobalStates.wallpaperTransitionsBusy > 0) root._restackWaiting = true;
+        else GlobalStates.backgroundRestack += 1;
+    }
+    Connections {
+        target: GlobalStates
+        function onWallpaperTransitionsBusyChanged() {
+            if (GlobalStates.wallpaperTransitionsBusy !== 0 || !root._restackWaiting) return;
+            root._restackWaiting = false;
+            GlobalStates.backgroundRestack += 1;
+        }
+    }
+    // Background.qml: this screen's new desktop window has taken over.
+    function backgroundRestacked(screenName, generation) {
+        if (root._heldRun === null || root._restackWaiting || generation < GlobalStates.backgroundRestack) return;
+        root._restacked[screenName] = true;
+        for (const screen of Quickshell.screens)
+            if (!root._restacked[screen.name]) return;
+        root.releasePlayers();
+    }
+    function releasePlayers() {
+        releaseCap.stop();
+        root._restackWaiting = false;
+        const run = root._heldRun;
+        root._heldRun = null;
+        if (run === null) return;
+        releaseProc.run = run;
+        releaseProc.exec([root.liveScript, "release"]);
+    }
+    // A screen that never reports (or a transition that never ends): shown
+    // anyway (mpvpaper also lets go by itself after 10 s).
+    Timer {
+        id: releaseCap
+        interval: 6000
+        onTriggered: root.releasePlayers()
+    }
+    Process {
+        id: releaseProc
+        property var run: null
+        // The players draw their frame a moment after the signal: the desktop
+        // turns clear over them once they have (it shows the same frame).
+        onExited: releaseShown.restart()
+    }
+    Timer {
+        id: releaseShown
+        interval: 80
+        onTriggered: {
+            const run = releaseProc.run;
+            releaseProc.run = null;
+            if (!run || run.video !== root.configuredPath) return;
+            root.playerGeneration += 1; // new players: tell them to play
+            root.playingPath = run.video;
         }
     }
     // New players started (they start paused): the pause state is sent again.
@@ -392,9 +455,51 @@ Singleton {
             root.withPoster(path, () => root.apply(path, darkMode));
             return;
         }
+        if (root.playingPath !== "") {
+            // A video is on screen: the transition starts from the frame it
+            // shows (paused there), not from its first frame — the jump back
+            // to that frame looked like the picture resizing.
+            freezeProc.freeze(path, darkMode);
+            return;
+        }
+        root.applyNow(path, darkMode);
+    }
+    function applyNow(path, darkMode) {
         root.confirmedPath = path;
         Quickshell.execDetached(root.switchCommand(path, darkMode));
         root.changed()
+    }
+
+    // Output name → the frame its player showed when it was paused for a
+    // change (live-wallpaper.sh freeze), for Background.qml's transition.
+    property var frozenFrames: ({})
+    property real frozenAt: 0
+    function frozenFrame(screenName) {
+        if (Date.now() - root.frozenAt > 5000) return "";
+        return root.frozenFrames[screenName] ?? "";
+    }
+    Process {
+        id: freezeProc
+        property string path: ""
+        property bool darkMode: false
+        function freeze(path, darkMode) {
+            freezeProc.path = path;
+            freezeProc.darkMode = darkMode;
+            if (freezeProc.running) return; // the running one applies the newest
+            freezeProc.exec([root.liveScript, "freeze"]);
+        }
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const frames = {};
+                for (const line of text.split("\n")) {
+                    const space = line.indexOf(" ");
+                    if (space > 0) frames[line.slice(0, space)] = line.slice(space + 1);
+                }
+                root.frozenFrames = frames;
+                root.frozenAt = Date.now();
+            }
+        }
+        onExited: root.applyNow(freezeProc.path, freezeProc.darkMode)
     }
 
     Process {
