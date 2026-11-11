@@ -226,10 +226,10 @@ let
   # accounts (nixbook-accounts): for the config assistant and the AI chat.
   calendarHowTo = {
     calendarConnect = {
-      en = "To sync the shell's calendar, contacts and tasks with Google, open the accounts window (the person icon in a calendar or to-do widget, the Contacts or Calendar window, or `nixbook-shell ipc call accounts launch`) and add Google. The first time, it walks you through making your own Google Cloud app (about 5 minutes: a project with the People, Tasks and Calendar APIs, a published app, a Desktop client whose JSON you download); then the browser opens Google's sign-in. iCloud, Fastmail, Nextcloud or another CalDAV/CardDAV server are added in the same window with a user name and an app password. Tokens and passwords are kept in the keyring.";
-      fr = "Pour synchroniser le calendrier, les contacts et les tâches du shell avec Google, ouvrez la fenêtre des comptes (l'icône de personne d'un widget calendrier ou tâches, la fenêtre Contacts ou Agenda, ou `nixbook-shell ipc call accounts launch`) et ajoutez Google. La première fois, elle vous guide pour créer votre propre application Google Cloud (environ 5 minutes : un projet avec les API People, Tasks et Calendar, une application publiée, un client Desktop dont vous téléchargez le JSON) ; ensuite le navigateur ouvre la connexion Google. iCloud, Fastmail, Nextcloud ou un autre serveur CalDAV/CardDAV s'ajoutent dans la même fenêtre avec un nom d'utilisateur et un mot de passe d'application. Jetons et mots de passe sont gardés dans le trousseau.";
-      de = "Um Kalender, Kontakte und Aufgaben der Shell mit Google zu synchronisieren, öffne das Kontenfenster (das Personensymbol in einem Kalender- oder Aufgaben-Widget, das Kontakte- oder Kalenderfenster, oder `nixbook-shell ipc call accounts launch`) und füge Google hinzu. Beim ersten Mal führt es dich durch das Anlegen einer eigenen Google-Cloud-App (etwa 5 Minuten: ein Projekt mit den People-, Tasks- und Calendar-APIs, eine veröffentlichte App, ein Desktop-Client, dessen JSON du herunterlädst); danach öffnet der Browser die Google-Anmeldung. iCloud, Fastmail, Nextcloud oder ein anderer CalDAV/CardDAV-Server werden im selben Fenster mit Benutzername und App-Passwort hinzugefügt. Tokens und Passwörter liegen im Schlüsselbund.";
-      vi = "Để đồng bộ lịch, danh bạ và công việc của shell với Google, mở cửa sổ tài khoản (biểu tượng người trong widget lịch hoặc công việc, cửa sổ Danh bạ hoặc Lịch, hoặc `nixbook-shell ipc call accounts launch`) và thêm Google. Lần đầu, cửa sổ hướng dẫn bạn tạo ứng dụng Google Cloud của riêng mình (khoảng 5 phút: một dự án bật các API People, Tasks và Calendar, một ứng dụng đã xuất bản, một client Desktop có tệp JSON để tải về); sau đó trình duyệt mở trang đăng nhập Google. iCloud, Fastmail, Nextcloud hoặc máy chủ CalDAV/CardDAV khác được thêm trong cùng cửa sổ bằng tên người dùng và mật khẩu ứng dụng. Token và mật khẩu được giữ trong keyring.";
+      en = "To sync the shell's calendar, contacts and tasks with Google, open the accounts window (the person icon in a calendar or to-do widget, the Contacts or Calendar window, or `nixbook-shell ipc call accounts launch`) and add Google. Unless the system provides a Google app (nixbook does: you just sign in), the first time it walks you through making your own Google Cloud app (about 5 minutes: a project with the People, Tasks and Calendar APIs, a published app, a Desktop client whose JSON you download); then the browser opens Google's sign-in. iCloud, Fastmail, Nextcloud or another CalDAV/CardDAV server are added in the same window with a user name and an app password. Tokens and passwords are kept in the keyring.";
+      fr = "Pour synchroniser le calendrier, les contacts et les tâches du shell avec Google, ouvrez la fenêtre des comptes (l'icône de personne d'un widget calendrier ou tâches, la fenêtre Contacts ou Agenda, ou `nixbook-shell ipc call accounts launch`) et ajoutez Google. Sauf si le système fournit une application Google (nixbook le fait : il suffit de se connecter), la première fois elle vous guide pour créer votre propre application Google Cloud (environ 5 minutes : un projet avec les API People, Tasks et Calendar, une application publiée, un client Desktop dont vous téléchargez le JSON) ; ensuite le navigateur ouvre la connexion Google. iCloud, Fastmail, Nextcloud ou un autre serveur CalDAV/CardDAV s'ajoutent dans la même fenêtre avec un nom d'utilisateur et un mot de passe d'application. Jetons et mots de passe sont gardés dans le trousseau.";
+      de = "Um Kalender, Kontakte und Aufgaben der Shell mit Google zu synchronisieren, öffne das Kontenfenster (das Personensymbol in einem Kalender- oder Aufgaben-Widget, das Kontakte- oder Kalenderfenster, oder `nixbook-shell ipc call accounts launch`) und füge Google hinzu. Sofern das System keine Google-App mitbringt (nixbook tut es: du meldest dich nur an), führt es dich beim ersten Mal durch das Anlegen einer eigenen Google-Cloud-App (etwa 5 Minuten: ein Projekt mit den People-, Tasks- und Calendar-APIs, eine veröffentlichte App, ein Desktop-Client, dessen JSON du herunterlädst); danach öffnet der Browser die Google-Anmeldung. iCloud, Fastmail, Nextcloud oder ein anderer CalDAV/CardDAV-Server werden im selben Fenster mit Benutzername und App-Passwort hinzugefügt. Tokens und Passwörter liegen im Schlüsselbund.";
+      vi = "Để đồng bộ lịch, danh bạ và công việc của shell với Google, mở cửa sổ tài khoản (biểu tượng người trong widget lịch hoặc công việc, cửa sổ Danh bạ hoặc Lịch, hoặc `nixbook-shell ipc call accounts launch`) và thêm Google. Trừ khi hệ thống đã cung cấp sẵn một ứng dụng Google (nixbook có: bạn chỉ cần đăng nhập), lần đầu cửa sổ hướng dẫn bạn tạo ứng dụng Google Cloud của riêng mình (khoảng 5 phút: một dự án bật các API People, Tasks và Calendar, một ứng dụng đã xuất bản, một client Desktop có tệp JSON để tải về); sau đó trình duyệt mở trang đăng nhập Google. iCloud, Fastmail, Nextcloud hoặc máy chủ CalDAV/CardDAV khác được thêm trong cùng cửa sổ bằng tên người dùng và mật khẩu ứng dụng. Token và mật khẩu được giữ trong keyring.";
     };
     calendarOtherAccounts = {
       en = "Accounts are added and removed in the accounts window (`nixbook-shell ipc call accounts launch`): Google, iCloud, Fastmail, Nextcloud or any CalDAV/CardDAV server (a user name and an app password; iCloud and Fastmail need an app password made in their settings). Several accounts work together: their calendars, contacts and task lists show side by side. Removing an account takes its data out of the shell, not out of the account. From a terminal: `nixbook-accounts status`, `nixbook-accounts add google`, `nixbook-accounts remove <account>`.";
@@ -896,6 +896,20 @@ in
       '';
     };
 
+    accounts.googleClient = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      description = ''
+        A Google OAuth client (a "Desktop app" client's downloaded JSON) the
+        accounts window uses when the user set none up themselves: they add
+        a Google account with no Google Cloud project of their own. Installed
+        as `~/.config/nixbook-accounts/google-client.json`. A desktop app's
+        client secret isn't confidential (Google's own words): anyone with
+        it can start a sign-in under that app's name, never into someone's
+        account without them.
+      '';
+    };
+
     cliphist.enable = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -1371,6 +1385,11 @@ in
         # pinned leaf path. Drives the red lock icon and the disabled control in
         # the Settings menu (src/modules/common/NixManaged.qml).
         xdg.configFile."nixbook-shell/nix-managed.json".source = nixManagedFile;
+        xdg.configFile."nixbook-accounts/google-client.json" =
+          lib.mkIf (cfg.accounts.googleClient != null)
+            {
+              source = cfg.accounts.googleClient;
+            };
         # ...and their values: NixManaged.qml restores any pinned key that gets
         # changed at runtime (menu, QuickConfig, IPC, scripts); `nixbook-shell config`
         # reads them too.

@@ -14,7 +14,9 @@ Open the accounts window from the Contacts window, the Tasks window (**Accounts*
 
 ### Google
 
-`nixbook-accounts` signs in to Google with **your own Google Cloud app**: DankCalendar's built-in client is licensed only for DankCalendar, and it can't read contacts. You make the app once, in about five minutes; every Google account you add uses it. The window walks you through it:
+`nixbook-accounts` signs in to Google with a Google Cloud app's OAuth client. **On nixbook it is provided**: nixbook ships its own published "Desktop app" client (`homeManagerModules/nixbookShellConfig/google-oauth-client.json`, installed as `~/.config/nixbook-accounts/google-client.json` by `programs.nixbook-shell.accounts.googleClient`), so you just click **Add** and sign in. It is in clear on purpose: a desktop app's client secret isn't confidential, and it can't reach anyone's account without them signing in. A client you set up yourself comes first.
+
+Elsewhere (nixbook-shell on its own), you make **your own Google Cloud app** (DankCalendar's built-in client is licensed only for DankCalendar, and it can't read contacts), once, in about five minutes; every Google account you add uses it. The window walks you through it:
 
 1. In [Google Cloud](https://console.cloud.google.com/apis/credentials), create a project and enable the **People API**, the **Tasks API**, the **Calendar API** and the **Gmail API** (the assistant's [mail](./desktop-agents#mail)).
 2. **Google Auth Platform → Branding**: an app name and your email. **Audience**: _External_, then **Publish** the app. An app left in _Testing_ is signed out every 7 days. Google says the published app is unverified: that's fine, it's yours.

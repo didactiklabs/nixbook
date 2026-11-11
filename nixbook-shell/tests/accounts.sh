@@ -67,7 +67,7 @@ mkdir -p "$tmp/secrets" "$tmp/state" "$tmp/Downloads"
 export NIXBOOK_ACCOUNTS_GOOGLE_PEOPLE_API="$api" NIXBOOK_ACCOUNTS_GOOGLE_TASKS_API="$api/tasksapi" NIXBOOK_ACCOUNTS_GOOGLE_CALENDAR_API="$api/calendarapi" \
   NIXBOOK_ACCOUNTS_GOOGLE_GMAIL_API="$api/gmailapi" NIXBOOK_ACCOUNTS_GOOGLE_GMAIL_UPLOAD="$api/gmailupload" TZ=Europe/Paris NIXBOOK_ACCOUNTS_GOOGLE_TOKEN_URL="$api/token" NIXBOOK_ACCOUNTS_GOOGLE_REVOKE_URL="$api/revoke" \
   NIXBOOK_ACCOUNTS_GOOGLE_AUTH_URL="$api/auth" NIXBOOK_ACCOUNTS_SECRETS_DIR="$tmp/secrets" XDG_STATE_HOME="$tmp/state" \
-  XDG_DOWNLOAD_DIR="$tmp/Downloads" XDG_DATA_HOME="$tmp/data"
+  XDG_DOWNLOAD_DIR="$tmp/Downloads" XDG_DATA_HOME="$tmp/data" XDG_CONFIG_HOME="$tmp/config"
 bin="${NIXBOOK_ACCOUNTS:-}"
 if [ -z "$bin" ]; then
   bin="$tmp/nixbook-accounts"
@@ -83,6 +83,21 @@ out=$(nc status)
 expect_eq "status: only the local account" "false local true" "$(jq -r '"\(.providers.google.configured) \([.accounts[].id] | join(",")) \(.accounts[0].connected)"' <<<"$out")"
 out=$(nc contacts sync || true)
 expect_eq "sync: the local account alone" "local" "$(jq -r '[.accounts[].account] | join(",")' <<<"$out")"
+# A client the system provides (nixbook ships one): configured with no
+# setup, used by the sign-in; one set up here comes first.
+mkdir -p "$tmp/config/nixbook-accounts"
+printf '{"installed":{"client_id":"shipped.apps.googleusercontent.com","client_secret":"s"}}' >"$tmp/config/nixbook-accounts/google-client.json"
+expect_eq "a provided client: configured, no setup needed" "true true" "$(nc status | jq -r '"\(.providers.google.configured) \(.providers.google.provided)"')"
+nc add google --no-browser >"$tmp/plogin" &
+plogin_pid=$!
+for _ in $(seq 50); do
+  [ -s "$tmp/plogin" ] && break
+  sleep 0.1
+done
+kill "$plogin_pid" 2>/dev/null || true
+wait "$plogin_pid" 2>/dev/null || true
+expect_contains "a provided client: the sign-in uses it" "$(head -1 "$tmp/plogin")" "client_id=shipped.apps.googleusercontent.com"
+rm "$tmp/config/nixbook-accounts/google-client.json"
 expect_contains "setup: which provider" "$(nc setup || true)" "setup google"
 expect_contains "setup: needs something" "$(nc setup google || true)" "setup google FILE, --find"
 expect_contains "setup --find: nothing downloaded" "$(nc setup google --find || true)" "no client_secret*.json"

@@ -507,7 +507,10 @@ func status() map[string]any {
 	// Each copy read once, however many accounts.
 	cc, tc, kc := contacts.Load(), tasks.Load(), calendar.Load()
 	out := map[string]any{"contacts": cc.Summary(), "tasks": tc.Summary(), "calendar": kc.Summary()}
-	googleSetup := map[string]any{"configured": false, "console": google.ConsoleURL, "apis": google.APILibrary}
+	googleSetup := map[string]any{
+		"configured": false, "console": google.ConsoleURL, "apis": google.APILibrary,
+		"provided": google.ProvidedOnly(),
+	}
 	if ok, err := google.Configured(); err != nil {
 		out["error"] = err.Error()
 	} else {
