@@ -514,7 +514,13 @@ def with_kept(playlists):
 def cmd_playlists(_args):
     copy = os.path.join(offline_dir(), "playlists.json")
     try:
-        raw = ytmusic().get_library_playlists(limit=None) or []
+        yt = ytmusic()
+        raw = yt.get_library_playlists(limit=None) or []
+        # YouTube Music sometimes answers an empty library, no error (a
+        # signed-in library always holds Liked Music): asked once more.
+        if not raw:
+            time.sleep(1.5)
+            raw = yt.get_library_playlists(limit=None) or []
     except Error:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -535,11 +541,23 @@ def cmd_playlists(_args):
                       "author": ", ".join(a.get("name", "") for a in (p.get("author") or []) if isinstance(a, dict)),
                       "_art": best(p.get("thumbnails"))})
     items.sort(key=lambda p: p["id"] != "LM")  # Liked Music first
+    if not items:
+        # Still empty: the last copy, kept (it used to be overwritten with
+        # nothing, and the tab showed no playlist but "On this computer").
+        last = read_json(copy, {}) or {}
+        if last.get("playlists"):
+            out({"playlists": with_kept(with_offline_card(last["playlists"])), "stale": True,
+                 "why": "YouTube Music answered an empty library"})
     items = with_thumbs(items)
-    write_private(copy, {"playlists": items, "at": int(time.time())})
-    # The songs on this computer right after Liked Music.
+    if items:
+        write_private(copy, {"playlists": items, "at": int(time.time())})
+    out({"playlists": with_kept(with_offline_card(items))})
+
+
+def with_offline_card(items):
+    """The songs on this computer right after Liked Music."""
     n = 1 if items and items[0]["id"] == "LM" else 0
-    out({"playlists": with_kept(items[:n] + offline_card() + items[n:])})
+    return items[:n] + offline_card() + items[n:]
 
 
 def playlist_tracks(pid, yt=None):

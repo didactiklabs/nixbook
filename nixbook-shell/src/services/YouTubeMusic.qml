@@ -56,8 +56,9 @@ Singleton {
             if (ok) {
                 root.playlists = answer.playlists ?? [];
                 root.playlistsOffline = !!answer.offline;
-                // Offline, tried again soon: the network may be back.
-                root.playlistsAt = answer.offline ? Date.now() - 4 * 60 * 1000 : Date.now();
+                // Offline, or YouTube Music answered an empty library (the
+                // last copy shown: `stale`): tried again soon.
+                root.playlistsAt = answer.offline || answer.stale ? Date.now() - 4 * 60 * 1000 : Date.now();
                 root.playlistsError = "";
             } else root.playlistsError = answer?.error ?? "";
         });
