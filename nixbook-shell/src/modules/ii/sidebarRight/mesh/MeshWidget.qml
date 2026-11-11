@@ -48,6 +48,8 @@ Item {
 
     // The ✨ picker (nudges, quick messages) open.
     property bool picking: false
+    // The picker's tab: "nudges" or "moods" (How I feel).
+    property string pickerTab: "nudges"
     onConvChanged: {
         root.picking = false;
         root.replyTo = null;
@@ -939,140 +941,132 @@ Item {
             id: picker
             Layout.fillWidth: true
             visible: root.picking
-            implicitHeight: pickerColumn.implicitHeight + 16
+            // Never taller than about half the tab: the moods made it
+            // overflow the panel, the last rows and the field out of reach.
+            implicitHeight: pickerHeader.implicitHeight + pickerFlick.height + 22
             radius: Appearance.rounding.normal
             color: Appearance.colors.colLayer2
-            ColumnLayout {
-                id: pickerColumn
-                anchors.fill: parent
-                anchors.margins: 8
-                spacing: 6
+            RowLayout {
+                id: pickerHeader
+                anchors { left: parent.left; right: parent.right; top: parent.top; margins: 8 }
+                spacing: 4
                 StyledText {
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
                     text: Translation.tr("Nudge %1: they get it as a cut-in").arg(Mesh.nameOf(root.conv))
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     color: Appearance.colors.colSubtext
                 }
-                GridLayout {
-                    Layout.fillWidth: true
-                    columns: 5
-                    rowSpacing: 4
-                    columnSpacing: 4
-                    Repeater {
-                        model: Mesh.nudges.filter(n => !n.mood)
-                        delegate: RippleButton {
-                            id: nudgeButton
-                            required property var modelData
-                            Layout.fillWidth: true
-                            implicitHeight: 54
-                            buttonRadius: Appearance.rounding.small
-                            colBackground: ColorUtils.transparentize(Appearance.colors.colLayer2Hover, 1)
-                            colBackgroundHover: Appearance.colors.colLayer2Hover
-                            onClicked: {
-                                Mesh.sendNudge(nudgeButton.modelData.id, root.conv);
-                                root.picking = false;
-                            }
-                            contentItem: ColumnLayout {
-                                spacing: 0
-                                StyledText {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    text: nudgeButton.modelData.emoji
-                                    font.pixelSize: Appearance.font.pixelSize.larger
-                                }
-                                StyledText {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    Layout.maximumWidth: nudgeButton.width - 6
-                                    text: nudgeButton.modelData.text
-                                    elide: Text.ElideRight
-                                    font.pixelSize: Appearance.font.pixelSize.smallest
-                                    color: Appearance.colors.colOnLayer2
-                                }
-                            }
-                            StyledToolTip {
-                                text: nudgeButton.modelData.text
-                            }
+                Repeater {
+                    model: [{ id: "nudges", label: Translation.tr("Nudges") }, { id: "moods", label: Translation.tr("How I feel") }]
+                    delegate: RippleButton {
+                        id: tabChip
+                        required property var modelData
+                        readonly property bool on: root.pickerTab === tabChip.modelData.id
+                        implicitHeight: 26
+                        implicitWidth: tabText.implicitWidth + 18
+                        buttonRadius: Appearance.rounding.full
+                        colBackground: tabChip.on ? Appearance.colors.colSecondaryContainer : Appearance.colors.colLayer1
+                        colBackgroundHover: tabChip.on ? Appearance.colors.colSecondaryContainerHover : Appearance.colors.colLayer1Hover
+                        onClicked: {
+                            root.pickerTab = tabChip.modelData.id;
+                            pickerFlick.contentY = 0;
+                        }
+                        contentItem: StyledText {
+                            id: tabText
+                            horizontalAlignment: Text.AlignHCenter
+                            text: tabChip.modelData.label
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: tabChip.on ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
                         }
                     }
                 }
-                StyledText {
-                    Layout.topMargin: 2
-                    text: Translation.tr("How I feel")
-                    font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: Appearance.colors.colSubtext
-                }
-                GridLayout {
-                    Layout.fillWidth: true
-                    columns: 5
-                    rowSpacing: 4
-                    columnSpacing: 4
-                    Repeater {
-                        model: Mesh.nudges.filter(n => !!n.mood)
-                        delegate: RippleButton {
-                            id: moodButton
-                            required property var modelData
-                            Layout.fillWidth: true
-                            implicitHeight: 54
-                            buttonRadius: Appearance.rounding.small
-                            colBackground: ColorUtils.transparentize(Appearance.colors.colLayer2Hover, 1)
-                            colBackgroundHover: Appearance.colors.colLayer2Hover
-                            onClicked: {
-                                Mesh.sendNudge(moodButton.modelData.id, root.conv);
-                                root.picking = false;
-                            }
-                            contentItem: ColumnLayout {
-                                spacing: 0
-                                StyledText {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    text: moodButton.modelData.emoji
-                                    font.pixelSize: Appearance.font.pixelSize.larger
-                                }
-                                StyledText {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    Layout.maximumWidth: moodButton.width - 6
-                                    text: moodButton.modelData.text
-                                    elide: Text.ElideRight
-                                    font.pixelSize: Appearance.font.pixelSize.smallest
-                                    color: Appearance.colors.colOnLayer2
-                                }
-                            }
-                            StyledToolTip {
-                                text: moodButton.modelData.text
-                            }
-                        }
-                    }
-                }
-                StyledText {
-                    visible: (Config.options?.mesh?.quickMessages ?? []).length > 0
-                    Layout.topMargin: 2
-                    text: Translation.tr("Your quick messages")
-                    font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: Appearance.colors.colSubtext
-                }
-                Flow {
-                    Layout.fillWidth: true
+            }
+            StyledFlickable {
+                id: pickerFlick
+                anchors { left: parent.left; right: parent.right; top: pickerHeader.bottom; margins: 8; topMargin: 6 }
+                height: Math.min(pickerColumn.implicitHeight, Math.max(120, root.height * 0.45))
+                contentHeight: pickerColumn.implicitHeight
+                clip: true
+                ColumnLayout {
+                    id: pickerColumn
+                    width: pickerFlick.width
                     spacing: 6
-                    Repeater {
-                        model: Config.options?.mesh?.quickMessages ?? []
-                        delegate: RippleButton {
-                            id: quick
-                            required property string modelData
-                            buttonRadius: Appearance.rounding.full
-                            colBackground: Appearance.colors.colLayer1
-                            colBackgroundHover: Appearance.colors.colLayer1Hover
-                            implicitHeight: 30
-                            implicitWidth: quickText.implicitWidth + 20
-                            onClicked: {
-                                root.send(quick.modelData);
-                                root.picking = false;
-                            }
-                            contentItem: StyledText {
-                                id: quickText
-                                horizontalAlignment: Text.AlignHCenter
-                                text: quick.modelData
-                                font.pixelSize: Appearance.font.pixelSize.small
-                                color: Appearance.colors.colOnLayer1
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: 5
+                            rowSpacing: 4
+                            columnSpacing: 4
+                            Repeater {
+                                model: Mesh.nudges.filter(n => !!n.mood === (root.pickerTab === "moods"))
+                                delegate: RippleButton {
+                                    id: nudgeButton
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    implicitHeight: 54
+                                    buttonRadius: Appearance.rounding.small
+                                    colBackground: ColorUtils.transparentize(Appearance.colors.colLayer2Hover, 1)
+                                    colBackgroundHover: Appearance.colors.colLayer2Hover
+                                    onClicked: {
+                                        Mesh.sendNudge(nudgeButton.modelData.id, root.conv);
+                                        root.picking = false;
+                                    }
+                                    contentItem: ColumnLayout {
+                                        spacing: 0
+                                        StyledText {
+                                            Layout.alignment: Qt.AlignHCenter
+                                            text: nudgeButton.modelData.emoji
+                                            font.pixelSize: Appearance.font.pixelSize.larger
+                                        }
+                                        StyledText {
+                                            Layout.alignment: Qt.AlignHCenter
+                                            Layout.maximumWidth: nudgeButton.width - 6
+                                            text: nudgeButton.modelData.text
+                                            elide: Text.ElideRight
+                                            font.pixelSize: Appearance.font.pixelSize.smallest
+                                            color: Appearance.colors.colOnLayer2
+                                        }
+                                    }
+                                    StyledToolTip {
+                                        text: nudgeButton.modelData.text
+                                    }
+                                }
                             }
                         }
-                    }
+                        StyledText {
+                            visible: (Config.options?.mesh?.quickMessages ?? []).length > 0
+                            Layout.topMargin: 2
+                            text: Translation.tr("Your quick messages")
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: Appearance.colors.colSubtext
+                        }
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: 6
+                            Repeater {
+                                model: Config.options?.mesh?.quickMessages ?? []
+                                delegate: RippleButton {
+                                    id: quick
+                                    required property string modelData
+                                    buttonRadius: Appearance.rounding.full
+                                    colBackground: Appearance.colors.colLayer1
+                                    colBackgroundHover: Appearance.colors.colLayer1Hover
+                                    implicitHeight: 30
+                                    implicitWidth: quickText.implicitWidth + 20
+                                    onClicked: {
+                                        root.send(quick.modelData);
+                                        root.picking = false;
+                                    }
+                                    contentItem: StyledText {
+                                        id: quickText
+                                        horizontalAlignment: Text.AlignHCenter
+                                        text: quick.modelData
+                                        font.pixelSize: Appearance.font.pixelSize.small
+                                        color: Appearance.colors.colOnLayer1
+                                    }
+                                }
+                            }
+                        }
                 }
             }
         }
