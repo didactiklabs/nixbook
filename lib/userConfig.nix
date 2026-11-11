@@ -220,7 +220,7 @@ let
                     fileManager = "org.kde.dolphin.desktop";
                   in
                   {
-                    "application/pdf" = "zathura.desktop";
+                    "application/pdf" = "org.pwmt.zathura.desktop";
                     "text/html" = browser;
                     "text/plain" = "editor-text.desktop";
                     "x-scheme-handler/http" = browser;
