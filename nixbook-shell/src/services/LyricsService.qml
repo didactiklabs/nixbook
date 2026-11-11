@@ -42,9 +42,12 @@ Singleton {
         return result
     }
 
+    // The line follows the song to a tenth of a second (300 ms let a line
+    // come up to a third of a second late); it runs only while lyrics are
+    // shown, and each tick is a scan of a few dozen times.
     Timer {
         id: syncTimer
-        interval: 300
+        interval: 100
         repeat: true
         running: root.wanted && root.status === "ok" && root.lyricsLines.length > 0 && !Idle.screensOff
         onTriggered: {

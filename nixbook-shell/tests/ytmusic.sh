@@ -5,7 +5,7 @@
 # D-Bus with tests/fake-mpv.py and a fake yt-dlp: a queue played, next and
 # previous, shuffle, repeat (none, playlist, one song), what ends a song,
 # the next song's stream resolved ahead, an error tried the next way then
-# skipped, MPRIS (the bus name only while something is loaded, its metadata,
+# skipped, MPRIS (Seeked again when the sound starts: what lyrics count from), (the bus name only while something is loaded, its metadata,
 # Shuffle and LoopStatus set from there).
 #
 # Needs: NIXBOOK_YTMUSIC_PYTHON (ytmusic.nix's pythonEnv: dbus-python,
@@ -112,9 +112,11 @@ y() { "$py" -P "$script" "\$@"; }
 j() { "$py" -c "import json,sys; d=json.load(sys.stdin); r=d.get('result', d); print(\$1)"; }
 mp() { busctl --user get-property org.mpris.MediaPlayer2.nixbook_ytmusic /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player "\$1" 2>&1; }
 echo "names-before=\$(busctl --user list | grep -c nixbook_ytmusic)"
+busctl --user monitor --json=short --match "type='signal',member='Seeked'" >"$tmp/seeked.log" 2>/dev/null &
 echo "play=\$(echo '$(q 1)' | y play-tracks | j 'r["status"], r["index"], r["count"]')"
 sleep 0.6
 echo "names-playing=\$(busctl --user list | grep -c nixbook_ytmusic)"
+echo "seeked=\$(grep -c '"member":"Seeked"' "$tmp/seeked.log")"
 echo "status=\$(mp PlaybackStatus)"
 md=\$(busctl --user call org.mpris.MediaPlayer2.nixbook_ytmusic /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties Get ss org.mpris.MediaPlayer2.Player Metadata)
 echo "md-url=\$(grep -o 'watch?v=[a-z]*' <<<"\$md")"
@@ -162,6 +164,7 @@ get() { grep "^$1=" <<<"$out" | head -n1 | cut -d= -f2-; }
 expect "player: no bus name until something plays" "0" "$(get names-before)"
 expect "player: a queue played from the song asked" "Playing 1 3" "$(get play)"
 expect "player: the MPRIS name while it plays" "1" "$(get names-playing)"
+expect "mpris: Seeked when a song loads and again when its sound starts (lyrics count from it)" "2" "$(get seeked)"
 expect "mpris: playing" 's "Playing"' "$(get status)"
 expect "mpris: the song's YouTube Music link" "watch?v=bbbbbbbbbbb" "$(get md-url)"
 expect "mpris: its id in the track path" "/nixbook/ytmusic/track/bbbbbbbbbbb" "$(get md-trackid)"

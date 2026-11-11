@@ -57,6 +57,13 @@ def play(url, start, gen):
         event({"event": "end-file", "reason": "error", "file_error": "loading failed"})
         return
     event({"event": "file-loaded"})
+    # The sound starts a moment later (mpv: playback-restart), from start.
+    time.sleep(0.3)
+    with lock:
+        if gen != state["gen"]:
+            return
+        state["at"] = time.monotonic()
+    event({"event": "playback-restart"})
     while True:
         time.sleep(0.05)
         with lock:
@@ -92,6 +99,7 @@ def handle(conn, msg):
     elif cmd[:1] == ["seek"]:
         with lock:
             state.update(start=float(cmd[1]), at=time.monotonic())
+        event({"event": "playback-restart"})
     send(conn, {"request_id": rid, "error": "success", "data": data})
 
 
