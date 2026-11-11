@@ -177,9 +177,28 @@ Singleton {
     readonly property var eeSink: Pipewire.nodes.values.find(n => n.name === "easyeffects_sink" && !n.isStream) ?? null
     property int _eeVolumesFor: -1
     onEeSinkChanged: {
+        root.eeSinkAtUnity();
         if (!root.eeSink || root.eeSink.id === root._eeVolumesFor) return;
         root._eeVolumesFor = root.eeSink.id;
         Quickshell.execDetached(["pw-cli", "set-param", String(root.eeSink.id), "Props", '{ params = [ "monitor.channel-volumes" true ] }']);
+    }
+
+    // When the default output is a device instead (picked in the output
+    // list, or WirePlumber's choice after a device came or went), the slider
+    // and the keys set that device's volume, but the apps EasyEffects
+    // processes still pass through its sink at whatever volume it was left
+    // at: a second volume nothing shows (54 %, −16 dB, made the speakers
+    // quiet "at 100 %", 2026-11-11). Kept at 100 % and unmuted then, so the
+    // volume shown is the only one.
+    function eeSinkAtUnity() {
+        if (!root.eeSink || Pipewire.defaultAudioSink === root.eeSink) return;
+        const id = String(root.eeSink.id);
+        Quickshell.execDetached(["wpctl", "set-volume", id, "1.0"]);
+        Quickshell.execDetached(["wpctl", "set-mute", id, "0"]);
+    }
+    Connections {
+        target: Pipewire
+        function onDefaultAudioSinkChanged() { root.eeSinkAtUnity() }
     }
 
     // An app's output connected to nothing: after EasyEffects restarts (its
