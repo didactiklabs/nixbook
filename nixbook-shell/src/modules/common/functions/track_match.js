@@ -51,9 +51,36 @@ function nearEnd(f) {
     return f.lastLen > 0 && f.lastPos > f.lastLen - 10
 }
 
+// The listener's player went away (no MPRIS player any more): "leave" |
+// "wait" | "next" (waiting for the host's next song) | "reopen". An app gone for 5 s was closed by the listener (an app
+// restarting itself comes back). The background player (nixbook-ytmusic)
+// leaves the bus whenever it has nothing loaded: its one-song queue ends a
+// little before the host's next song gets here (the host's state settles a
+// tick, crosses the network, the song loads), and that used to read as the
+// app closed, 5 s later, out of listening along. Gone at its song's end:
+// waited for the host's next song, however long (the session's own end or
+// expiry ends it); a next song from the host: opened; gone in the middle of
+// the song (stopped from its controls) for 5 s: "leave". x: { now, wantId,
+// background, target (s: where the host is) }.
+function goneStep(f, x) {
+    if (x.background) {
+        if (f.syncedTo !== "" && f.syncedTo !== x.wantId) {
+            f.goneSince = 0
+            return "reopen"
+        }
+        if (f.syncedTo === x.wantId && nearEnd(f)) {
+            f.goneSince = 0
+            // The host started it again (repeat one, or back to it).
+            if (x.target !== undefined && x.target < f.lastPos - 20) return "reopen"
+            return "next"
+        }
+    }
+    if (!f.goneSince) f.goneSince = x.now
+    return x.now - f.goneSince >= 5000 ? "leave" : "wait"
+}
 // A new song to follow.
 function fresh() {
-    return { openedFor: "", openedAt: 0, opens: 0, syncedTo: "", offSince: 0, endSince: 0, pausedSince: 0,
+    return { openedFor: "", openedAt: 0, opens: 0, syncedTo: "", offSince: 0, endSince: 0, pausedSince: 0, goneSince: 0,
         sawPlaying: false, cmdAt: 0, lastPos: 0, lastLen: 0, seekAt: 0, seekRecv: 0, seekedFor: "",
         tried: [], alt: "", altFor: "", before: "" }
 }

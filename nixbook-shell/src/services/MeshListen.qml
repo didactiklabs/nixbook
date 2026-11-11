@@ -296,6 +296,13 @@ Singleton {
                 root._send(root._lastState);
             }
             if (now - root._idleSince > 3000) root.hostTrack = null;
+            // Still sharing, nothing playing: said every 20 s all the same,
+            // so the listeners keep the session (they forget a host silent
+            // for long: 75 s), as they do while a song is paused.
+            if (root._lastState && !root._lastState.playing && now - root._lastState.at > 20000) {
+                root._lastState = Object.assign({}, root._lastState, { at: now });
+                root._send(root._lastState);
+            }
             return;
         }
         root._idleSince = 0;
@@ -424,11 +431,23 @@ Singleton {
             f.hadPlayer = true;
             f.goneSince = 0;
         } else if (f.hadPlayer) {
-            if (!f.goneSince) f.goneSince = now;
-            if (now - f.goneSince >= 5000)
-                root.leave(Translation.tr("You closed %1, so you stopped listening along with %2").arg(root.serviceName(svc)).arg(s.hostName || Mesh.nameOf(s.host)));
-            else root.followStatus = "starting";
-            return;
+            // TrackMatch.goneStep: the background player leaves the bus at
+            // its song's end, which isn't closing it.
+            const background = svc === "youtube-music" && root.backgroundYt();
+            const gone = TrackMatch.goneStep(f, { now: now, wantId: wantId, background: background, target: target });
+            if (gone === "leave") {
+                root.leave(background
+                    ? Translation.tr("YouTube Music stopped, so you stopped listening along with %1").arg(s.hostName || Mesh.nameOf(s.host))
+                    : Translation.tr("You closed %1, so you stopped listening along with %2").arg(root.serviceName(svc)).arg(s.hostName || Mesh.nameOf(s.host)));
+                return;
+            }
+            if (gone === "wait" || gone === "next") {
+                root.followStatus = gone === "next" ? "next" : "starting";
+                return;
+            }
+            // "reopen": the host's next song, started as at the beginning.
+            f.hadPlayer = false;
+            f.launchedAt = 0;
         }
         if (!p) {
             if (now - f.launchedAt > 20000) {
@@ -739,7 +758,10 @@ Singleton {
     function _put(s) {
         root.sessions = Object.assign({}, root.sessions, { [s.sid]: s });
     }
-    // A host silent for long has gone (no `end`: a shut computer).
+    // A host silent for long has gone (no `end`: a shut computer). The one
+    // listened along to is kept 3 minutes: this side's connection to the
+    // server may be what was down (a Wi-Fi drop, a suspend), and its
+    // states come back with it; a host stopping says `end`.
     Timer {
         interval: 15000
         repeat: true
@@ -748,7 +770,7 @@ Singleton {
             const now = Date.now();
             const next = {};
             for (const [id, s] of Object.entries(root.sessions))
-                if (now - s.recv < 75000) next[id] = s;
+                if (now - s.recv < (id === root.following ? 180000 : 75000)) next[id] = s;
             if (Object.keys(next).length !== Object.keys(root.sessions).length) root.sessions = next;
         }
     }

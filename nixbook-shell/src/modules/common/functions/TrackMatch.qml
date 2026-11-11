@@ -22,4 +22,7 @@ Singleton {
     function playStep(f, x) {
         return Match.playStep(f, x)
     }
+    function goneStep(f, x) {
+        return Match.goneStep(f, x)
+    }
 }
