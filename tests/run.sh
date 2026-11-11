@@ -156,6 +156,10 @@ cmd_shell() {
   mesh=$(nix-build --no-out-link -E '(import ./nixbook-shell { }).package.passthru.mesh.pythonEnv' 2> >(annotate >&2)) &&
     ntfy=$(nix-build --no-out-link -E '(import ./lib/pkgs.nix { }).ntfy-sh' 2> >(annotate >&2)) &&
     PATH="$ntfy/bin:$PATH" NIXBOOK_MESH_PYTHON="$mesh/bin/python3" bash nixbook-shell/tests/mesh.sh || failed=1
+  section "nixbook-shell YouTube Music in the background (nixbook-ytmusic)"
+  local ytmusic
+  ytmusic=$(nix-build --no-out-link -E '(import ./nixbook-shell { }).package.passthru.ytmusic.pythonEnv' 2> >(annotate >&2)) &&
+    NIXBOOK_YTMUSIC_PYTHON="$ytmusic/bin/python3" bash nixbook-shell/tests/ytmusic.sh || failed=1
   section "nixbook-shell fixes to nixbook (nixbook-improve)"
   local improve
   improve=$(nix-build --no-out-link -E '(import ./nixbook-shell { }).package.passthru.improve' 2> >(annotate >&2)) &&

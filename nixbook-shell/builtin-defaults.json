@@ -824,7 +824,8 @@
     "translator": {
       "delay": 300,
       "enable": false
-    }
+    },
+    "youtubeMusicTab": true
   },
   "sounds": {
     "alarmRingSeconds": 120,
