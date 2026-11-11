@@ -386,6 +386,54 @@ def login_path():
     return os.path.join(state_dir(), "login.json")
 
 
+# Google rotates a signed-in browser's cookies; the copy kept here then stops
+# working: YouTube Music answers 401 "not authorized to edit this playlist",
+# or an empty library (2026-11-11: every add refused, the playlists stale).
+REFUSED = re.compile(r"\b40[13]\b|unauthori[sz]ed|not authorized|login required|sign(ed)? ?in", re.I)
+
+
+def renew_session():
+    """The session copied again from the browser it came from (login.json),
+    when that browser still has a working login of the same account: the
+    new cookie kept and returned, else None."""
+    login = read_json(login_path(), {}) or {}
+    browser, account = login.get("browser"), login.get("account")
+    if not browser:
+        return None
+    old = session()
+    for cookies, b in browser_logins():
+        cookie = cookie_header(cookies)
+        if b != browser or cookie == old:
+            continue
+        try:
+            name = account_of(ytmusic(cookie))
+        except Error:
+            continue
+        if account and name != account:
+            continue
+        keyring_set("session", f"YouTube Music session of {name} ({APP})", {"cookie": cookie})
+        write_private(login_path(), {**login, "account": name, "at": int(time.time())})
+        return cookie
+    return None
+
+
+def signed_in(fn, refused=None):
+    """fn(yt) on the kept session; when YouTube Music refuses it (an error
+    saying so, or refused(answer): an empty library), once more on the
+    session renewed from the browser (renew_session)."""
+    try:
+        answer = fn(ytmusic())
+    except Error:
+        raise
+    except Exception as exc:  # noqa: BLE001 — ytmusicapi raises many kinds
+        if not REFUSED.search(str(exc)) or not renew_session():
+            raise
+        return fn(ytmusic())
+    if refused and refused(answer) and renew_session():
+        return fn(ytmusic())
+    return answer
+
+
 def cmd_browsers(_args):
     """The browsers with a YouTube login (names only), the most recent first."""
     seen = []
@@ -513,14 +561,19 @@ def with_kept(playlists):
 
 def cmd_playlists(_args):
     copy = os.path.join(offline_dir(), "playlists.json")
-    try:
-        yt = ytmusic()
+    def library(yt):
         raw = yt.get_library_playlists(limit=None) or []
         # YouTube Music sometimes answers an empty library, no error (a
         # signed-in library always holds Liked Music): asked once more.
         if not raw:
             time.sleep(1.5)
             raw = yt.get_library_playlists(limit=None) or []
+        return raw
+
+    try:
+        # Still empty: the session may have gone stale, renewed from the
+        # browser.
+        raw = signed_in(library, refused=lambda raw: not raw)
     except Error:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -563,9 +616,13 @@ def with_offline_card(items):
 def playlist_tracks(pid, yt=None):
     if not PLAYLIST_ID.match(pid or ""):
         raise Error(f"not a playlist id: {pid!r}")
-    yt = yt or ytmusic()
     try:
-        raw = yt.get_playlist(pid, limit=MAX_TRACKS) or {}
+        if yt:
+            raw = yt.get_playlist(pid, limit=MAX_TRACKS) or {}
+        else:
+            raw = signed_in(lambda yt: yt.get_playlist(pid, limit=MAX_TRACKS)) or {}
+    except Error:
+        raise
     except Exception as exc:  # noqa: BLE001
         raise Error(f"YouTube Music didn't give that playlist: {exc}") from None
     tracks = [t for t in (track_of(t) for t in raw.get("tracks") or []) if t]
@@ -614,13 +671,15 @@ def cmd_add(args):
     if len(args) != 2 or not PLAYLIST_ID.match(args[0]) or not VIDEO_ID.match(args[1]):
         out({"error": "usage: nixbook-ytmusic add PLAYLIST VIDEO"}, 1)
     pid, vid = args
-    yt = ytmusic()
-    try:
+
+    def add(yt):
         if pid == "LM":
             yt.rate_song(vid, "LIKE")
-            status = "added"
-        else:
-            status = edit_status(yt.add_playlist_items(pid, [vid], duplicates=False))
+            return "added"
+        return edit_status(yt.add_playlist_items(pid, [vid], duplicates=False))
+
+    try:
+        status = signed_in(add)
     except Error:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -637,7 +696,7 @@ def cmd_create(args):
     if not title:
         out({"error": "usage: nixbook-ytmusic create TITLE... [VIDEO]"}, 1)
     try:
-        answer = ytmusic().create_playlist(title, "", video_ids=[vid] if vid else None)
+        answer = signed_in(lambda yt: yt.create_playlist(title, "", video_ids=[vid] if vid else None))
     except Error:
         raise
     except Exception as exc:  # noqa: BLE001

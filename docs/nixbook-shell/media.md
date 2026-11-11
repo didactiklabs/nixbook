@@ -32,7 +32,7 @@ The song playing has a seek bar with its time in the tab, and the dock's media c
 1. Sign in to YouTube Music in your browser (Zen, Firefox, LibreWolf, Floorp, Waterfox, Mullvad Browser, Chrome, Chromium, Brave, Vivaldi, Edge, Opera, Thorium; Flatpak and Snap ones too) or in the YouTube Music app.
 2. Click **Use my browser's session**. When several have a login, pick one (the most recent is the default).
 
-The session (that login's YouTube cookies) is kept in your keyring, never in a file; **Sign out** takes it out (your browser stays signed in). The songs play without it; it's only tried for a song that won't play otherwise (age-restricted…).
+The session (that login's YouTube cookies) is kept in your keyring, never in a file; **Sign out** takes it out (your browser stays signed in). Your browser renews those cookies as you use it, and YouTube Music then refuses the copy kept here (edits answered "401 not authorized", an empty library): the player copies the session again from the same browser, the same account only, and tries once more, so you only sign in again when that browser has signed out. The songs play without it; it's only tried for a song that won't play otherwise (age-restricted…).
 
 **Last.fm**: **Sign in to Last.fm** opens Last.fm's page where you allow nixbook, then click **I've allowed it**. Last.fm asks for an API key: the YouTube Music app's is used when it is installed; on another computer, **Create an API key** (free, at once) and paste the key and the secret. **Use the YouTube Music app's sign-in** takes its Last.fm sign-in as it is. A song is scrobbled once it has played half its length or 4 minutes (songs over 30 seconds), and shown as now playing when it starts.
 

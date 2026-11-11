@@ -123,10 +123,20 @@ class YTMusic:
         import os
         with open(os.environ["FAKE_YTM_LOG"], "a") as f:
             f.write(" ".join(map(str, what)) + "\n")
+    # A session gone stale (its cookie says so): refused, as YouTube Music
+    # refuses a copy whose cookies the browser has rotated since.
+    def _stale(self):
+        return "stale" in ((self.auth or {}).get("cookie") or "")
+    def get_account_info(self):
+        return {"accountName": "Fake User"}
+    def get_library_playlists(self, limit=None):
+        return [] if self._stale() else [{"playlistId": "LM", "title": "Liked Music"}]
     def rate_song(self, vid, rating="INDIFFERENT"):
         self._log("rate", vid, rating)
     def add_playlist_items(self, pid, vids, duplicates=False):
         self._log("add", pid, ",".join(vids), duplicates)
+        if self._stale():
+            raise Exception("Server returned HTTP 401: Unauthorized.\nYou are not authorized to edit this playlist")
         if pid == "PLtheirs":
             return {"error": "forbidden"}
         if vids == ["dupe1111111"]:
@@ -168,6 +178,26 @@ add PLmine dupe1111111 False
 rate song2222222 LIKE
 add PLtheirs song1111111 False
 create From Victor PRIVATE ['song1111111']" "$(cat "$tmp/ytm-edits.log")"
+# A session gone stale: renewed from the browser it came from (Zen, its
+# most recent login of the same account), then the add done.
+: >"$tmp/ytm-edits.log"
+printf '{"cookie": "SAPISID=stale; __Secure-3PAPISID=stale"}' >"$tmp/keyring/session"
+mkdir -p "$tmp/state/nixbook-ytmusic"
+printf '{"account": "Fake User", "browser": "Zen", "at": 1}' >"$tmp/state/nixbook-ytmusic/login.json"
+expect "add: a stale session renewed from the browser, the song added" "added" "$(HOME="$tmp/home" ya add PLmine song1111111 | field status)"
+expect "add: refused once, then done on the renewed session" "add PLmine song1111111 False
+add PLmine song1111111 False" "$(cat "$tmp/ytm-edits.log")"
+expect "renew: the browser's most recent login kept" "true" "$(grep -q '__Secure-3PAPISID=new' "$tmp/keyring/session" && echo true)"
+printf '{"cookie": "SAPISID=stale; __Secure-3PAPISID=stale"}' >"$tmp/keyring/session"
+expect "playlists: an empty library (a stale session) renewed too" "LM" \
+  "$(HOME="$tmp/home" ya playlists | "$py" -c 'import json,sys; print(",".join(p["id"] for p in json.load(sys.stdin)["playlists"] if p["id"] != "_offline"))')"
+printf '{"cookie": "SAPISID=stale; __Secure-3PAPISID=stale"}' >"$tmp/keyring/session"
+printf '{"account": "Someone Else", "browser": "Zen", "at": 1}' >"$tmp/state/nixbook-ytmusic/login.json"
+expect "renew: never another account's login" "1 true" "$(
+  HOME="$tmp/home" ya add PLmine song1111111 >/dev/null
+  echo "$? $(grep -q stale "$tmp/keyring/session" && echo true)"
+)"
+rm -f "$tmp/state/nixbook-ytmusic/login.json"
 rm -f "$tmp/keyring/session" # the player's tests run signed out
 
 # -- The player ------------------------------------------------------------------------
