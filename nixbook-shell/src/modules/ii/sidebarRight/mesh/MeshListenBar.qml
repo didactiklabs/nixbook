@@ -186,6 +186,24 @@ ColumnLayout {
                     }
                 }
             }
+            // Their song into one of your YouTube Music playlists.
+            RippleButton {
+                visible: root.canAdd
+                implicitWidth: 34
+                implicitHeight: 34
+                buttonRadius: Appearance.rounding.full
+                toggled: root.adding
+                onClicked: root.adding = !root.adding
+                contentItem: MaterialSymbol {
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "playlist_add"
+                    iconSize: Appearance.font.pixelSize.huge
+                    color: card.fg
+                }
+                StyledToolTip {
+                    text: Translation.tr("Add this song to one of your YouTube Music playlists")
+                }
+            }
             RippleButtonWithIcon {
                 materialIcon: root.hosting ? "stop" : root.followingThis ? "logout" : root.video ? "movie" : "headphones"
                 mainText: root.hosting ? Translation.tr("Stop") : root.followingThis ? Translation.tr("Leave")
@@ -197,6 +215,22 @@ ColumnLayout {
                 }
             }
         }
+    }
+
+    // Someone else's song (listening along or not), once signed in to
+    // YouTube Music in the background: it goes to your own playlists.
+    readonly property bool canAdd: !root.hosting && !root.video && !!root.session?.track && YouTubeMusic.signedIn
+    property bool adding: false
+    onCanAddChanged: if (!root.canAdd) root.adding = false
+    YouTubeMusicAddToPlaylist {
+        Layout.fillWidth: true
+        Layout.leftMargin: 8
+        Layout.rightMargin: 8
+        visible: root.adding && root.canAdd
+        songTitle: root.trackText(root.track)
+        // The song shown when it is picked: a Spotify one looked for there.
+        resolve: then => MeshListen.youtubeIdOf(root.session, then)
+        onClosed: root.adding = false
     }
 
     // Calling while listening together: the music kept out of the microphone.

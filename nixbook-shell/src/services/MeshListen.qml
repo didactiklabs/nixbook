@@ -669,6 +669,22 @@ Singleton {
             });
     }
     property var _matching: ({})
+    // The YouTube Music id of a session's song (to add it to a playlist of
+    // yours): its own on YouTube Music, else the match listening along
+    // found, else looked for now; then(videoId) ("" when none).
+    function youtubeIdOf(s, then) {
+        const t = s?.track;
+        if (!t || s.service === "jellyfin") { then(""); return; }
+        if (s.service === "youtube-music") { then(`${t.id ?? ""}`); return; }
+        const key = `${s.service}:${t.id}`;
+        if (key in root._matches) { then(root._matches[key] ?? ""); return; }
+        Mesh.run(["match"], JSON.stringify({ title: t.title, artist: t.artist, album: t.album, length: t.length }),
+            (ok, answer) => {
+                const id = ok ? `${answer.videoId ?? ""}` : "";
+                root._matches = Object.assign({}, root._matches, { [key]: id || null });
+                then(id);
+            });
+    }
 
     // -- What arrives (Mesh._event) -------------------------------------------------------
 

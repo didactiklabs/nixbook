@@ -23,6 +23,10 @@ friend's song with it.
   nixbook-ytmusic playlist ID          its songs, JSON
   nixbook-ytmusic search WORDS...      songs and videos found on YouTube
                                        Music, JSON
+  nixbook-ytmusic add PLAYLIST VIDEO   a song into one of your playlists
+                                       (LM, Liked Music: the song liked)
+  nixbook-ytmusic create TITLE... [VIDEO]
+                                       a new private playlist (with a song)
   nixbook-ytmusic play ID [--index N] [--shuffle]
                                        a playlist, from its song N
   nixbook-ytmusic play-tracks          {tracks, index, shuffle} on stdin
@@ -525,7 +529,9 @@ def cmd_playlists(_args):
         pid = p.get("playlistId") or ""
         if not PLAYLIST_ID.match(pid) or pid == OFFLINE_PLAYLIST:
             continue
+        # own: songs can be added to it (Liked Music: by liking them).
         items.append({"id": pid, "title": p.get("title") or "", "count": p.get("count") or "",
+                      "own": pid == "LM" or bool(p.get("owned")),
                       "author": ", ".join(a.get("name", "") for a in (p.get("author") or []) if isinstance(a, dict)),
                       "_art": best(p.get("thumbnails"))})
     items.sort(key=lambda p: p["id"] != "LM")  # Liked Music first
@@ -572,6 +578,55 @@ def cmd_playlist(args):
     tracks = with_thumbs(tracks, size=120)
     save_playlist_copy(pid, title, tracks)
     out({"id": pid, "title": title, "tracks": with_cached(tracks), "kept": kept})
+
+
+def edit_status(answer):
+    """ytmusicapi's answer to a playlist edit: "added", "already" (the song
+    is in it: duplicates refused) or None (refused)."""
+    if isinstance(answer, dict) and "SUCCEEDED" in str(answer.get("status") or ""):
+        return "added"
+    text = json.dumps(answer, default=str).lower() if answer else ""
+    if "duplicate" in text or "already" in text:
+        return "already"
+    return None
+
+
+def cmd_add(args):
+    """A song into one of your playlists (Liked Music: the song liked)."""
+    if len(args) != 2 or not PLAYLIST_ID.match(args[0]) or not VIDEO_ID.match(args[1]):
+        out({"error": "usage: nixbook-ytmusic add PLAYLIST VIDEO"}, 1)
+    pid, vid = args
+    yt = ytmusic()
+    try:
+        if pid == "LM":
+            yt.rate_song(vid, "LIKE")
+            status = "added"
+        else:
+            status = edit_status(yt.add_playlist_items(pid, [vid], duplicates=False))
+    except Error:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        out({"error": f"YouTube Music didn't add it: {exc}"[:300]}, 1)
+    if not status:
+        out({"error": "YouTube Music didn't add it (is the playlist yours?)"}, 1)
+    out({"ok": True, "playlist": pid, "videoId": vid, "status": status})
+
+
+def cmd_create(args):
+    """A new (private) playlist, with a song in it."""
+    vid = args[-1] if args and VIDEO_ID.match(args[-1]) else ""
+    title = " ".join(args[:-1] if vid else args).strip()[:150]
+    if not title:
+        out({"error": "usage: nixbook-ytmusic create TITLE... [VIDEO]"}, 1)
+    try:
+        answer = ytmusic().create_playlist(title, "", video_ids=[vid] if vid else None)
+    except Error:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        out({"error": f"YouTube Music didn't make the playlist: {exc}"[:300]}, 1)
+    if not isinstance(answer, str) or not PLAYLIST_ID.match(answer):
+        out({"error": "YouTube Music didn't make the playlist"}, 1)
+    out({"ok": True, "playlist": answer, "title": title, "videoId": vid or None})
 
 
 SEARCH_LIMIT = 20
@@ -1889,7 +1944,7 @@ def serve(_args):
 
 
 COMMANDS = {"browsers": cmd_browsers, "login-from-browser": cmd_login, "forget": cmd_forget, "status": cmd_status,
-            "playlists": cmd_playlists, "playlist": cmd_playlist, "search": cmd_search, "play": cmd_play,
+            "playlists": cmd_playlists, "playlist": cmd_playlist, "search": cmd_search, "add": cmd_add, "create": cmd_create, "play": cmd_play,
             "play-tracks": cmd_play_tracks, "play-id": cmd_play_id, "control": cmd_control,
             "lastfm": cmd_lastfm, "offline": cmd_offline, "serve": serve}
 
