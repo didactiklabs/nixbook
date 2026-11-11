@@ -19,6 +19,9 @@
   quickshellSrc ? sources.quickshell,
   # The Google Keep client (an npins pin): the notes' sync with Keep.
   gkeepapiSrc ? sources.gkeepapi,
+  # Dark Reader's library (an npins pin of its npm tarball): web pages in
+  # the shell's colours, in Zen.
+  darkreaderSrc ? sources.darkreader,
   # Put the tailscale / netbird CLIs on the shell's PATH (VpnStatus widget).
   withTailscale ? true,
   withNetbird ? true,
@@ -29,6 +32,7 @@
       pkgs
       quickshellSrc
       gkeepapiSrc
+      darkreaderSrc
       withTailscale
       withNetbird
       ;

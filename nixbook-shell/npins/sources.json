@@ -1,5 +1,11 @@
 {
   "pins": {
+    "darkreader": {
+      "type": "Url",
+      "url": "https://registry.npmjs.org/darkreader/-/darkreader-4.9.134.tgz",
+      "unpack": false,
+      "hash": "sha256-49ptmE/6gwIpwx9TH8nwZmkQVJ/3RlXAIrtBHHDUd0U="
+    },
     "gkeepapi": {
       "type": "Git",
       "repository": {

@@ -8,8 +8,8 @@ import Quickshell
 
 /**
  * Apps coloured like the shell (Settings > Appearance > Color generation >
- * Apps: Qt/KDE, Vesktop, YouTube Music, Gmail in Meru, Zen, each with its
- * own switch):
+ * Apps: Qt/KDE, Vesktop, YouTube Music, Gmail in Meru, Zen and the web pages
+ * in Zen, each with its own switch):
  * whenever the palette the shell shows changes (a new wallpaper palette,
  * light/dark, a theme variant with its own palette) or a switch is flipped,
  * the palette and the apps switched on go to
@@ -48,7 +48,7 @@ Singleton {
         const theming = Config.options.appearance.wallpaperTheming;
         if (!theming.enableQtApps)
             return [];
-        const names = { gmail: "gmail", qt: "qt", vesktop: "vesktop", youtubeMusic: "youtube-music", zen: "zen" };
+        const names = { gmail: "gmail", qt: "qt", vesktop: "vesktop", youtubeMusic: "youtube-music", zen: "zen", zenPages: "zen-pages" };
         return Object.keys(names).filter(key => theming.apps[key]).map(key => names[key]);
     }
 
@@ -90,5 +90,6 @@ Singleton {
         function onVesktopChanged() { applyTimer.restart() }
         function onYoutubeMusicChanged() { applyTimer.restart() }
         function onZenChanged() { applyTimer.restart() }
+        function onZenPagesChanged() { applyTimer.restart() }
     }
 }

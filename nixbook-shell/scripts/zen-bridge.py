@@ -12,6 +12,11 @@ send more on the same connection.
 
   nixbook-zen-bridge [MANIFEST_PATH EXTENSION_ID]   (as Zen starts it)
   nixbook-zen-bridge --socket                       (prints the socket path)
+
+When Zen starts it, it hands the extension the web pages' colours the shell
+rendered last (page_theme_path; none: pages left as they are), so a palette
+that changed while Zen was closed applies at once; apply-app-colors.sh
+sends a new one through the socket while Zen runs.
 """
 
 import itertools
@@ -67,6 +72,21 @@ class Bridge:
         if slot:
             slot["reply"] = {k: v for k, v in msg.items() if k != "id"}
             slot["event"].set()
+
+
+def page_theme_path():
+    state = os.environ.get("XDG_STATE_HOME") or os.path.join(os.path.expanduser("~"), ".local", "state")
+    return os.path.join(state, "quickshell", "user", "generated", "apps", "zen-pages.json")
+
+
+def send_page_theme(bridge):
+    """The web pages' colours to the extension (None: turned off)."""
+    try:
+        with open(page_theme_path(), encoding="utf-8") as f:
+            theme = json.load(f)
+    except (OSError, ValueError):
+        theme = None
+    bridge.ask({"cmd": "theme", "theme": theme if isinstance(theme, dict) else None})
 
 
 def read_messages(stream, bridge):
@@ -135,6 +155,7 @@ def main(argv):
             threading.Thread(target=serve_client, args=(conn, bridge), daemon=True).start()
 
     threading.Thread(target=accept, daemon=True).start()
+    threading.Thread(target=send_page_theme, args=(bridge,), daemon=True).start()
     try:
         read_messages(sys.stdin.buffer, bridge)
     finally:

@@ -341,7 +341,56 @@ async function handle(msg) {
       });
       return { tab: tab.id, title: tab.title, url: tab.url, data };
     }
+    case "theme": {
+      // Web pages in the shell's colours (pages-theme.js reads it): the
+      // palette apply-app-colors.sh renders, or null to turn it off.
+      const t = pageTheme(msg.theme);
+      await browser.storage.local.set({ pageTheme: t });
+      return { enabled: t.enabled };
+    }
     default:
       throw new Error(`unknown command ${msg.cmd}`);
   }
 }
+
+// ── Web pages in the shell's colours ──
+const HEX = /^#[0-9a-fA-F]{6}$/;
+// The theme pages-theme.js applies: only the colours it knows, each a
+// "#rrggbb" (anything else turns it off).
+function pageTheme(theme) {
+  if (!theme || typeof theme !== "object") return { enabled: false };
+  const t = { enabled: true, mode: theme.mode === "light" ? "light" : "dark" };
+  for (const k of ["background", "text", "selection", "scrollbar", "accent"]) {
+    if (!HEX.test(String(theme[k] || ""))) return { enabled: false };
+    t[k] = theme[k].toLowerCase();
+  }
+  return t;
+}
+
+// Dark Reader reads a page's stylesheets and images to recolour them,
+// cross-site ones too: fetched here (the extension may reach any site, a
+// page's content script may not), without the user's cookies, at most 8 MB.
+const FETCH_MAX = 8 << 20;
+async function fetchForPage(url) {
+  if (!/^https?:\/\//i.test(url)) throw new Error("only http(s)");
+  const r = await fetch(url, { credentials: "omit", cache: "force-cache" });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const bytes = new Uint8Array(await r.arrayBuffer());
+  if (bytes.length > FETCH_MAX) throw new Error("too large");
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000)
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return { type: r.headers.get("content-type") || "", data: btoa(s) };
+}
+browser.runtime.onMessage.addListener((msg, sender) => {
+  // Only this extension's own content scripts (pages-theme.js).
+  if (
+    !msg ||
+    typeof msg.nixbookFetch !== "string" ||
+    sender.id !== browser.runtime.id
+  )
+    return undefined;
+  return fetchForPage(msg.nixbookFetch).catch((e) => ({
+    error: String((e && e.message) || e),
+  }));
+});

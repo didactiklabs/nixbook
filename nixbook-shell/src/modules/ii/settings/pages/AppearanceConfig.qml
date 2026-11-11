@@ -129,6 +129,17 @@ ContentPage {
                             text: Translation.tr("Live, through Meru's bridge: every account's Gmail in the theme's colours, light or dark")
                         }
                     }
+                    ConfigSwitch {
+                        configKey: "appearance.wallpaperTheming.apps.zenPages";
+                        enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;
+                        buttonIcon: "web"
+                        text: Translation.tr("Websites (Zen)")
+                        checked: Config.options.appearance.wallpaperTheming.apps.zenPages
+                        onCheckedChanged: { Config.options.appearance.wallpaperTheming.apps.zenPages = checked }
+                        StyledToolTip {
+                            text: Translation.tr("Live: every web page in the theme's colours (Dark Reader's engine, in nixbook's Zen extension). Pages with their own dark mode may look different")
+                        }
+                    }
                     Item {
                         Layout.fillWidth: true
                     }
