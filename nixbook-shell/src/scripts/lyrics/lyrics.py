@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+import urllib.error
 import urllib.request
 import urllib.parse
 import json
@@ -34,16 +35,26 @@ def _is_match(d: dict, title: str, artist: str) -> bool:
                     any(word in r_artist for word in a.split() if len(word) > 3))
     return title_match and artist_match
 
+class Unreachable(Exception):
+    """lrclib answered none of the requests (network down, timeouts)."""
+
+
 def fetch_lrclib(title: str, artist: str, duration: float) -> list:
     urls = [
         f"https://lrclib.net/api/get?track_name={urllib.parse.quote(title)}&artist_name={urllib.parse.quote(artist)}&duration={int(duration)}",
         f"https://lrclib.net/api/search?track_name={urllib.parse.quote(title)}&artist_name={urllib.parse.quote(artist)}",
         f"https://lrclib.net/api/search?q={urllib.parse.quote(title + ' ' + artist)}",
     ]
+    answered = False
     for url in urls:
         try:
-            with urllib.request.urlopen(url, timeout=15) as r:
-                data = json.loads(r.read().decode())
+            try:
+                with urllib.request.urlopen(url, timeout=15) as r:
+                    data = json.loads(r.read().decode())
+            except urllib.error.HTTPError:
+                answered = True  # 404: lrclib has no such song
+                continue
+            answered = True
             if isinstance(data, list):
                 data = next((d for d in data if _is_match(d, title, artist)), None)
             if data and _is_match(data, title, artist):
@@ -52,6 +63,8 @@ def fetch_lrclib(title: str, artist: str, duration: float) -> list:
                     return lines
         except Exception:
             continue
+    if not answered:
+        raise Unreachable()
     return []
 
 def main():
@@ -64,7 +77,11 @@ def main():
     if not title or not artist:
         print("no_info", flush=True)
         sys.exit(0)
-    lines = fetch_lrclib(title, artist, duration)
+    try:
+        lines = fetch_lrclib(title, artist, duration)
+    except Unreachable:
+        print("error", flush=True)
+        sys.exit(0)
     if not lines:
         print("not_found", flush=True)
         sys.exit(0)

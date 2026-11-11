@@ -405,8 +405,37 @@ Item {
                         onClicked: root.showLyrics = !root.showLyrics
                     }
                 }
+                // The background player's own volume (its mpv), not the
+                // system output's.
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    readonly property real volume: MprisController.playerVolume(root.player)
+                    readonly property bool muted: MprisController.playerMuted(root.player)
+                    IconButton {
+                        symbol: parent.muted ? "volume_off" : parent.volume < 0.5 ? "volume_down" : "volume_up"
+                        tip: parent.muted ? Translation.tr("Unmute") : Translation.tr("Mute")
+                        onClicked: MprisController.togglePlayerMute(root.player)
+                    }
+                    StyledSlider {
+                        Layout.fillWidth: true
+                        configuration: StyledSlider.Configuration.XS
+                        from: 0
+                        to: 1
+                        value: parent.volume
+                        onMoved: MprisController.setPlayerVolume(root.player, value)
+                    }
+                    StyledText {
+                        Layout.preferredWidth: 38
+                        horizontalAlignment: Text.AlignRight
+                        text: `${Math.round(parent.volume * 100)}%`
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                    }
+                }
                 Lyrics {
                     Layout.fillWidth: true
+                    player: root.player
                     visible: root.showLyrics && root.visible
                     implicitHeight: 180
                     textColor: Appearance.colors.colOnLayer2

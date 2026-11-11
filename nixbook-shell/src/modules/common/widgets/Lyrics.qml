@@ -4,6 +4,7 @@ import qs.modules.common
 import qs.modules.common.widgets
 import qs.services
 import QtQuick
+import Quickshell.Services.Mpris
 import QtQuick.Layouts
 
 Item {
@@ -19,16 +20,19 @@ Item {
     implicitWidth: 200
     implicitHeight: 200
 
-    // Counted in LyricsService.consumers while shown: it fetches only then.
+    // The player whose lyrics these are (a view showing one player's song
+    // sets it); asked for from LyricsService while shown: it fetches only then.
+    property MprisPlayer player: MprisController.activePlayer
     property bool _counted: false
     function _syncShown() {
-        if (root.visible === root._counted) return
+        if (root.visible) LyricsService.want(root, root.player)
+        else if (root._counted) LyricsService.release(root)
         root._counted = root.visible
-        LyricsService.consumers += root._counted ? 1 : -1
     }
     onVisibleChanged: root._syncShown()
+    onPlayerChanged: if (root._counted) LyricsService.want(root, root.player)
     Component.onCompleted: root._syncShown()
-    Component.onDestruction: if (root._counted) LyricsService.consumers--
+    Component.onDestruction: if (root._counted) LyricsService.release(root)
 
     ColumnLayout {
         anchors.fill: parent

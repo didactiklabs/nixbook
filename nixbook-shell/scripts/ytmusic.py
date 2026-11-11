@@ -140,6 +140,14 @@ def write_private(path, payload):
     os.replace(tmp, path)
 
 
+def saved_volume():
+    """The player's volume as last set (MPRIS Volume, 0-1), 1 the first time."""
+    try:
+        return max(0.0, min(1.0, float((read_json(os.path.join(state_dir(), "volume.json"), {}) or {}).get("volume", 1))))
+    except (TypeError, ValueError):
+        return 1.0
+
+
 def out(obj, code=0):
     print(json.dumps(obj, ensure_ascii=False))
     sys.exit(code)
@@ -788,7 +796,10 @@ def with_cached(tracks, index=None):
 def offline_tracks(index=None):
     """Every song kept, the last played first."""
     index = index or read_index()
-    songs = sorted(index["songs"].values(), key=lambda s: -(s.get("played") or s.get("added") or 0))
+    # Times are whole seconds: a song played in the second the others came
+    # goes before them.
+    songs = sorted(index["songs"].values(),
+                   key=lambda s: (-(s.get("played") or s.get("added") or 0), 0 if s.get("played") else 1))
     return [dict(s.get("track") or {}, cached=True) for s in songs
             if VIDEO_ID.match((s.get("track") or {}).get("videoId") or "")]
 
@@ -1384,7 +1395,8 @@ def serve(_args):
             # None | Playlist | Track (MPRIS's LoopStatus).
             self.shuffle, self.loop, self.order = False, "None", []
             self.base, self.at = 0.0, time.monotonic()  # position = base (+ since `at` while playing)
-            self.volume, self.errors, self.idle_since = 1.0, 0, time.monotonic()
+            self.volume, self.errors, self.idle_since = saved_volume(), 0, time.monotonic()
+            self.volume_save = None  # the pending write of a changed volume
             cookie = session()
             self.mpv = Mpv(lambda ev: GLib.idle_add(self.mpv_event, ev),
                            write_cookies_file(cookie) if cookie else None)
@@ -1712,6 +1724,18 @@ def serve(_args):
                 if self.mpv.running():
                     self.mpv.command("set_property", "volume", round(self.volume * 100))
                 self.changed("Volume")
+                # Kept for the next start (a slider moves it many times a second).
+                if self.volume_save:
+                    GLib.source_remove(self.volume_save)
+                self.volume_save = GLib.timeout_add(1000, self.save_volume)
+
+        def save_volume(self):
+            self.volume_save = None
+            try:
+                write_private(os.path.join(state_dir(), "volume.json"), {"volume": round(self.volume, 3)})
+            except OSError:
+                pass
+            return False
 
         @dbus.service.signal(PROPS, signature="sa{sv}as")
         def PropertiesChanged(self, iface, changed, invalidated):

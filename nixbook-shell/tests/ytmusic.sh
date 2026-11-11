@@ -169,6 +169,10 @@ y control repeat none >/dev/null
 busctl --user set-property org.mpris.MediaPlayer2.nixbook_ytmusic /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player Shuffle b true
 echo "shuffle=\$(y status | j 'r["player"]["shuffle"], r["player"]["index"], r["player"]["track"]["videoId"]')"
 echo "unshuffle=\$(y control shuffle off | j 'r["shuffle"], r["track"]["videoId"]')"
+busctl --user set-property org.mpris.MediaPlayer2.nixbook_ytmusic /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player Volume d 0.4
+echo "volume-mpris=\$(mp Volume)"
+sleep 1.4
+echo "volume-saved=\$(cat "$tmp/state/nixbook-ytmusic/volume.json")"
 # Songs that don't end on their own while skipping.
 echo 60 >"$tmp/len"
 y control repeat playlist >/dev/null
@@ -212,6 +216,8 @@ expect "player: previous" "1" "$(get prev)"
 expect "player: repeat cycles (off → the playlist)" "Playlist" "$(get repeat)"
 expect "mpris: LoopStatus set from there" 's "Track"' "$(get loop-mpris)"
 expect "player: repeat one song plays it again" "1 Track" "$(get track-repeat)"
+expect "mpris: Volume set from there" "d 0.4" "$(get volume-mpris)"
+expect "player: the volume kept for the next start" '{"volume": 0.4}' "$(get volume-saved)"
 expect "player: shuffle from MPRIS keeps the song playing first" "True 0 bbbbbbbbbbb" "$(get shuffle)"
 expect "player: shuffle off, the playlist's order back on the same song" "False bbbbbbbbbbb" "$(get unshuffle)"
 expect "player: repeat the playlist wraps to the first song" "0" "$(get wrap)"
