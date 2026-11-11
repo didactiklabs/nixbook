@@ -256,7 +256,6 @@ Digit symbols: `ampersand`(1) `eacute`(2) `quotedbl`(3) `apostrophe`(4)
 | `l`       | Lock screen                 |
 | `e`       | Logout (exit Sway)          |
 | `s`       | Lock + suspend              |
-| `h`       | Hibernate                   |
 | `r`       | Reboot                      |
 | `Shift+s` | Shutdown / power off        |
 | `Shift+r` | Reboot into BIOS / firmware |

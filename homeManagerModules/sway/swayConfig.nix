@@ -49,7 +49,7 @@ let
     #GTK_USE_PORTAL = "1";
   };
   mod = "Mod4";
-  modeSystem = "System (l) lock, (e) logout, (s) suspend, (h) hibernate, (r) reboot, (Shift+s) shutdown, (Shift+r) BIOS";
+  modeSystem = "System (l) lock, (e) logout, (s) suspend, (r) reboot, (Shift+s) shutdown, (Shift+r) BIOS";
   modeResize = "Resize";
   ## Custom Workspace
   ## cf https://fontawesome.com/cheatsheet
@@ -371,7 +371,6 @@ in
               "e" = ''exec --no-startup-id ${swaymsg} exit, mode "default"'';
               "s" =
                 ''exec --no-startup-id ${swaylock} --color '${colorDarkGrey}' && sleep 1 && ${systemctl} suspend, mode "default"'';
-              "h" = ''exec --no-startup-id ${systemctl} hibernate, mode "default"'';
               "r" = ''exec --no-startup-id ${systemctl} reboot, mode "default"'';
               "Shift+s" = ''exec --no-startup-id ${systemctl} poweroff -i, mode "default"'';
               "Shift+r" = ''exec --no-startup-id ${systemctl} reboot --firmware-setup, mode "default"'';
