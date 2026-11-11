@@ -22,7 +22,9 @@ import QtQuick
  * playing, at} when something changes and every 20 s; listeners say join /
  * leave; `end` closes the session. Private sessions are sealed for their
  * member alone, like private messages. A listener who plays something else
- * or pauses stops following. Nothing is kept on disk.
+ * stops following; one who pauses is held (paused, caught up when they play
+ * again). What is shared or followed outlives a shell restart (a deploy, a
+ * crash): kept in the runtime dir, gone at logout. Nothing else is kept.
  */
 Singleton {
     id: root
@@ -219,6 +221,9 @@ Singleton {
     function start(conv, kind) {
         kind = kind ?? "music";
         if (!Mesh.configured) return Translation.tr("The mesh isn't set up");
+        // Already shared there: nothing to do (a second click used to end
+        // the session for everyone listening and start a new one).
+        if (root.hosting && root.hosting.to === (conv ?? "") && (root.hosting.kind ?? "music") === kind) return "";
         const p = root.shareablePlayer(kind);
         if (!p) {
             if (kind === "video")
@@ -229,8 +234,16 @@ Singleton {
                 return Translation.tr("Music playing in the browser can't be shared: play it in the YouTube Music (or Spotify) app instead");
             return Translation.tr("Play something in YouTube Music or Spotify first");
         }
-        if (root.following !== "") root.leave("");
-        if (root.hosting) root.stop();
+        let moved = "";
+        if (root.following !== "") {
+            const host = root.sessions[root.following];
+            root.leave("");
+            if (host) moved = Translation.tr("You stopped listening along with %1 to share yours").arg(host.hostName || Mesh.nameOf(host.host));
+        }
+        if (root.hosting) {
+            moved = Translation.tr("Your music was shared with %1: it is now shared here instead").arg(root.hosting.to === "" ? Translation.tr("everyone") : Mesh.nameOf(root.hosting.to));
+            root.stop();
+        }
         root.hosting = { sid: root._sid(), to: conv ?? "", bus: p.dbusName, kind: kind, listeners: {} };
         root.hostService = root.serviceOf(p);
         root.hostTrack = null;
@@ -238,7 +251,7 @@ Singleton {
         root._lastState = null;
         root._idleSince = 0;
         root._hostTick(true);
-        return "";
+        return moved;
     }
     function stop() {
         if (!root.hosting) return;
@@ -360,24 +373,55 @@ Singleton {
     function join(sid) {
         const s = root.sessions[sid];
         if (!s) return;
-        if (root.hosting) root.stop();
-        if (root.following !== "" && root.following !== sid) root.leave("");
+        // Already listening along: nothing restarts (the notification's
+        // Listen along clicked after joining, a double click).
+        if (root.following === sid) return;
+        let note = "";
+        if (root.hosting) {
+            note = Translation.tr("You stopped sharing your music to listen along with %1").arg(s.hostName || Mesh.nameOf(s.host));
+            root.stop();
+        }
+        if (root.following !== "") root.leave("");
+        root._rejoin = null;
         root.following = sid;
-        root.notice = "";
+        root.notice = note;
         root.followStatus = "";
         root._f = Object.assign(TrackMatch.fresh(), { jfFor: "", jfLocal: "", jfBusy: false, jfError: "", stateRecv: 0, seekAt: 0,
             launchedAt: 0, searched: "" });
         root._send({ to: s.to === "" ? "" : s.host, op: "join", sid: sid });
         root._followTick();
     }
-    function leave(reason) {
+    function leave(reason, rejoin) {
         const s = root.sessions[root.following];
         if (s) root._send({ to: s.to === "" ? "" : s.host, op: "leave", sid: s.sid });
+        // A session lost (its host silent): joined again by itself when it
+        // comes back within 10 minutes (`rejoin`); any other leave is the
+        // listener's, or the host's end.
+        root._rejoin = rejoin && s ? { sid: s.sid, host: s.host, to: s.to, until: Date.now() + 10 * 60 * 1000 } : null;
         root.following = "";
         root.followStatus = "";
         root.notice = reason ?? "";
     }
+    // { sid, until }: a session to join again by itself when its host's next
+    // state comes (lost to a network drop, or followed before a restart).
+    property var _rejoin: null
     property var _f: ({})
+    // Held (paused here): back with the host now, where they are (the
+    // card's Catch up), as pressing play does.
+    function catchUp() {
+        const f = root._f;
+        if (!f.held) return;
+        f.held = false;
+        f.heldSince = 0;
+        f.pausedSince = 0;
+        f.sawPlaying = false;
+        f.cmdAt = 0;
+        f.seekRecv = -1;
+        root.followStatus = "";
+        root._followTick();
+    }
+    // The host listened along to has said nothing for a minute.
+    property bool quiet: false
     // Spotify songs found on YouTube Music: { "spotify:<id>": videoId | null }.
     property var _matches: ({})
     function _followTick() {
@@ -398,6 +442,9 @@ Singleton {
             root._followJellyfin(s, f, now, target);
             return;
         }
+        // The host's states come every 20 s: none for a minute is a host gone
+        // quiet (their shell restarting, a network drop), not a next song.
+        root.quiet = now - s.recv > 60000;
         const key = `${s.service}:${s.track.id}`;
         let wantId = s.track.id;
         if (svc !== s.service) {
@@ -482,6 +529,21 @@ Singleton {
         if (f.opens === 0 && f.playerSince && now - f.playerSince < 2500 && root.trackOf(p)?.id !== wantId) {
             root.followStatus = "starting";
             return;
+        }
+        // Held (paused here): nothing is opened or played for them until
+        // they press play again (TrackMatch.playStep: "resume"), then the
+        // host's song, where the host is.
+        if (f.held) {
+            const act = TrackMatch.playStep(f, { now: now, hostPlaying: s.playing, localPlaying: p.isPlaying, hostRecv: s.recv });
+            if (act === "leave") {
+                root.leave(Translation.tr("You paused, so you stopped listening along with %1").arg(s.hostName || Mesh.nameOf(s.host)));
+                return;
+            }
+            if (act === "hold") {
+                root.followStatus = "held";
+                return;
+            }
+            f.seekRecv = -1; // "resume": caught up at once (seekStep sees news)
         }
         const step = TrackMatch.followStep(f, { now: now, wantId: wantId, want: s.track, cur: root.trackOf(p) });
         if (step.act === "leave") {
@@ -593,14 +655,15 @@ Singleton {
         f.syncedTo = wantId;
         f.lastPos = p.position ?? 0;
         f.lastLen = p.length > 0 ? p.length : 0;
-        // Play and pause as the host; a pause here that lasts 5 s (not at
+        // Play and pause as the host; a pause here that lasts 8 s (not at
         // the song's end, nor right after an open or the host's news) is
-        // the listener's: they stop listening along.
+        // the listener's: held (TrackMatch.playStep), not left.
         const act = TrackMatch.playStep(f, { now: now, hostPlaying: s.playing, localPlaying: p.isPlaying, hostRecv: s.recv });
-        if (act === "leave") {
-            root.leave(Translation.tr("You paused, so you stopped listening along with %1").arg(s.hostName || Mesh.nameOf(s.host)));
+        if (act === "hold") {
+            root.followStatus = "held";
             return;
         }
+        if (act === "resume") f.seekRecv = -1;
         if (act === "play" && p.canPlay) p.play();
         if (act === "pause" && p.canPause) p.pause();
         // To the host's position: after the open, on the host's news, else
@@ -748,13 +811,33 @@ Singleton {
             jf: d.jf ?? null,
             position: Number(d.position ?? 0), playing: !!d.playing, at: Number(d.at ?? Date.now()), recv: Date.now(),
             listeners: prev?.listeners ?? {} };
+        // The host shared again in the same conversation (a new session:
+        // their shell restarted, or they clicked share again): the listener
+        // goes on with it, without a sound (it used to end with "The
+        // session ended", listening along to be joined again by hand).
+        const replaced = root.following !== "" && root.following !== sid && root.sessions[root.following]?.host === from
+            && root.sessions[root.following]?.to === s.to;
         const next = {};
         for (const [id, x] of Object.entries(root.sessions))
             if (x.host !== from || id === sid) next[id] = x;
         next[sid] = s;
         root.sessions = next;
-        if (!prev && Date.now() - s.at < 60000) root._announce(s);
+        if (replaced) {
+            root.following = sid;
+            root._send({ to: s.to === "" ? "" : s.host, op: "join", sid: sid });
+            root.notice = "";
+        } else if (root._rejoin && root.following === "" && Date.now() < root._rejoin.until
+                && (root._rejoin.sid === sid || (root._rejoin.host === from && root._rejoin.to === s.to))) {
+            // Lost (a drop, a restart of either side) and back: joined again.
+            root.join(sid);
+            return;
+        }
+        if (!prev && !root._announced[sid] && Date.now() - s.at < 60000) root._announce(s);
+        root._announced[sid] = Date.now();
     }
+    // The sessions already announced (their notification): not again after
+    // the shell restarts (kept in the runtime file with the rest).
+    property var _announced: ({})
     function _put(s) {
         root.sessions = Object.assign({}, root.sessions, { [s.sid]: s });
     }
@@ -771,6 +854,12 @@ Singleton {
             const next = {};
             for (const [id, s] of Object.entries(root.sessions))
                 if (now - s.recv < (id === root.following ? 180000 : 75000)) next[id] = s;
+            // The one listened along to gone quiet: left, joined again by
+            // itself when its host is back (within 10 minutes).
+            if (root.following !== "" && !next[root.following]) {
+                const lost = root.sessions[root.following];
+                root.leave(Translation.tr("No news from %1 for 3 minutes: back to listening along as soon as they are").arg(lost.hostName || Mesh.nameOf(lost.host)), true);
+            }
             if (Object.keys(next).length !== Object.keys(root.sessions).length) root.sessions = next;
         }
     }
@@ -816,8 +905,64 @@ Singleton {
             }
         }
     }
-    Component.onDestruction: {
-        if (root.hosting) root.stop();
-        if (root.following !== "") root.leave("");
+    // A shell restart (a deploy, a crash) doesn't end listening together:
+    // nothing is sent when the shell goes (it used to `end` the session, or
+    // didn't manage to before it quit, and the listeners waited on a silent
+    // host); what is shared or followed is kept in the runtime dir (gone at
+    // logout or a reboot) and taken up again when the shell starts within
+    // 5 minutes: the same session, its listeners, the session followed
+    // (joined again at its host's next state).
+    FileView {
+        id: keepFile
+        path: `${Directories.runtimeTemp}/listen-along.json`
+        blockLoading: true
+        atomicWrites: true
+        printErrors: false
+    }
+    property bool _restored: false
+    function _keep() {
+        if (!root._restored || root.testSend !== null) return;
+        const now = Date.now();
+        const announced = {};
+        for (const [sid, at] of Object.entries(root._announced)) if (now - at < 30 * 60 * 1000) announced[sid] = at;
+        root._announced = announced;
+        const f = root.sessions[root.following];
+        keepFile.setText(JSON.stringify({ at: now,
+            hosting: root.hosting ? { sid: root.hosting.sid, to: root.hosting.to, kind: root.hosting.kind ?? "music", listeners: root.hosting.listeners ?? {} } : null,
+            following: f ? { sid: f.sid, host: f.host, to: f.to } : (root._rejoin ?? null), announced: announced }));
+    }
+    onHostingChanged: root._keep()
+    onFollowingChanged: root._keep()
+    Timer {
+        // Kept fresh (`at`) while there is something to take up again.
+        interval: 60000
+        repeat: true
+        running: root.hosting !== null || root.following !== "" || root._rejoin !== null
+        onTriggered: root._keep()
+    }
+    // What the runtime file held when the shell started; applied once the
+    // mesh is configured (Mesh.onConfiguredChanged calls restore()).
+    property var _atStart: null
+    Component.onCompleted: {
+        try {
+            root._atStart = JSON.parse(keepFile.text() || "null");
+        } catch (e) {}
+        if (!root._atStart) root._restored = true;
+        if (Mesh.configured) root.restore();
+    }
+    function restore() {
+        if (root._restored) return;
+        const k = root._atStart;
+        root._atStart = null;
+        const now = Date.now();
+        if (k && now - Number(k.at ?? 0) < 5 * 60 * 1000 && root.testSend === null) {
+            root._announced = k.announced ?? {};
+            if (k.hosting?.sid && !root.hosting)
+                root.hosting = { sid: k.hosting.sid, to: k.hosting.to ?? "", bus: "", kind: k.hosting.kind ?? "music", listeners: k.hosting.listeners ?? {} };
+            else if (k.following?.sid && root.following === "")
+                root._rejoin = { sid: k.following.sid, host: k.following.host ?? "", to: k.following.to ?? "", until: now + 5 * 60 * 1000 };
+        }
+        root._restored = true;
+        root._keep();
     }
 }

@@ -236,7 +236,29 @@ function play(f, now, local, recv) {
     acts.every((a) => a === "ok"),
     acts,
   );
-  check("paused 8 s: leave", play(f, 28000, false) === "leave");
+  check(
+    "paused 8 s: held, not left (a media key, a click by mistake)",
+    play(f, 28000, false) === "hold",
+  );
+  check(
+    "held: nothing played for them, the host playing on",
+    play(f, 60000, false) === "hold" && play(f, 600000, false) === "hold",
+  );
+  check(
+    "play pressed again: resume, caught up",
+    play(f, 601000, true) === "resume" && !f.held,
+  );
+  check("then playing along again", play(f, 602000, true) === "ok");
+  const acts2 = [];
+  for (let t = 700000; t <= 707000; t += 1000) acts2.push(play(f, t, false));
+  check(
+    "paused again: held again after 8 s",
+    acts2.every((a) => a === "ok") && play(f, 708000, false) === "hold",
+  );
+  check(
+    "held 30 minutes: they've moved on, leave",
+    play(f, 708000 + 30 * 60 * 1000, false) === "leave",
+  );
 }
 {
   const f = m.fresh();

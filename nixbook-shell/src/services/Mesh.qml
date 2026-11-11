@@ -734,6 +734,9 @@ Singleton {
         presenceDebounce.restart();
         profileSoon.restart();
         root._nextFetch();
+        // Listening together taken up again after a shell restart (it also
+        // creates MeshListen, a singleton made on first use).
+        MeshListen.restore();
     }
     Timer {
         id: presenceDebounce
