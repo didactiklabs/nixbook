@@ -551,6 +551,39 @@ in
     };
     systemd.timers.nh-clean.timerConfig.RandomizedDelaySec = "1h";
 
+    # Chromium — so every Electron app: Vesktop, Slack, YouTube Music… — never
+    # reconnects to PulseAudio: once pipewire-pulse restarts (a switch that
+    # changes PipeWire) its audio process keeps the dead connection, lists no
+    # microphone and plays nothing until the app is restarted ("pa_operation
+    # is nullptr" in its log; Vesktop said "No Input Devices", 2026-11-11).
+    # Each time pipewire-pulse starts, the audio processes older than it are
+    # ended; Chromium starts a new one at its next sound, the app keeps going.
+    systemd.user.services.chromium-audio-reconnect = {
+      description = "Chromium-based apps reconnected to a restarted PulseAudio server";
+      wantedBy = [ "pipewire-pulse.service" ];
+      after = [ "pipewire-pulse.service" ];
+      path = [
+        pkgs.procps
+        pkgs.coreutils
+        config.systemd.package
+      ];
+      serviceConfig.Type = "oneshot";
+      script = ''
+        pulse=$(systemctl --user show -p MainPID --value pipewire-pulse.service)
+        [ -n "$pulse" ] && [ "$pulse" != 0 ] || exit 0
+        up=$(ps -o etimes= -p "$pulse" | tr -d ' ')
+        [ -n "$up" ] || exit 0
+        for pid in $(pgrep -u "$(id -u)" -f -- '--utility-sub-type=audio\.mojom\.AudioService'); do
+          age=$(ps -o etimes= -p "$pid" | tr -d ' ')
+          # Older than this server (by more than a moment): connected to the last one.
+          if [ -n "$age" ] && [ "$age" -gt $((up + 5)) ]; then
+            echo "reconnecting $(ps -o args= -p "$(ps -o ppid= -p "$pid" | tr -d ' ')" | cut -c1-120)"
+            kill "$pid" || true
+          fi
+        done
+      '';
+    };
+
     # zram swap (compressed RAM) with disk fallback
     zramSwap = {
       enable = true;
