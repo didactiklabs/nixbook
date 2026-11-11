@@ -320,6 +320,9 @@ Singleton {
 	}
 	function streamFor(player) {
 		if (!player || root.playerSource(player) === "phone") return null;
+		// nixbook-ytmusic's player sets its mpv's volume from MPRIS; its keys
+		// (the YouTube Music app's desktop entry) would find the app's stream.
+		if (String(player.dbusName ?? "").includes("nixbook_ytmusic")) return null;
 		const keys = root.playerKeys(player);
 		if (keys.length === 0) return null;
 		const streams = Audio.outputAppNodes;

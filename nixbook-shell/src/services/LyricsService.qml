@@ -11,18 +11,30 @@ import qs.modules.common.functions
 Singleton {
     id: root
 
-    readonly property MprisPlayer activePlayer: MprisController.activePlayer
+    // The player whose lyrics are shown: the one the last shown Lyrics view
+    // asked for (the YouTube Music tab shows its own player's song, whatever
+    // the shell's current player is), else the shell's current player.
+    property var _requests: [] // [{view, player}], the latest last
+    readonly property MprisPlayer activePlayer: root._requests.length > 0
+        ? (root._requests[root._requests.length - 1].player ?? MprisController.activePlayer)
+        : MprisController.activePlayer
 
     property var lyricsLines: []
     property int activeIndex: -1
     property string status: "loading"
     property var slots: ["", "", "", "", "", "", ""]
 
-    // Shown Lyrics views (Lyrics.qml counts itself in): fetched and synced
-    // only for them, a track change marking the lyrics stale otherwise
-    // (lyrics are off by default, and each fetch is a Python + lrclib call).
-    property int consumers: 0
-    readonly property bool wanted: root.consumers > 0
+    // Shown Lyrics views (Lyrics.qml asks with want() and lets go with
+    // release()): fetched and synced only for them, a track change marking
+    // the lyrics stale otherwise (lyrics are off by default, and each fetch
+    // is a Python + lrclib call).
+    readonly property bool wanted: root._requests.length > 0
+    function want(view, player) {
+        root._requests = root._requests.filter(r => r.view !== view).concat([{ view: view, player: player ?? null }])
+    }
+    function release(view) {
+        root._requests = root._requests.filter(r => r.view !== view)
+    }
     property bool _stale: true
     onWantedChanged: if (root.wanted && root._stale) root.restartLyrics()
 
@@ -72,6 +84,13 @@ Singleton {
                 const trimmed = data.trim()
                 if (trimmed === "not_found") { root.status = "not_found"; return }
                 if (trimmed === "no_info")   { root.status = "no_info";   return }
+                // lrclib couldn't be reached: asked again a little later
+                // (it used to say "no lyrics" until the next song).
+                if (trimmed === "error") {
+                    if (root._retries < 2) { root._retries++; retryTimer.restart() }
+                    else root.status = "not_found"
+                    return
+                }
 
                 const parts = trimmed.split("§")
                 if (parts.length < 3) return
@@ -94,7 +113,16 @@ Singleton {
         }
     }
 
+    property int _retries: 0
+    Timer {
+        id: retryTimer
+        interval: 6000
+        onTriggered: if (root.wanted && root.status === "loading") root._fetch()
+    }
+
     function restartLyrics() {
+        root._retries = 0
+        retryTimer.stop()
         root._stale = false
         lyricsProc.running = false
         root.lyricsLines = []
@@ -107,13 +135,18 @@ Singleton {
         const duration = root.activePlayer?.length       ?? 0
 
         if (!title || !artist) { root.status = "no_info"; return }
-
-        lyricsProc.command = [
+        root._fetch()
+    }
+    function _fetch() {
+        const title    = root.activePlayer?.trackTitle  ?? ""
+        const artist   = root.activePlayer?.trackArtist ?? ""
+        const duration = root.activePlayer?.length       ?? 0
+        if (!title || !artist) { root.status = "no_info"; return }
+        lyricsProc.exec([
             "python3",
             `${Directories.scriptPath}/lyrics/lyrics.py`,
             title, artist, String(Math.floor(duration))
-        ]
-        lyricsProc.running = true
+        ])
     }
 
     Connections {
@@ -123,7 +156,11 @@ Singleton {
             else root._stale = true
         }
     }
+    // Re-evaluated on every want()/release(): only a different player counts.
+    property MprisPlayer _lastPlayer: null
     onActivePlayerChanged: {
+        if (root.activePlayer === root._lastPlayer) return
+        root._lastPlayer = root.activePlayer
         if (root.wanted) root.restartLyrics()
         else root._stale = true
     }
