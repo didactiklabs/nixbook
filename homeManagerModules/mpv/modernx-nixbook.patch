@@ -89,3 +89,23 @@
      --tog_info
      ne = new_element('tog_info', 'button')
      ne.content = icons.info
+@@ -2243,6 +2278,19 @@
+ }
+ 
+ -- called by mpv on every frame
++-- nixbook: tick() calls this when a fade runs past its deadline (a busy
++-- or hidden window), but modernx 0.6.1 never defines it: the script died
++-- ("attempt to call global 'kill_animation'") and the controls were gone
++-- until mpv restarted. As mpv's own osc.lua, plus the fade-out's end.
++function kill_animation()
++    if state.anitype == 'out' then
++        osc_visible(false)
++    end
++    state.anistart = nil
++    state.animation = nil
++    state.anitype = nil
++end
++
+ function tick()
+     if (not state.enabled) then return end
+ 
