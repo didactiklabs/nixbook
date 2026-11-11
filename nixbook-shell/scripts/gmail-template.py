@@ -114,6 +114,12 @@ def style_less(text, lib):
 # Gmail's class names where they can be. Placeholders as in the template.
 EXTRA = """
 /* nixbook additions (scripts/gmail-template.py's EXTRA) */
+/* Compose: the message body's container (.qz.aiL), white under the
+ * editor Catppuccin darkens: a white band showed between the text and the
+ * formatting toolbar. */
+:root .qz.aiL {
+  background-color: {{colors.surface.default.hex}} !important;
+}
 /* Compose: text given its own colour (a signature made for white paper)
  * shown in the theme's text colour, links in its accent. Only how it is
  * shown while writing: the mail sent keeps its colours. (Not skipping text
