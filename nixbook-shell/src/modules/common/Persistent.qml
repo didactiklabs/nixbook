@@ -97,12 +97,18 @@ Singleton {
                     property bool pinned: false
                     property bool open: false
                     property string screen: ""
+                    // Closed with its key while pinned (Mod+Space): unpinned
+                    // for now, pinned again when that key opens it.
+                    property bool parked: false
                 }
                 // The right sidebar pinned (the header's pin, Ctrl+P), on the
                 // monitor it was pinned on: always open, it comes back so.
                 property JsonObject right: JsonObject {
                     property bool pinned: false
                     property string screen: ""
+                    // Closed with its key while pinned (Mod+N): unpinned for
+                    // now, pinned again when that key opens it.
+                    property bool parked: false
                 }
             }
 

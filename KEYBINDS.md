@@ -37,26 +37,26 @@ Niri is column/scroll based; it has no numbered workspaces (workspaces stack ver
 
 ### Applications & shell
 
-| Keybind            | Action (DMS)                                             | Action (nixbook-shell)                                      |
-| ------------------ | -------------------------------------------------------- | ----------------------------------------------------------- |
-| `Mod+Return`       | Launch Kitty terminal                                    | Launch Kitty terminal                                       |
-| `Mod+D`            | Spotlight app launcher                                   | Launcher / search overlay                                   |
-| `Mod+Q`            | Toggle clipboard manager                                 | Launcher in clipboard-history mode                          |
-| `Mod+N`            | Toggle notification center                               | Toggle right sidebar (notifications, toggles)               |
-| `Mod+B`            | Toggle top bar (+ dock when `showDock` is enabled)       | Toggle top bar                                              |
-| `Mod+O`            | Toggle dash overview                                     | Toggle workspaces overview                                  |
-| `Mod+W`            | Open wallpaper picker / dankdash                         | Open wallpaper selector                                     |
-| `Mod+L`            | Power menu                                               | Session screen (power menu)                                 |
-| `Mod+Space`        | Toggle Sathi AI assistant widget                         | Toggle left sidebar (AI chat, translator)                   |
-| `Mod+I`            | Toggle idle inhibitor                                    | Start/stop `hypridle` (idle inhibit)                        |
-| `Mod+Escape`       | —                                                        | Toggle Settings panel                                       |
-| `Mod+X`            | —                                                        | Launcher in theme/variant switcher mode                     |
-| `Mod+G`            | —                                                        | Launcher as window layout picker (restore / save / delete)  |
-| `Mod+Shift+Escape` | —                                                        | Pause / allow AI desktop control (every agent)              |
-| `Mod+C`            | — (Center column)                                        | Ask DAI in its speech bubble (again: put it away)           |
-| `Mod+K`            | —                                                        | Kiroshi scan: a brief of what's going on, tasks to hand off |
-| `Mod+Alt+V`        | —                                                        | Smart clipboard: run the first action offered for a copy    |
-| `Ctrl+Space`       | Toggle fcitx5 input method (when `fcitx5Config` enabled) | same                                                        |
+| Keybind            | Action (DMS)                                             | Action (nixbook-shell)                                                  |
+| ------------------ | -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `Mod+Return`       | Launch Kitty terminal                                    | Launch Kitty terminal                                                   |
+| `Mod+D`            | Spotlight app launcher                                   | Launcher / search overlay                                               |
+| `Mod+Q`            | Toggle clipboard manager                                 | Launcher in clipboard-history mode                                      |
+| `Mod+N`            | Toggle notification center                               | Toggle right sidebar (pinned: closes it, frees its room; again: pinned) |
+| `Mod+B`            | Toggle top bar (+ dock when `showDock` is enabled)       | Toggle top bar                                                          |
+| `Mod+O`            | Toggle dash overview                                     | Toggle workspaces overview                                              |
+| `Mod+W`            | Open wallpaper picker / dankdash                         | Open wallpaper selector                                                 |
+| `Mod+L`            | Power menu                                               | Session screen (power menu)                                             |
+| `Mod+Space`        | Toggle Sathi AI assistant widget                         | Toggle left sidebar (pinned: closes it, frees its room; again: pinned)  |
+| `Mod+I`            | Toggle idle inhibitor                                    | Start/stop `hypridle` (idle inhibit)                                    |
+| `Mod+Escape`       | —                                                        | Toggle Settings panel                                                   |
+| `Mod+X`            | —                                                        | Launcher in theme/variant switcher mode                                 |
+| `Mod+G`            | —                                                        | Launcher as window layout picker (restore / save / delete)              |
+| `Mod+Shift+Escape` | —                                                        | Pause / allow AI desktop control (every agent)                          |
+| `Mod+C`            | — (Center column)                                        | Ask DAI in its speech bubble (again: put it away)                       |
+| `Mod+K`            | —                                                        | Kiroshi scan: a brief of what's going on, tasks to hand off             |
+| `Mod+Alt+V`        | —                                                        | Smart clipboard: run the first action offered for a copy                |
+| `Ctrl+Space`       | Toggle fcitx5 input method (when `fcitx5Config` enabled) | same                                                                    |
 
 nixbook-shell binds all spawn `nixbook-shell ipc call <target> <function>`.
 
