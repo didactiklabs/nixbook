@@ -25,16 +25,60 @@ let
       ]
     }:$PATH
 
+    force=''${OSUPDATE_FORCE:-0} wait_cache=1
+    for arg in "$@"; do
+      case "$arg" in
+      --force) force=1 ;;
+      --no-wait) wait_cache=0 ;;
+      *)
+        echo "usage: osupdate [--force] [--no-wait]" >&2
+        exit 2
+        ;;
+      esac
+    done
+    [ "''${OSUPDATE_NO_WAIT:-0}" = 1 ] && wait_cache=0
+
     ${lib.optionalString config.networking.networkmanager.enable ''
       # Network preflight, skipped with `osupdate --force` (or OSUPDATE_FORCE=1).
-      if [ "''${1:-}" != "--force" ] && [ "''${OSUPDATE_FORCE:-0}" != 1 ] \
-        && ! ${pkgs.networkmanager}/bin/nm-online -q -t 30; then
+      if [ "$force" != 1 ] && ! ${pkgs.networkmanager}/bin/nm-online -q -t 30; then
         echo "error: no network connection (use osupdate --force to try anyway)" >&2
         exit 1
       fi
     ''}
 
-    target="$(git ls-remote https://github.com/didactiklabs/nixbook refs/heads/main | awk '{print $1}')"
+    main_rev() {
+      git ls-remote https://github.com/didactiklabs/nixbook refs/heads/main | awk '{print $1}'
+    }
+    target="$(main_rev)"
+
+    # Wait until CI has pushed this revision's systems to the binary cache
+    # (build.yaml's cache-ready job writes nixbook/revs/<rev> once the push
+    # is over): applying right after a merge, as the update widget invites,
+    # built everything here — the push lands ~30 min after the merge, so not
+    # one path came from the cache in two weeks of updates on totoro. main
+    # is read again each time, so a newer merge (whose run replaces this
+    # one's) is waited for instead. After OSUPDATE_CACHE_WAIT minutes
+    # (default 45), or with --no-wait / OSUPDATE_NO_WAIT=1, it goes ahead
+    # and builds what isn't cached.
+    if [ "$wait_cache" = 1 ]; then
+      cache=https://s3.didactiklabs.io/nix-cache/nixbook/revs
+      limit=$((''${OSUPDATE_CACHE_WAIT:-45} * 60)) waited=0
+      while true; do
+        if mark=$(${pkgs.curl}/bin/curl -sfL --max-time 10 "$cache/$target" 2>/dev/null); then
+          echo "CI has cached revision ''${target:0:8} ($(${pkgs.jq}/bin/jq -r '.result // "?"' <<<"$mark" 2>/dev/null))"
+          break
+        fi
+        if [ "$waited" -ge "$limit" ]; then
+          echo "warning: CI hasn't cached revision ''${target:0:8} after $((waited / 60)) min, building what isn't cached" >&2
+          break
+        fi
+        echo "waiting for CI to cache revision ''${target:0:8} ($((waited / 60))/$((limit / 60)) min, osupdate --no-wait skips this)"
+        sleep 30
+        waited=$((waited + 30))
+        if newer="$(main_rev)" && [ -n "$newer" ]; then target=$newer; fi
+      done
+    fi
+
     echo last applied revision: $(${pkgs.jq}/bin/jq -r .rev /etc/nixos/version)
     echo applying revision: "$target"...
 
@@ -70,7 +114,8 @@ in
         - DS4 controller: user systemd service running ds4drv in HID-raw + xpad emulation
           mode for DualShock 4 controllers
         - osupdate: shell script that applies the latest nixbook main branch via ginx +
-          colmena apply-local
+          colmena apply-local, once CI has pushed that revision to the binary cache
+          (up to 45 min; `--no-wait` skips the wait)
         - udev: game-devices rules, and uinput for the users (the uinput group, which
           every nixbook user is in, and the active seat), not every local account
 

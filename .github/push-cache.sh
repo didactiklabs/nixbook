@@ -3,6 +3,13 @@
 # job), only the paths cache.nixos.org doesn't serve.
 #
 #   push-cache.sh BUILD...    (store paths: the systems' toplevels)
+#   push-cache.sh --mark REV RESULT
+#
+# --mark writes nixbook/revs/REV ({rev, result, time}) to the bucket once
+# a main commit's push is over, whatever RESULT (success, failure,
+# skipped): osupdate waits for it before applying REV, so a machine
+# updated right after a merge fetches the systems instead of building
+# them itself (it always did: the push lands ~30 min after the merge).
 #
 # `nix copy` to a binary cache refuses a path whose references aren't in
 # that same cache ("cannot add ... because the reference ... does not
@@ -35,22 +42,35 @@ work=${RUNNER_TEMP:-$(mktemp -d)}/push-cache
 rm -rf "$work"
 mkdir -p "$work/stage"
 
+# Path-style requests: the endpoint isn't AWS. Checksums only when the
+# operation requires them: awscli ≥ 2.23 sends a CRC on every upload by
+# default, and the cache's S3 refuses it on multipart ones ("invalid/unknown
+# checksum sent"), so every NAR over the multipart threshold failed (since
+# 2026-10-31).
+export AWS_CONFIG_FILE="$work/aws-config"
+printf '[default]\nregion = us-east-1\nrequest_checksum_calculation = when_required\nresponse_checksum_validation = when_required\ns3 =\n  addressing_style = path\n' >"$AWS_CONFIG_FILE"
+
+if [ "${1:-}" = --mark ]; then
+  rev=${2:?usage: push-cache.sh --mark REV RESULT} result=${3:?usage: push-cache.sh --mark REV RESULT}
+  jq -nc --arg rev "$rev" --arg result "$result" --argjson time "$(date +%s)" \
+    '{rev: $rev, result: $result, time: $time}' |
+    aws s3 cp --endpoint-url "$S3_ENDPOINT" --only-show-errors --content-type application/json \
+      - "s3://$S3_BUCKET/nixbook/revs/$rev"
+  echo "marked $rev ($result)"
+  exit 0
+fi
+
 nix path-info --recursive "$@" | sort -u >"$work/closure"
 
-# present LIST STORE: the paths of LIST that STORE has.
+# present LIST URL: the paths of LIST that the binary cache at URL has,
+# 32 narinfo requests at a time. `nix path-info --store URL` asked them one
+# by one: ~4.5 min for a 4,400-path closure. A request that still fails
+# after the retries counts as missing (the path is pushed again: harmless).
 present() {
-  # Not "out": nix-shell exports $out, and a local of that name stays
-  # exported, so its megabytes of JSON made every later exec fail with
-  # "Argument list too long".
-  local info
-  mapfile -t paths <"$1"
-  [ "${#paths[@]}" -gt 0 ] || return 0
-  # Missing paths: null values (Nix >= 2.19), or "valid": false entries in
-  # older Nix's array output. A store that can't be queried has none.
-  info=$(nix path-info --json --option narinfo-cache-negative-ttl 0 --store "$2" "${paths[@]}" 2>/dev/null) || true
-  [ -n "$info" ] || return 0
-  jq -r 'if type == "array" then .[] | select(.valid != false) | .path
-    else to_entries[] | select(.value != null) | .key end' <<<"$info" | sort -u
+  [ -s "$1" ] || return 0
+  # shellcheck disable=SC2016
+  xargs -P 32 -n 1 sh -c 'h=${1##*/}; h=${h%%-*}
+    if curl -sfIL --retry 3 -o /dev/null "$0/$h.narinfo"; then echo "$1"; fi' "$2" <"$1" | sort -u
 }
 
 present "$work/closure" "$upstream_url" >"$work/upstream"
@@ -66,27 +86,21 @@ fi
 nix-store --query --requisites "$@" | grep -Fxf "$work/todo" >"$work/todo-ordered"
 mapfile -t todo <"$work/todo-ordered"
 
-# The references outside what is pushed now: their narinfos, staged.
+# The references outside what is pushed now: their narinfos, staged, 32 at
+# a time (one by one took ~4 min for ~1,200). xargs stops at the first
+# reference found in neither cache (exit 255).
 nix-store --query --references "${todo[@]}" | sort -u | comm -23 - "$work/todo" >"$work/refs"
-while read -r ref; do
-  h=$(basename "$ref" | cut -d- -f1)
-  curl -sfL --retry 3 "$upstream_url/$h.narinfo" -o "$work/stage/$h.narinfo" ||
-    curl -sfL --retry 3 "$CACHE_URL/$h.narinfo" -o "$work/stage/$h.narinfo" || {
-    echo "::error::$ref is neither on cache.nixos.org nor in our cache" >&2
-    exit 1
-  }
-done <"$work/refs"
+# shellcheck disable=SC2016
+xargs -P 32 -n 1 sh -c 'h=${3##*/}; h=${h%%-*}
+  curl -sfL --retry 3 "$0/$h.narinfo" -o "$2/$h.narinfo" ||
+    curl -sfL --retry 3 "$1/$h.narinfo" -o "$2/$h.narinfo" || {
+    echo "::error::$3 is neither on cache.nixos.org nor in our cache" >&2
+    exit 255
+  }' "$upstream_url" "$CACHE_URL" "$work/stage" <"$work/refs"
 echo "$(wc -l <"$work/refs") references staged"
 
 key=${CACHE_KEY:+&secret-key=$CACHE_KEY}
 
-# Path-style requests: the endpoint isn't AWS. Checksums only when the
-# operation requires them: awscli ≥ 2.23 sends a CRC on every upload by
-# default, and the cache's S3 refuses it on multipart ones ("invalid/unknown
-# checksum sent"), so every NAR over the multipart threshold failed (since
-# 2026-10-31).
-export AWS_CONFIG_FILE="$work/aws-config"
-printf '[default]\nregion = us-east-1\nrequest_checksum_calculation = when_required\nresponse_checksum_validation = when_required\ns3 =\n  addressing_style = path\n' >"$AWS_CONFIG_FILE"
 upload() { # DIR DEST CONTENT-TYPE
   aws s3 sync --endpoint-url "$S3_ENDPOINT" --only-show-errors --content-type "$3" "$1" "s3://$S3_BUCKET/$2"
 }
