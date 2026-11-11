@@ -599,6 +599,7 @@ Singleton {
                     property JsonObject apps: JsonObject {
                         property bool qt: true
                         property bool vesktop: true
+                        property bool youtubeMusic: true
                         property bool zen: true
                     }
                     property bool enableTerminal: true

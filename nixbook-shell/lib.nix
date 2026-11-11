@@ -44,7 +44,6 @@ rec {
     "ai.initiative.pairReadScreen"
     "ai.teach"
     "appearance.wallpaperTheming.apps.slack"
-    "appearance.wallpaperTheming.apps.youtubeMusic"
     "apps.manageUser"
     "apps.update"
     "background.hideWhenFullscreen"

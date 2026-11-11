@@ -159,6 +159,17 @@ ContentPage {
                 ConfigRow {
                     uniform: true
                     ConfigSwitch {
+                        configKey: "appearance.wallpaperTheming.apps.youtubeMusic";
+                        enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;
+                        buttonIcon: "music_note"
+                        text: Translation.tr("YouTube Music")
+                        checked: Config.options.appearance.wallpaperTheming.apps.youtubeMusic
+                        onCheckedChanged: { Config.options.appearance.wallpaperTheming.apps.youtubeMusic = checked }
+                        StyledToolTip {
+                            text: Translation.tr("Live, through its bridge: always dark (the app has no light look), in the theme's colours")
+                        }
+                    }
+                    ConfigSwitch {
                         configKey: "appearance.wallpaperTheming.apps.zen";
                         enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;
                         buttonIcon: "public"

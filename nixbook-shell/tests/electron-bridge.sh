@@ -399,6 +399,43 @@ stop_launchers
 expect_contains "restart: only a bridged app" \
   "$(python3 "$bridge" --config "$tmp/bridge.json" restart slack 2>&1 || true)" "one of discord"
 
+# -- the shell's colours (`style`, YouTube Music only) -----------------------
+styles() { jq -c 'select(.eval == "style") | [.length, .isolated]' "$FAKE_CDP_LOG"; }
+css="$XDG_STATE_HOME/quickshell/user/generated/apps/youtube-music.css"
+mkdir -p "$(dirname "$css")"
+printf 'body { color: red !important; }\n' >"$css"
+: >"$FAKE_CDP_LOG"
+python3 "$bridge" --page-js "$root/zen/page.js" --adapters "$root/electron" youtube-music -- python3 "$fake" &
+yt_pid=$!
+yt_sock="$XDG_RUNTIME_DIR/nixbook-electron/youtube-music.sock"
+for _ in $(seq 1 100); do
+  [ -n "$(styles)" ] && break
+  sleep 0.05
+done
+expect_eq "style: in the page once it has loaded, in an isolated world" "[$(wc -c <"$css"),true]" "$(styles | head -n1)"
+out=$(sock=$yt_sock ask '{"cmd":"style","css":"* { display: none }"}')
+expect_eq "style: from the file only (a client's CSS ignored)" '{"ok": true, "result": {"styled": true}}|'"[$(wc -c <"$css"),true]" \
+  "$out|$(styles | tail -n1)"
+rm "$css"
+out=$(sock=$yt_sock ask '{"cmd":"style"}')
+expect_eq "style: no file, the app's own look again" '{"ok": true, "result": {"styled": false}}|[0,true]' "$out|$(styles | tail -n1)"
+kill "$yt_pid" 2>/dev/null || true
+wait "$yt_pid" 2>/dev/null || true
+refused=$(
+  python3 - "$bridge" <<'EOF'
+import importlib.util, sys
+s = importlib.util.spec_from_file_location("b", sys.argv[1]); b = importlib.util.module_from_spec(s); s.loader.exec_module(b)
+class Cdp:
+    on_event = None
+    def call(self, *a, **k): raise AssertionError("no page call for an app that isn't coloured")
+try:
+    b.Bridge("discord", Cdp(), "").op_style({})
+except b.Refused as e:
+    print(e)
+EOF
+)
+expect_contains "style: only the apps the shell colours" "$refused" "isn't coloured by the shell"
+
 if [ "$failures" -gt 0 ]; then
   echo "$failures failure(s)"
   exit 1

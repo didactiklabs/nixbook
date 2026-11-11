@@ -11,23 +11,33 @@
 #   (com.github.th-ch.youtube-music) so docks and window lists find its icon,
 #   plus a hidden `pear-desktop.desktop` alias: saved window layouts and the
 #   desktop agents' memory launch it by that id.
-# - the "performance-improvement" plugin (on by default) turned off once, the
-#   first time it is launched with a config that doesn't mention it (a choice
-#   made in its Plugins menu is kept). Its "CPU Tamer by AnimationFrame" runs
-#   a 1 ms infinite CSS animation on a hidden element as a timer clock: a
-#   style recalc on every frame, ~45% CPU on the page's main thread. It skips
-#   itself without WebGL, which is why the AppImage never paid for it.
+# - the "performance-improvement" plugin ("Performance improvement [Beta]")
+#   turned off at every start. Its "CPU Tamer by AnimationFrame" runs a 1 ms
+#   infinite CSS animation on a hidden element as a timer clock: a style
+#   recalc on every frame while the window shows (measured on totoro's
+#   2880x1800 at 1.6, the home page idle: renderer 22 % CPU with it, 8 %
+#   without; over a day of use it averaged 25 %). Its name makes it look
+#   worth turning on, so a choice made in the Plugins menu doesn't stick.
+# - the menu bar hidden once (Options > hide menu, Alt shows it): Electron
+#   draws it itself on Wayland, a light strip over the dark app. Shown again
+#   from the app, it stays (.nixbook-defaults remembers what was set once).
 { pkgs }:
 let
   inherit (pkgs) lib;
   app = pkgs.pear-desktop;
   appId = "com.github.th-ch.youtube-music";
   launcher = pkgs.writeShellScript "pear-desktop" ''
-    cfg="''${XDG_CONFIG_HOME:-$HOME/.config}/YouTube Music/config.json"
-    if [ -f "$cfg" ] && ! ${lib.getExe pkgs.jq} -e '.plugins | has("performance-improvement")' "$cfg" >/dev/null 2>&1; then
+    dir="''${XDG_CONFIG_HOME:-$HOME/.config}/YouTube Music"
+    cfg="$dir/config.json" once="$dir/.nixbook-defaults"
+    # config.json is written by the app on its first start: from the next one.
+    if [ -f "$cfg" ]; then
+      filter='.plugins["performance-improvement"].enabled = false'
+      ${lib.getExe pkgs.gnugrep} -qx hideMenu "$once" 2>/dev/null || filter="$filter | .options.hideMenu = true"
       tmp=$(mktemp "$cfg.XXXXXX") \
-        && ${lib.getExe pkgs.jq} '.plugins["performance-improvement"] = {enabled: false}' "$cfg" >"$tmp" \
-        && mv "$tmp" "$cfg" || rm -f "$tmp"
+        && ${lib.getExe pkgs.jq} "$filter" "$cfg" >"$tmp" \
+        && { ${pkgs.diffutils}/bin/cmp -s "$tmp" "$cfg" && rm -f "$tmp" || mv "$tmp" "$cfg"; } \
+        && { ${lib.getExe pkgs.gnugrep} -qx hideMenu "$once" 2>/dev/null || echo hideMenu >>"$once"; } \
+        || rm -f "$tmp"
     fi
     exec ${lib.getExe app} "$@"
   '';
