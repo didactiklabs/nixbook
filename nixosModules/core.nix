@@ -316,6 +316,16 @@ in
       overskride
     ];
     services = {
+      # AMD's firmware TPM stops answering random-number requests after s2idle:
+      # the kernel's hwrng thread then logged "tpm tpm0: A TPM error (256)
+      # occurred attempting get random" every 10 s until the next reboot
+      # (~3,800 lines a day on totoro). No hardware RNG source: the thread
+      # stops, the kernel CRNG keeps RDSEED/RDRAND and jitter entropy.
+      # rng_core.default_quality=0 doesn't help (the thread runs regardless),
+      # and the TPM registers its hwrng before its own uevent, so this runs after.
+      udev.extraRules = ''
+        ACTION=="add", SUBSYSTEM=="tpm", KERNEL=="tpm[0-9]*", TEST=="/sys/class/misc/hw_random/rng_current", RUN+="${pkgs.runtimeShell} -c 'echo none > /sys/class/misc/hw_random/rng_current'"
+      '';
       # The journal reached 3 GB (journald's default cap is 10% of the
       # filesystem, up to 4 GB); 1 GB still keeps weeks of boots.
       journald.settings.Journal.SystemMaxUse = "1G";

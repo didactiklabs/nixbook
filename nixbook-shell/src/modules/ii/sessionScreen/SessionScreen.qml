@@ -145,7 +145,7 @@ Scope {
                                 sessionRoot.subtitle = buttonText;
                         }
                         KeyNavigation.right: sessionSleep
-                        KeyNavigation.down: sessionHibernate
+                        KeyNavigation.down: sessionShutdown
                     }
                     SessionActionButton {
                         id: sessionSleep
@@ -161,7 +161,7 @@ Scope {
                         }
                         KeyNavigation.left: sessionLock
                         KeyNavigation.right: sessionLogout
-                        KeyNavigation.down: sessionShutdown
+                        KeyNavigation.down: sessionReboot
                     }
                     SessionActionButton {
                         id: sessionLogout
@@ -177,7 +177,7 @@ Scope {
                         }
                         KeyNavigation.left: sessionSleep
                         KeyNavigation.right: sessionTaskManager
-                        KeyNavigation.down: sessionReboot
+                        KeyNavigation.down: sessionFirmwareReboot
                     }
                     SessionActionButton {
                         id: sessionTaskManager
@@ -196,21 +196,6 @@ Scope {
                     }
 
                     SessionActionButton {
-                        id: sessionHibernate
-                        buttonIcon: "downloading"
-                        buttonText: Translation.tr("Hibernate")
-                        onClicked: {
-                            Session.hibernate();
-                            sessionRoot.hide();
-                        }
-                        onFocusChanged: {
-                            if (focus)
-                                sessionRoot.subtitle = buttonText;
-                        }
-                        KeyNavigation.up: sessionLock
-                        KeyNavigation.right: sessionShutdown
-                    }
-                    SessionActionButton {
                         id: sessionShutdown
                         buttonIcon: "power_settings_new"
                         buttonText: Translation.tr("Shutdown")
@@ -222,9 +207,8 @@ Scope {
                             if (focus)
                                 sessionRoot.subtitle = buttonText;
                         }
-                        KeyNavigation.left: sessionHibernate
                         KeyNavigation.right: sessionReboot
-                        KeyNavigation.up: sessionSleep
+                        KeyNavigation.up: sessionLock
                     }
                     SessionActionButton {
                         id: sessionReboot
@@ -240,7 +224,7 @@ Scope {
                         }
                         KeyNavigation.left: sessionShutdown
                         KeyNavigation.right: sessionFirmwareReboot
-                        KeyNavigation.up: sessionLogout
+                        KeyNavigation.up: sessionSleep
                     }
                     SessionActionButton {
                         id: sessionFirmwareReboot
@@ -254,7 +238,7 @@ Scope {
                             if (focus)
                                 sessionRoot.subtitle = buttonText;
                         }
-                        KeyNavigation.up: sessionTaskManager
+                        KeyNavigation.up: sessionLogout
                         KeyNavigation.left: sessionReboot
                     }
                 }

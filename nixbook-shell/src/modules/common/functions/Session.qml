@@ -72,10 +72,6 @@ Singleton {
         AppLaunch.spawnShell(Config.options.apps.taskManager);
     }
 
-    function hibernate() {
-        Quickshell.execDetached(["bash", "-c", `systemctl hibernate || loginctl hibernate`]);
-    }
-
     // "poweroff" or "reboot" from the click until the machine goes down
     // (closing the apps, then systemd's shutdown, take a while): the lock
     // screen shows it. Cleared if systemd refuses.
