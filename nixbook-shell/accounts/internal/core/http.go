@@ -71,19 +71,27 @@ func Endpoint(env, fallback string) string {
 // Call sends a JSON body (or a form) and decodes the JSON answer into
 // out (when not nil). Rate limited (429): one more try after the wait asked.
 func Call(method, rawURL string, body any, form url.Values, token string, out any) error {
+	var data []byte
+	contentType := ""
+	if form != nil {
+		data = []byte(form.Encode())
+		contentType = "application/x-www-form-urlencoded"
+	} else if body != nil {
+		var err error
+		if data, err = json.Marshal(body); err != nil {
+			return err
+		}
+		contentType = "application/json"
+	}
+	return CallRaw(method, rawURL, contentType, data, token, out)
+}
+
+// CallRaw sends data as it is (a mail upload), the answer as Call's.
+func CallRaw(method, rawURL, contentType string, data []byte, token string, out any) error {
 	for attempt := 0; ; attempt++ {
 		var reader io.Reader
-		contentType := ""
-		if form != nil {
-			reader = strings.NewReader(form.Encode())
-			contentType = "application/x-www-form-urlencoded"
-		} else if body != nil {
-			data, err := json.Marshal(body)
-			if err != nil {
-				return err
-			}
+		if data != nil {
 			reader = bytes.NewReader(data)
-			contentType = "application/json"
 		}
 		req, err := http.NewRequest(method, rawURL, reader)
 		if err != nil {
@@ -104,7 +112,7 @@ func Call(method, rawURL string, body any, form url.Values, token string, out an
 			}
 			return Errorf("can't reach %s: %v", host(rawURL), err)
 		}
-		data, err := ReadCapped(resp.Body)
+		body, err := ReadCapped(resp.Body)
 		resp.Body.Close()
 		if err != nil {
 			return Errorf("can't reach %s: %v", host(rawURL), err)
@@ -115,12 +123,12 @@ func Call(method, rawURL string, body any, form url.Values, token string, out an
 			continue
 		}
 		if resp.StatusCode >= 300 {
-			return apiError(resp.StatusCode, data)
+			return apiError(resp.StatusCode, body)
 		}
-		if out == nil || len(bytes.TrimSpace(data)) == 0 {
+		if out == nil || len(bytes.TrimSpace(body)) == 0 {
 			return nil
 		}
-		return json.Unmarshal(data, out)
+		return json.Unmarshal(body, out)
 	}
 }
 

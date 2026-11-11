@@ -301,6 +301,7 @@ in
         slack = "slack";
         pear-desktop = "youtube-music";
         actual-budget = "actual";
+        meru = "gmail";
       };
       description = ''
         The apps bridged, by the name of the binary nixbook wraps → the

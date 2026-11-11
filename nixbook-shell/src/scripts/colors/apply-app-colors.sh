@@ -13,6 +13,8 @@
 #   youtube-music: CSS its Electron bridge (electron-bridge.py's `style`) puts
 #     in the running app's page, and again after each load of it; the app
 #     only has a dark look, so it gets the palette's dark version.
+#   gmail: the same for Meru (Gmail's app, bridged as "gmail"), in each of
+#     its Gmail pages (one per account); light or dark as the palette is.
 #   zen: the CSS imported by each profile's userChrome.css (zen-theme.py);
 #     Zen only reads it at startup, so a running Zen offers a restart.
 # An app switched off gets its setup undone (Qt: its files just stop being
@@ -37,6 +39,8 @@ vesktop_settings="$XDG_CONFIG_HOME/vesktop/settings/settings.json"
 ytm_css="$APPS_DIR/youtube-music.css"
 ytm_settings="$XDG_CONFIG_HOME/YouTube Music/config.json"
 ytm_socket="$XDG_RUNTIME_DIR/nixbook-electron/youtube-music.sock"
+gmail_css="$APPS_DIR/gmail.css"
+gmail_socket="$XDG_RUNTIME_DIR/nixbook-electron/gmail.sock"
 
 # edit_list FILE JQ_PATH add|del VALUE: VALUE added to / removed from the JSON
 # array at JQ_PATH of FILE, everything else kept. Only once the app has
@@ -64,6 +68,7 @@ pairs=()
 on qt && pairs+=("$TEMPLATES/qt-colors.conf" "$APPS_DIR/qt-colors.conf")
 on vesktop && pairs+=("$TEMPLATES/vesktop.css" "$vesktop_css")
 on youtube-music && pairs+=("$TEMPLATES/youtube-music.css" "$ytm_css")
+on gmail && pairs+=("$TEMPLATES/gmail.css" "$gmail_css")
 if on zen; then
   while IFS= read -r profile; do
     [ -n "$profile" ] && pairs+=("$TEMPLATES/zen-userChrome.css" "$profile/chrome/nixbook-shell.css")
@@ -104,21 +109,27 @@ if on qt; then
   [ ${#rcs[@]} -gt 0 ] && "$SCRIPT_DIR/apply-kde-colors.py" --unpin "${rcs[@]}" >/dev/null
 fi
 
-# YouTube Music (pear-desktop): its bridge puts the file in the running app
-# (none there: the app's own look again); a bridge starting later reads it
-# itself. An older nixbook listed the file in the app's own CSS themes: no
-# longer (two copies of different ages would fight).
-ytm_restyle() {
-  [ -S "$ytm_socket" ] || return 0
-  printf '{"cmd":"style"}\n' | socat -t 5 - "UNIX-CONNECT:$ytm_socket" >/dev/null 2>&1 || true
+# YouTube Music (pear-desktop) and Gmail (Meru): their bridge puts the file
+# in the running app (none there: the app's own look again); a bridge
+# starting later reads it itself. An older nixbook listed YouTube Music's
+# file in the app's own CSS themes: no longer (two copies of different ages
+# would fight).
+restyle() {
+  [ -S "$1" ] || return 0
+  printf '{"cmd":"style"}\n' | socat -t 5 - "UNIX-CONNECT:$1" >/dev/null 2>&1 || true
 }
 edit_list "$ytm_settings" .options.themes del "$ytm_css"
-if on youtube-music; then
-  was_changed "$ytm_css" && ytm_restyle
-elif [ -f "$ytm_css" ]; then
-  rm -f "$ytm_css"
-  ytm_restyle
-fi
+# style_app NAME CSS SOCKET
+style_app() {
+  if on "$1"; then
+    was_changed "$2" && restyle "$3"
+  elif [ -f "$2" ]; then
+    rm -f "$2"
+    restyle "$3"
+  fi
+}
+style_app youtube-music "$ytm_css" "$ytm_socket"
+style_app gmail "$gmail_css" "$gmail_socket"
 
 # Vesktop: the theme is in its themes folder; turn it on.
 if on vesktop; then

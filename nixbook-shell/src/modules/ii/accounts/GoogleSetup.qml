@@ -17,12 +17,13 @@ ColumnLayout {
 
     Step {
         number: 1
-        text: Translation.tr("In Google Cloud, create a project, then enable the People API, the Tasks API (and the Calendar API, for later).")
+        text: Translation.tr("In Google Cloud, create a project, then enable the People API, the Tasks API, the Calendar API and the Gmail API (mail, for the assistant).")
         links: [
             { text: Translation.tr("Google Cloud"), url: Accounts.googleSetup.console },
             { text: "People API", url: Accounts.googleSetup.apis?.people ?? "" },
             { text: "Tasks API", url: Accounts.googleSetup.apis?.tasks ?? "" },
             { text: "Calendar API", url: Accounts.googleSetup.apis?.calendar ?? "" },
+            { text: "Gmail API", url: Accounts.googleSetup.apis?.gmail ?? "" },
         ]
     }
     Step {

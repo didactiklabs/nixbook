@@ -9,6 +9,7 @@ on its last line (`;nixbookPage(op, args)` in an isolated world, or
 would. Each message is logged (one JSON line) to $FAKE_CDP_LOG.
 
   FAKE_CDP_LOG=FILE fake-cdp.py [ARGS…]
+  FAKE_CDP_APP=gmail: Meru's pages (its window, two Gmail accounts).
   FAKE_CDP_HANDOVER=1: quits at once, like an app handing over to one already running.
   FAKE_CDP_QUIT_AFTER=S: quits on its own S seconds in, with FAKE_CDP_QUIT_CODE (default 0).
   FAKE_CDP_RELAUNCH=DIR: relaunches itself as Electron's app.relaunch() does, a
@@ -47,6 +48,15 @@ TARGETS = [
     {"targetId": "T1", "type": "page", "title": "Discord | #general", "url": "https://discord.com/channels/111/222"},
     {"targetId": "TD", "type": "page", "title": "DevTools", "url": "devtools://devtools/bundled/inspector.html"},
 ]
+if os.environ.get("FAKE_CDP_APP") == "gmail":
+    # Meru: its own window (a file), then one Gmail page per account.
+    TARGETS = [
+        {"targetId": "T0", "type": "page", "title": "Meru", "url": "file:///opt/meru/renderer/main.html"},
+        {"targetId": "T1", "type": "page", "title": "Inbox - me@example.com - Gmail",
+         "url": "https://mail.google.com/mail/u/0/#inbox"},
+        {"targetId": "T2", "type": "page", "title": "Inbox - work@example.com - Gmail",
+         "url": "https://mail.google.com/mail/u/1/#inbox"},
+    ]
 JPEG = ("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////"
         "////////////wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAAA//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AN//Z")
 typed = {"text": ""}

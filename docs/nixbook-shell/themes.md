@@ -53,9 +53,12 @@ Other apps can follow the palette the shell shows (the wallpaper's or the theme'
 | Qt & KDE      | Live: `kdeglobals` and a palette-changed signal; Qt apps through qt6ct/qt5ct (`programs.nixbook-shell.appTheming.qt.enable`)                |
 | Vesktop       | Live, through its themes folder                                                                                                             |
 | YouTube Music | Live, through its Electron bridge; always dark (the app has no light look), in the theme's colours: surfaces, text, menus, the progress bar |
+| Gmail (Meru)  | Live, through Meru's Electron bridge, in every account's Gmail page; light or dark as the palette is                                        |
 | Zen Browser   | At startup (its `userChrome.css`); while Zen runs, a notification offers to restart it                                                      |
 
 The palette is made **readable** first: text colours get at least 4.5:1 contrast against every surface (outlines 3:1), so a pastel accent that works as a fill never becomes unreadable link or tab text. While the Qt switch is on, colour schemes that a KDE app pinned for itself are removed so it follows the shell. Slack is deliberately not themed.
+
+Gmail's colours come from [Catppuccin's Gmail userstyle](https://github.com/catppuccin/userstyles/tree/main/styles/gmail) (MIT), which follows Gmail's pages as they change: `nixbook-shell/scripts/gmail-template.py` compiles it with each Catppuccin colour mapped to a palette role (base → surface, text → on_surface, the accent → primary…) into `app-templates/gmail.css`. Its icon filters become a grey at the text's lightness (`.gray` in the templates). When Gmail changes and their style follows, bump the script's `REV` and run it again.
 
 ## Adding a theme
 

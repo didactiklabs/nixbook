@@ -436,6 +436,25 @@ EOF
 )
 expect_contains "style: only the apps the shell colours" "$refused" "isn't coloured by the shell"
 
+# Gmail (Meru): every Gmail page coloured (one per account), not Meru's own
+# window; again after one of them reloads.
+gmail_css="$XDG_STATE_HOME/quickshell/user/generated/apps/gmail.css"
+printf 'body { background: black; }\n' >"$gmail_css"
+gstyles() { jq -r 'select(.eval == "style") | .session' "$FAKE_CDP_LOG" | sort -u | paste -sd' '; }
+: >"$FAKE_CDP_LOG"
+FAKE_CDP_APP=gmail python3 "$bridge" --page-js "$root/zen/page.js" --adapters "$root/electron" gmail -- python3 "$fake" &
+gm_pid=$!
+gm_sock="$XDG_RUNTIME_DIR/nixbook-electron/gmail.sock"
+for _ in $(seq 1 100); do
+  [ "$(gstyles)" = "S-T1 S-T2" ] && break
+  sleep 0.05
+done
+expect_eq "style gmail: each account's Gmail page, not Meru's window" "S-T1 S-T2" "$(gstyles)"
+out=$(sock=$gm_sock ask '{"cmd":"style"}')
+expect_eq "style gmail: says how many pages" '{"ok": true, "result": {"styled": true, "pages": 2}}' "$out"
+kill "$gm_pid" 2>/dev/null || true
+wait "$gm_pid" 2>/dev/null || true
+
 if [ "$failures" -gt 0 ]; then
   echo "$failures failure(s)"
   exit 1

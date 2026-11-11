@@ -50,6 +50,7 @@ let
   openHosts =
     {
       youtube-music = [ "music.youtube.com" ];
+      gmail = [ "mail.google.com" ];
     }
     .${app} or [ ];
   # What the app's processes name (its store paths, and the ones its package

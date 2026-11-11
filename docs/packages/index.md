@@ -29,6 +29,7 @@
 | [kdeconnect-mcp](#kdeconnect-mcp)             | MCP server for your phone through KDE Connect: texts, sharing, notifications    | `nixbookShellConfig`           |
 | [jellyfin-mcp](#jellyfin-mcp)                 | MCP server for your Jellyfin library, played in mpv through jellyfin-mpv-shim   | `nixbookShellConfig`           |
 | [moonfin](#moonfin)                           | Jellyfin & Emby media client (AppImage)                                         | profiles                       |
+| [meru](#meru)                                 | Gmail as a desktop app (AppImage), its Pro features on                          | profiles                       |
 | [cerbos](#cerbos)                             | Stateless authorization policy decision point (PDP)                             | profiles                       |
 
 ## ginx
@@ -102,6 +103,10 @@ A k9s-style TUI to create, attach, edit and tear down isolated OpenCode / Claude
 ## actual-budget
 
 [Actual Budget](https://actualbudget.org), the local-first personal finance app, packaged from its release AppImage. Where nixbook-shell runs, totoro's profile starts it through the desktop agents' [Electron bridge](/nixbook-shell/desktop-agents#apps-and-browser-through-the-page) (`passthru.electronMarkers` names the extracted AppImage its processes run from).
+
+## meru
+
+[Meru](https://meru.so) ([zoidsh/meru](https://github.com/zoidsh/meru), AGPL-3.0), Gmail as a desktop app (Electron), packaged from its release AppImage with **its Pro features on**: several accounts, Google apps, phishing protection, the ad and tracking blocker, reverse conversation, Gmail user styles, the default mail app setting. Every Pro feature checks one licence flag; `customPkgs/meru/unlock.py` patches the unpacked app at build time: the licence is valid without asking Meru's server (a placeholder key, which the settings window reads), the trial is never checked (no banner, no upgrade dialogs), Meru's own updater is off (npins bumps the release), the settings' License and Updates pages are gone, and two Electron fuses that only load an untouched `app.asar` are switched off (the app runs unpacked). Each change must match Meru's code exactly once: a release that moves it fails the build, naming what to update. Where nixbook-shell runs, totoro starts it through the [Electron bridge](/nixbook-shell/desktop-agents#mail) as `gmail`: it opens `mail.google.com` and `mailto:` links, and its Gmail pages can take the shell's colours. The desktop agents' mail goes through Gmail's API, not through Meru.
 
 ## pear-desktop
 

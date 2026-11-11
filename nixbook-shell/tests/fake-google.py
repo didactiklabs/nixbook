@@ -5,7 +5,11 @@ counter, etags checked on update), the Tasks API under /tasksapi (lists
 and tasks in memory, updatedMin and deletions, two items a page) and the
 Calendar API under /calendarapi (a primary and a read-only calendar,
 events with sync tokens, an expired one answering 410, instance ids for
-one occurrence of a series: "<series>_<start>"). Each
+one occurrence of a series: "<series>_<start>") and Gmail under
+/gmailapi (and /gmailupload: labels, threads made of messages parsed from
+what is sent, a tiny search, drafts, attachments, filters; a user
+"noscope@…" answers 403 as an account signed in before mail was asked
+for). Each
 user's data is their own: the sign-in code says who signs in ("the-code":
 me@example.com, "work-code": work@example.com), the tokens carry the email
 ("rt-<email>", "at-<email>"; any other bearer is me@example.com). Each
@@ -14,7 +18,10 @@ request is logged to the file in argv[2] as
 printed)."""
 
 import base64
+import email
+import email.header
 import json
+import re
 import sys
 from datetime import datetime, timezone
 import urllib.parse
@@ -44,15 +51,17 @@ def user_data():
             {"id": "hidden-cal", "summary": "Hidden", "accessRole": "owner", "hidden": True},
         ],
         "events": {},  # id -> event (with "_cal", "_rev"; cancelled ones kept)
+        "gmail": gmail_seed(),
     }
 
 
-def use_user(email):
+users_email = [""]
+
+
+def use_user(who):
     """Points the module's data at that user's."""
-    globals().update(users.setdefault(email, user_data()))
-
-
-use_user("me@example.com")
+    users_email[0] = who
+    globals().update(users.setdefault(who, user_data()))
 
 
 def now_iso():
@@ -226,6 +235,296 @@ def stored(pid, body):
     return p
 
 
+def b64(data):
+    return base64.urlsafe_b64encode(data if isinstance(data, bytes) else data.encode()).rstrip(b"=").decode()
+
+
+def unb64(s):
+    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+
+def part_of(msg, part_id="0"):
+    """An email.message as Gmail's payload: headers, each part's body decoded
+    from its transfer encoding, attachments behind an attachmentId."""
+    out = {"partId": part_id, "mimeType": msg.get_content_type(), "filename": msg.get_filename() or "",
+           "headers": [{"name": k, "value": str(email.header.make_header(email.header.decode_header(str(v))))}
+                       for k, v in msg.items()], "body": {"size": 0}}
+    if msg.is_multipart():
+        out["parts"] = [part_of(p, f"{part_id}.{i}" if part_id != "0" else str(i))
+                        for i, p in enumerate(msg.get_payload())]
+        return out
+    data = msg.get_payload(decode=True) or b""
+    out["body"]["size"] = len(data)
+    if out["filename"]:
+        out["body"]["attachmentId"] = "att-" + b64(data)[:12] + str(len(data))
+        out["_data"] = b64(data)
+    else:
+        out["body"]["data"] = b64(data)
+    return out
+
+
+def gmail_seed():
+    g = {"labels": {
+        "Label_1": {"id": "Label_1", "name": "Receipts", "type": "user"},
+    }, "messages": {}, "drafts": {}, "filters": {}, "n": [0]}
+    for lid in ("INBOX", "UNREAD", "STARRED", "IMPORTANT", "SENT", "DRAFT", "SPAM", "TRASH", "CATEGORY_PERSONAL",
+                "CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_UPDATES", "CATEGORY_FORUMS"):
+        g["labels"][lid] = {"id": lid, "name": lid, "type": "system"}
+
+    def add(mid, tid, raw, labels, when):
+        msg = email.message_from_bytes(raw.encode("latin-1") if isinstance(raw, str) else raw)
+        g["messages"][mid] = {"id": mid, "threadId": tid, "labelIds": labels, "internalDate": str(when),
+                              "snippet": (msg.get("X-Snippet") or ""), "payload": part_of(msg)}
+    add("m1", "t1", "From: Ana <ana@x.org>\r\nTo: me@example.com\r\nSubject: Lunch?\r\nMessage-ID: <m1@x.org>\r\n"
+        "X-Snippet: Lunch tomorrow?\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nLunch tomorrow?\r\n",
+        ["INBOX", "CATEGORY_PERSONAL"], 1762000000000)
+    add("m2", "t1", "From: Ana <ana@x.org>\r\nTo: me@example.com\r\nCc: Bob <bob@x.org>\r\nSubject: Re: Lunch?\r\n"
+        "Message-ID: <m2@x.org>\r\nReferences: <m1@x.org>\r\nX-Snippet: At noon then\r\n"
+        "Content-Type: text/plain; charset=utf-8\r\n\r\nAt noon then.\r\n\r\nOn Mon, Nov 3, 2026 at 9:00 AM Ana <ana@x.org> wrote:\r\n"
+        "> Lunch tomorrow?\r\n", ["INBOX", "UNREAD", "CATEGORY_PERSONAL"], 1762003600000)
+    add("m3", "t2", "From: Shop <news@shop.com>\r\nTo: me@example.com\r\nSubject: =?iso-8859-1?q?Soldes_d'=E9t=E9?=\r\n"
+        "List-Unsubscribe: <mailto:u@shop.com>, <https://shop.com/unsub?u=1>\r\nX-Snippet: Tout &agrave; -50%\r\n"
+        "Content-Type: text/html; charset=iso-8859-1\r\n\r\n<html><head><style>p{}</style></head><body><p>Tout \xe0 "
+        "-50%</p><a href=\"https://shop.com/sale\">Voir</a></body></html>\r\n",
+        ["INBOX", "UNREAD", "CATEGORY_PROMOTIONS"], 1762100000000)
+    add("m4", "t3", "From: Bob <bob@x.org>\r\nTo: me@example.com\r\nSubject: Invoice\r\nX-Snippet: Here it is\r\n"
+        "Content-Type: multipart/mixed; boundary=b\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\nHere it is.\r\n--b\r\n"
+        "Content-Type: application/pdf\r\nContent-Disposition: attachment; filename=\"../invoice.pdf\"\r\n"
+        "Content-Transfer-Encoding: base64\r\n\r\nJVBERi0xLjQK\r\n--b--\r\n", ["INBOX", "Label_1"], 1762200000000)
+    add("m5", "t4", "From: Old <old@x.org>\r\nTo: me@example.com\r\nSubject: Archived thing\r\nX-Snippet: old\r\n"
+        "Content-Type: text/plain\r\n\r\nold\r\n", ["CATEGORY_PERSONAL"], 1761000000000)
+    return g
+
+
+def gmail_terms(q):
+    """A search as (field, value, negated) terms: from:(x), in:inbox,
+    is:unread, has:attachment, label:x, larger:N, -(x), words."""
+    terms = []
+    for m in re.finditer(r'(-?)(?:(\w+):)?(\([^)]*\)|"[^"]*"|\S+)', q or ""):
+        neg, field, value = m.group(1) == "-", (m.group(2) or "").lower(), m.group(3).strip('()"').lower()
+        terms.append((field, value, neg))
+    return terms
+
+
+def gmail_text(m):
+    out = []
+
+    def walk(p):
+        out.append(" ".join(h["value"] for h in p["headers"] if h["name"].lower() in ("from", "to", "subject")))
+        if "data" in p["body"]:
+            out.append(unb64(p["body"]["data"]).decode("latin-1"))
+        for c in p.get("parts", []):
+            walk(c)
+    walk(m["payload"])
+    return " ".join(out).lower()
+
+
+def gmail_header(m, name):
+    return next((h["value"] for h in m["payload"]["headers"] if h["name"].lower() == name), "").lower()
+
+
+def gmail_match(m, q, g):
+    for field, value, neg in gmail_terms(q):
+        if field == "in":
+            ok = value.upper() in m["labelIds"] or value == "anywhere"
+        elif field == "is":
+            ok = value.upper() in m["labelIds"]
+        elif field == "label":
+            ok = any(g["labels"][l]["name"].lower() == value for l in m["labelIds"] if l in g["labels"])
+        elif field == "has":
+            ok = '"filename": "' not in json.dumps(m["payload"]).replace('"filename": ""', "")
+        elif field in ("from", "to", "subject"):
+            ok = value in gmail_header(m, field)
+        elif field in ("larger", "smaller"):
+            size = len(json.dumps(m["payload"]))
+            ok = size > int(value) if field == "larger" else size < int(value)
+        else:
+            ok = all(w in gmail_text(m) for w in value.split())
+        if ok == neg:
+            return False
+    # Gmail's default: not the trash nor spam.
+    return "in:trash" in (q or "") or "in:spam" in (q or "") or not ({"TRASH", "SPAM"} & set(m["labelIds"]))
+
+
+def gmail_public(m, fmt="full"):
+    out = json.loads(json.dumps(m))
+
+    def strip(p):
+        p.pop("_data", None)
+        if fmt == "metadata":
+            p.pop("parts", None)
+            p["body"] = {"size": p["body"].get("size", 0)}
+        for c in p.get("parts", []):
+            strip(c)
+    strip(out["payload"])
+    return out
+
+
+def gmail_store(g, raw, labels, thread=None):
+    msg = email.message_from_bytes(raw)
+    g["n"][0] += 1
+    mid = f"s{g['n'][0]}"
+    tid = thread or mid
+    body = msg.get_body(("plain",)) if hasattr(msg, "get_body") else None
+    g["messages"][mid] = {"id": mid, "threadId": tid, "labelIds": labels, "internalDate": str(1763000000000 + g["n"][0]),
+                          "snippet": "", "payload": part_of(msg), "_raw": raw.decode("latin-1")}
+    return g["messages"][mid]
+
+
+def gmail_upload(raw_bytes, content_type):
+    """multipart/related: the JSON metadata, then the message."""
+    whole = email.message_from_bytes(b"Content-Type: " + content_type.encode() + b"\r\n\r\n" + raw_bytes)
+    meta, msg = whole.get_payload()
+    inner = msg.get_payload()[0] if msg.get_content_type() == "message/rfc822" else msg
+    return json.loads(meta.get_payload()), inner.as_bytes()
+
+
+def handle_gmail(h, method, path, q, body, g, upload=None):
+    """Gmail's API, path without /gmailapi/users/me."""
+    parts = path.strip("/").split("/")
+    msgs = g["messages"]
+
+    def threads():
+        out = {}
+        for m in sorted(msgs.values(), key=lambda m: int(m["internalDate"])):
+            out.setdefault(m["threadId"], []).append(m)
+        return out
+
+    if parts == ["labels"] and method == "GET":
+        return h.reply(200, {"labels": [{k: v for k, v in l.items()} for l in g["labels"].values()]})
+    if parts == ["labels"] and method == "POST":
+        if any(l["name"].lower() == body["name"].lower() for l in g["labels"].values()):
+            return h.error(409, "Label name exists or conflicts", "ALREADY_EXISTS")
+        g["n"][0] += 1
+        lid = f"Label_{g['n'][0] + 100}"
+        g["labels"][lid] = {"id": lid, "name": body["name"], "type": "user"}
+        return h.reply(200, g["labels"][lid])
+    if parts[0] == "labels" and len(parts) == 2:
+        l = g["labels"].get(parts[1])
+        if not l:
+            return h.error(404, "Not Found", "NOT_FOUND")
+        if method == "GET":
+            mine = [m for m in msgs.values() if l["id"] in m["labelIds"]]
+            tids = {m["threadId"] for m in mine}
+            unread = {m["threadId"] for m in mine if "UNREAD" in m["labelIds"]}
+            return h.reply(200, {**l, "threadsTotal": len(tids), "threadsUnread": len(unread),
+                                 "messagesUnread": sum(1 for m in mine if "UNREAD" in m["labelIds"])})
+        if method == "PATCH":
+            l["name"] = body["name"]
+            return h.reply(200, l)
+        if method == "DELETE":
+            del g["labels"][l["id"]]
+            for m in msgs.values():
+                m["labelIds"] = [x for x in m["labelIds"] if x != l["id"]]
+            return h.reply(204)
+    if parts == ["threads"] and method == "GET":
+        found = [(tid, ms) for tid, ms in threads().items()
+                 if any(gmail_match(m, q.get("q"), g) and (not q.get("labelIds") or q["labelIds"] in m["labelIds"]) for m in ms)]
+        found.sort(key=lambda t: -int(t[1][-1]["internalDate"]))
+        start, size = int(q.get("pageToken") or 0), int(q.get("maxResults") or 100)
+        r = {"threads": [{"id": tid} for tid, _ in found[start:start + size]], "resultSizeEstimate": len(found)}
+        if start + size < len(found):
+            r["nextPageToken"] = str(start + size)
+        return h.reply(200, r)
+    if parts[0] == "threads" and len(parts) >= 2:
+        ms = threads().get(parts[1])
+        if not ms:
+            return h.error(404, "Requested entity was not found.", "NOT_FOUND")
+        verb = parts[2] if len(parts) > 2 else ""
+        if method == "GET" and not verb:
+            return h.reply(200, {"id": parts[1], "messages": [gmail_public(m, q.get("format", "full")) for m in ms]})
+        for m in ms:
+            if verb == "modify":
+                m["labelIds"] = [l for l in m["labelIds"] if l not in (body.get("removeLabelIds") or [])]
+                m["labelIds"] += [l for l in (body.get("addLabelIds") or []) if l not in m["labelIds"]]
+            elif verb == "trash":
+                m["labelIds"] = [l for l in m["labelIds"] if l != "INBOX"] + ["TRASH"]
+            elif verb == "untrash":
+                m["labelIds"] = [l for l in m["labelIds"] if l != "TRASH"]
+        return h.reply(200, {"id": parts[1]})
+    if parts == ["messages"] and method == "GET":
+        found = sorted((m for m in msgs.values() if gmail_match(m, q.get("q"), g)), key=lambda m: -int(m["internalDate"]))
+        return h.reply(200, {"messages": [{"id": m["id"], "threadId": m["threadId"]} for m in found]})
+    if parts == ["messages", "batchModify"] and method == "POST":
+        for mid in body["ids"]:
+            m = msgs[mid]
+            m["labelIds"] = [l for l in m["labelIds"] if l not in (body.get("removeLabelIds") or [])]
+            m["labelIds"] += [l for l in (body.get("addLabelIds") or []) if l not in m["labelIds"]]
+        return h.reply(204)
+    if parts == ["messages", "send"] and method == "POST":
+        meta, raw = upload if upload else (body, unb64(body["raw"]))
+        m = gmail_store(g, raw, ["SENT"], meta.get("threadId"))
+        return h.reply(200, {"id": m["id"], "threadId": m["threadId"], "labelIds": m["labelIds"]})
+    if parts[0] == "messages" and len(parts) >= 2:
+        m = msgs.get(parts[1])
+        if not m:
+            return h.error(404, "Requested entity was not found.", "NOT_FOUND")
+        if len(parts) == 2 and method == "GET":
+            return h.reply(200, gmail_public(m, q.get("format", "full")))
+        if len(parts) == 4 and parts[2] == "attachments":
+            found = []
+
+            def walk(p):
+                if p["body"].get("attachmentId") == parts[3]:
+                    found.append(p)
+                for c in p.get("parts", []):
+                    walk(c)
+            walk(m["payload"])
+            if not found:
+                return h.error(404, "Invalid attachment token", "NOT_FOUND")
+            return h.reply(200, {"size": found[0]["body"]["size"], "data": found[0]["_data"]})
+    if parts == ["drafts"] and method == "POST":
+        meta, raw = upload if upload else (body, unb64(body["message"]["raw"]))
+        m = gmail_store(g, raw, ["DRAFT"], meta["message"].get("threadId"))
+        g["n"][0] += 1
+        did = f"d{g['n'][0]}"
+        g["drafts"][did] = m["id"]
+        return h.reply(200, {"id": did, "message": {"id": m["id"], "threadId": m["threadId"]}})
+    if parts == ["drafts"] and method == "GET":
+        return h.reply(200, {"drafts": [{"id": d, "message": {"id": mid}} for d, mid in g["drafts"].items()]})
+    if parts == ["drafts", "send"] and method == "POST":
+        mid = g["drafts"].pop(body["id"], None)
+        if not mid:
+            return h.error(404, "Requested entity was not found.", "NOT_FOUND")
+        msgs[mid]["labelIds"] = ["SENT"]
+        return h.reply(200, {"id": mid, "threadId": msgs[mid]["threadId"], "labelIds": ["SENT"]})
+    if parts[0] == "drafts" and len(parts) == 2:
+        mid = g["drafts"].get(parts[1])
+        if not mid:
+            return h.error(404, "Requested entity was not found.", "NOT_FOUND")
+        if method == "GET":
+            return h.reply(200, {"id": parts[1], "message": gmail_public(msgs[mid], q.get("format", "full"))})
+        if method == "DELETE":
+            del g["drafts"][parts[1]]
+            del msgs[mid]
+            return h.reply(204)
+    if parts == ["settings", "filters"]:
+        if method == "GET":
+            return h.reply(200, {"filter": list(g["filters"].values())} if g["filters"] else {})
+        if method == "POST":
+            if body.get("action", {}).get("forward"):
+                return h.error(403, "Insufficient Permission", "PERMISSION_DENIED")
+            if any(f["criteria"] == body["criteria"] and f["action"] == body["action"] for f in g["filters"].values()):
+                return h.error(400, "Filter already exists", "FAILED_PRECONDITION")
+            g["n"][0] += 1
+            fid = f"ANe1Bm{g['n'][0]}"
+            g["filters"][fid] = {"id": fid, "criteria": body["criteria"], "action": body["action"]}
+            return h.reply(200, g["filters"][fid])
+    if parts[:2] == ["settings", "filters"] and len(parts) == 3:
+        f = g["filters"].get(parts[2])
+        if not f:
+            return h.error(404, "Filter not found", "NOT_FOUND")
+        if method == "GET":
+            return h.reply(200, f)
+        if method == "DELETE":
+            del g["filters"][parts[2]]
+            return h.reply(204)
+    return h.error(404, f"no route {method} {path}", "NOT_FOUND")
+
+
+use_user("me@example.com")
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -245,7 +544,8 @@ class Handler(BaseHTTPRequestHandler):
     def handle_any(self, method):
         url = urllib.parse.urlparse(self.path)
         q = {k: v[0] for k, v in urllib.parse.parse_qs(url.query).items()}
-        raw = self.rfile.read(int(self.headers.get("Content-Length") or 0)).decode()
+        raw_bytes = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        raw = raw_bytes.decode("utf-8", "replace")
         with open(log_path, "a") as f:
             f.write(f"{method} {url.path}{'?' + url.query if url.query else ''} {raw}\n")
         path = url.path
@@ -269,6 +569,19 @@ class Handler(BaseHTTPRequestHandler):
             return self.error(401, "no token", "UNAUTHENTICATED")
         bearer = auth.removeprefix("Bearer ")
         use_user(bearer.removeprefix("at-") if bearer.startswith("at-") and "@" in bearer else "me@example.com")
+        for prefix in ("/gmailapi/users/me", "/gmailupload/users/me"):
+            if path.startswith(prefix):
+                if users_email[0].startswith("noscope@"):
+                    return self.reply(403, {"error": {"code": 403, "message": "Request had insufficient authentication scopes.",
+                                                      "status": "PERMISSION_DENIED",
+                                                      "details": [{"reason": "ACCESS_TOKEN_SCOPE_INSUFFICIENT"}]}})
+                upload = None
+                if prefix == "/gmailupload/users/me":
+                    upload = gmail_upload(raw_bytes, self.headers.get("Content-Type", ""))
+                    body = {}
+                else:
+                    body = json.loads(raw) if raw else {}
+                return handle_gmail(self, method, path[len(prefix):], q, body, gmail, upload)
         body = json.loads(raw) if raw else {}
         if path.startswith("/tasksapi/"):
             return handle_tasks(self, method, path[len("/tasksapi"):], q, body)

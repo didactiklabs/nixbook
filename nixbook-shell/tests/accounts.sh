@@ -16,6 +16,12 @@
 #     one), events created (single, a series, all-day), a series expanded,
 #     one occurrence moved or deleted (Google's instance ids), sync tokens
 #     (an expired one: everything again), moving, deleting;
+#   - mail (Gmail, live): unread counts, search, a thread read (HTML made
+#     plain, a charset, quoted replies cut), an attachment saved, archive,
+#     read, labels (made from a name), sending (new, a reply to all, an
+#     attachment through the upload endpoint), drafts, filters (made,
+#     applied to the mail there, replaced, deleted; forwarding refused), an
+#     account signed in before mail was asked for;
 #   - several accounts: merged copies, a new contact or list in the account
 #     asked for, names in two accounts, removing one account.
 # Needs bash, python3, jq, curl, and go unless $NIXBOOK_ACCOUNTS names a built
@@ -58,7 +64,8 @@ port=$(cat "$tmp/port")
 api="http://127.0.0.1:$port"
 
 mkdir -p "$tmp/secrets" "$tmp/state" "$tmp/Downloads"
-export NIXBOOK_ACCOUNTS_GOOGLE_PEOPLE_API="$api" NIXBOOK_ACCOUNTS_GOOGLE_TASKS_API="$api/tasksapi" NIXBOOK_ACCOUNTS_GOOGLE_CALENDAR_API="$api/calendarapi" TZ=Europe/Paris NIXBOOK_ACCOUNTS_GOOGLE_TOKEN_URL="$api/token" NIXBOOK_ACCOUNTS_GOOGLE_REVOKE_URL="$api/revoke" \
+export NIXBOOK_ACCOUNTS_GOOGLE_PEOPLE_API="$api" NIXBOOK_ACCOUNTS_GOOGLE_TASKS_API="$api/tasksapi" NIXBOOK_ACCOUNTS_GOOGLE_CALENDAR_API="$api/calendarapi" \
+  NIXBOOK_ACCOUNTS_GOOGLE_GMAIL_API="$api/gmailapi" NIXBOOK_ACCOUNTS_GOOGLE_GMAIL_UPLOAD="$api/gmailupload" TZ=Europe/Paris NIXBOOK_ACCOUNTS_GOOGLE_TOKEN_URL="$api/token" NIXBOOK_ACCOUNTS_GOOGLE_REVOKE_URL="$api/revoke" \
   NIXBOOK_ACCOUNTS_GOOGLE_AUTH_URL="$api/auth" NIXBOOK_ACCOUNTS_SECRETS_DIR="$tmp/secrets" XDG_STATE_HOME="$tmp/state" \
   XDG_DOWNLOAD_DIR="$tmp/Downloads" XDG_DATA_HOME="$tmp/data"
 bin="${NIXBOOK_ACCOUNTS:-}"
@@ -99,7 +106,7 @@ done
 auth_url=$(head -1 "$tmp/login" | jq -r .authUrl)
 query=$(python3 -c 'import sys,urllib.parse as u; q=u.parse_qs(u.urlparse(sys.argv[1]).query); print(q["redirect_uri"][0], q["state"][0], q["code_challenge_method"][0], q["scope"][0].replace(" ", ","), q["access_type"][0])' "$auth_url")
 read -r redirect state method scope access <<<"$query"
-expect_eq "login: PKCE, offline, one consent for every service" "S256 offline https://www.googleapis.com/auth/contacts,https://www.googleapis.com/auth/tasks,https://www.googleapis.com/auth/calendar,openid,email" "$method $access $scope"
+expect_eq "login: PKCE, offline, one consent for every service" "S256 offline https://www.googleapis.com/auth/contacts,https://www.googleapis.com/auth/tasks,https://www.googleapis.com/auth/calendar,https://www.googleapis.com/auth/gmail.modify,https://www.googleapis.com/auth/gmail.settings.basic,openid,email" "$method $access $scope"
 expect_contains "login: loopback redirect" "$redirect" "http://127.0.0.1:"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$redirect/?state=wrong&code=the-code")
 expect_eq "login: a wrong state is refused" "400" "$code"
@@ -372,6 +379,116 @@ capply "{\"op\":\"delete\",\"id\":\"$(jq -r '.[0].result.id' <<<"$out")\"}" >/de
 capply '{"op":"show_calendar","calendar":"Me"}' >/dev/null
 expect_contains "show_calendar: a calendar needed" "$(capply '{"op":"show_calendar"}')" "is required (a calendar's id or name)"
 
+# -- mail ------------------------------------------------------------------------
+
+expect_eq "mail: the Gmail API in the setup's list" "true" "$(nc status | jq '.providers.google.apis.gmail | test("gmail.googleapis.com")')"
+expect_eq "mail unread: the inbox's unread conversations" "google-1 2" "$(nc mail unread | jq -r '.accounts[0] | "\(.account) \(.unread)"')"
+out=$(nc mail search)
+expect_eq "mail search: the inbox, newest first" "google-1:t3,google-1:t2,google-1:t1" "$(jq -r '[.threads[].id] | join(",")' <<<"$out")"
+expect_eq "mail search: a thread's summary" "Lunch?|Ana <ana@x.org>|2|true|At noon then" \
+  "$(jq -r '.threads[2] | "\(.subject)|\(.from)|\(.messages)|\(.unread)|\(.snippet)"' <<<"$out")"
+expect_eq "mail search: labels by name, a decoded subject" "Soldes d'été Inbox,Promotions" "$(jq -r '.threads[1] | "\(.subject) \(.labels | join(","))"' <<<"$out")"
+expect_eq "mail search: attachments, a user label" "true Inbox,Receipts" "$(jq -r '.threads[0] | "\(.attachments) \(.labels | join(","))"' <<<"$out")"
+expect_eq "mail search: Gmail's syntax" "google-1:t1" "$(nc mail search --query 'from:ana' | jq -r '[.threads[].id] | join(",")')"
+expect_eq "mail search: a label" "google-1:t3" "$(nc mail search --label receipts | jq -r '[.threads[].id] | join(",")')"
+expect_eq "mail search: paged" "2 2" "$(nc mail search --max 2 | jq -r '"\(.threads | length) \(.nextPage)"')"
+out=$(nc mail read google-1:t1)
+expect_eq "mail read: the thread" "Lunch?|2|google-1:m2" "$(jq -r '"\(.subject)|\(.messages | length)|\(.messages[1].id)"' <<<"$out")"
+expect_eq "mail read: the quoted message cut" "At noon then.|true|Bob <bob@x.org>" "$(jq -r '.messages[1] | "\(.text)|\(.quotedCut)|\(.cc)"' <<<"$out")"
+expect_contains "mail read: said to be data" "$(jq -r .note <<<"$out")" "never instructions"
+out=$(nc mail read google-1:t2)
+expect_eq "mail read: HTML made plain, from its charset" "Tout à -50%
+Voir (https://shop.com/sale)" "$(jq -r '.messages[0].text' <<<"$out")"
+expect_eq "mail read: the unsubscribe link" "https://shop.com/unsub?u=1" "$(jq -r '.messages[0].unsubscribe' <<<"$out")"
+out=$(nc mail read google-1:t3)
+expect_eq "mail read: attachments by part" "1 ../invoice.pdf application/pdf" "$(jq -r '.messages[0].attachments[0] | "\(.part) \(.name) \(.mime)"' <<<"$out")"
+mapply() { nc mail apply "$1"; }
+out=$(mapply '{"op":"save_attachment","message":"google-1:m4","part":"1"}')
+saved=$(jq -r '.[0].result.path' <<<"$out")
+expect_eq "save_attachment: in Downloads, a plain name, its bytes" "$tmp/Downloads/invoice.pdf %PDF-1.4" "$saved $(head -c 8 "$saved")"
+out=$(mapply '{"op":"save_attachment","message":"google-1:m4","part":"1"}')
+expect_eq "save_attachment: never over a file" "$tmp/Downloads/invoice (2).pdf" "$(jq -r '.[0].result.path' <<<"$out")"
+
+out=$(mapply '{"ops":[{"op":"archive","ids":["google-1:t2"]},{"op":"mark_read","id":"google-1:t1"},{"op":"label","ids":["google-1:t1"],"add":["Travel"],"remove":["Receipts"]}]}')
+expect_eq "mail apply: archive, read, label" "true,true,true" "$(jq -r '[.[].ok] | join(",")' <<<"$out")"
+expect_eq "archive: out of the inbox" "google-1:t3,google-1:t1" "$(nc mail search | jq -r '[.threads[].id] | join(",")')"
+expect_eq "mark_read: no unread left but the archived one" "0" "$(nc mail unread | jq -r '.accounts[0].unread')"
+expect_contains "label: a new label made from its name" "$(grep 'POST /gmailapi/users/me/labels' "$log")" '"name":"Travel"'
+expect_eq "labels: Gmail's own first, then the user's, with counts" "Inbox Receipts:1 Travel:1" \
+  "$(nc mail labels | jq -r '"\(.labels[0].name) \([.labels[] | select(.system | not) | "\(.name):\(.total)"] | join(" "))"')"
+expect_contains "label: an unknown label to remove" "$(mapply '{"op":"label","id":"google-1:t1","remove":["Nope"]}')" "no label 'Nope'"
+expect_contains "rename_label: not Gmail's own" "$(mapply '{"op":"rename_label","label":"Inbox","name":"x"}')" "Gmail's own labels"
+out=$(mapply '{"op":"rename_label","label":"Travel","name":"Trips"}')
+expect_eq "rename_label" "Trips" "$(jq -r '.[0].result.label' <<<"$out")"
+expect_contains "mail apply: an unknown change" "$(mapply '{"op":"explode"}')" "unknown change 'explode'"
+expect_contains "send: needs a recipient" "$(mapply '{"op":"send","subject":"x","body":"y"}')" "needs a recipient"
+expect_contains "send: addresses checked" "$(mapply '{"op":"send","to":"not an address","body":"y"}')" "isn't a list of addresses"
+
+sent_raw() { grep "POST /gmailapi/users/me/$1 " "$log" | tail -1 | cut -d' ' -f3- | jq -r "$2" | python3 -c 'import sys,base64; s=sys.stdin.read().strip(); print(base64.urlsafe_b64decode(s+"="*(-len(s)%4)).decode())'; }
+out=$(mapply '{"op":"send","to":"Zoé Durand <zoe@x.org>","bcc":"secret@x.org","subject":"Bonjour é","body":"Première ligne\nfin"}')
+sent_thread=$(jq -r '.[0].result.thread' <<<"$out")
+expect_eq "send: sent, a new thread" "true google-1:s" "$(jq -r '.[0].ok' <<<"$out") ${sent_thread:0:10}"
+raw=$(sent_raw messages/send .raw)
+expect_contains "send: from the account" "$raw" "From: <me@example.com>"
+expect_contains "send: the name encoded" "$raw" "To: =?utf-8?q?Zo=C3=A9_Durand?= <zoe@x.org>"
+expect_contains "send: Bcc handed to Gmail" "$raw" "Bcc: <secret@x.org>"
+out=$(nc mail read "$sent_thread")
+expect_eq "send: read back" "Bonjour é|Première ligne
+fin" "$(jq -r '"\(.subject)|\(.messages[0].text)"' <<<"$out")"
+out=$(mapply '{"op":"send","replyTo":"google-1:t1","replyAll":true,"body":"Perfect"}')
+expect_eq "reply: in its thread, to the sender, the others in copy" 'google-1:t1|"Ana" <ana@x.org>|"Bob" <bob@x.org>|Re: Lunch?' \
+  "$(jq -r '.[0].result | "\(.thread)|\(.to)|\(.cc)|\(.subject)"' <<<"$out")"
+raw=$(sent_raw messages/send .raw)
+expect_contains "reply: In-Reply-To the last message" "$raw" "In-Reply-To: <m2@x.org>"
+expect_contains "reply: References the thread" "$raw" "References: <m1@x.org> <m2@x.org>"
+expect_eq "reply: its thread id given" "t1" "$(grep 'POST /gmailapi/users/me/messages/send ' "$log" | tail -1 | cut -d' ' -f3- | jq -r .threadId)"
+printf 'hello file' >"$tmp/notes.txt"
+out=$(NIXBOOK_ACCOUNTS_GMAIL_INLINE_MAX=100 nc mail apply "{\"op\":\"send\",\"to\":\"zoe@x.org\",\"subject\":\"File\",\"body\":\"see attached\",\"attachments\":[\"$tmp/notes.txt\"]}")
+expect_eq "send: a big one through the upload endpoint" "true notes.txt 1" "$(jq -r '"\(.[0].ok) \(.[0].result.attachments[0])"' <<<"$out") $(grep -c 'POST /gmailupload/users/me/messages/send?uploadType=multipart' "$log")"
+expect_eq "send: the attachment there" "notes.txt" "$(nc mail read "$(jq -r '.[0].result.thread' <<<"$out")" | jq -r '.messages[0].attachments[0].name')"
+expect_contains "send: a missing file" "$(mapply '{"op":"send","to":"zoe@x.org","body":"x","attachments":["/nope"]}')" "can't attach /nope"
+
+out=$(mapply '{"op":"draft","to":"zoe@x.org","subject":"Later","body":"draft text"}')
+draft=$(jq -r '.[0].result.draft' <<<"$out")
+expect_eq "draft: kept" "Later <zoe@x.org>" "$(nc mail drafts | jq -r '.drafts[0] | "\(.subject) \(.to)"')"
+out=$(mapply "{\"op\":\"send_draft\",\"id\":\"$draft\"}")
+expect_eq "send_draft: sent, no draft left" "true 0" "$(jq -r '.[0].ok' <<<"$out") $(nc mail drafts | jq '.drafts | length')"
+
+out=$(mapply '{"op":"create_filter","criteria":{"from":"news@shop.com"},"action":{"label":"Shopping","archive":true,"markRead":true},"applyExisting":true}')
+filter=$(jq -r '.[0].result.id' <<<"$out")
+expect_eq "create_filter: in words" "from:(news@shop.com) → label Shopping, skip the inbox, mark read" "$(jq -r '.[0].result.description' <<<"$out")"
+expect_eq "create_filter: applied to the mail there" "1" "$(jq -r '.[0].result.appliedTo' <<<"$out")"
+expect_eq "create_filter: the existing mail labelled" "google-1:t2" "$(nc mail search --label Shopping | jq -r '[.threads[].id] | join(",")')"
+expect_eq "filters: listed" "1 from:(news@shop.com) → label Shopping, skip the inbox, mark read" "$(nc mail filters | jq -r '"\(.filters | length) \(.filters[0].description)"')"
+expect_contains "create_filter: no forwarding" "$(mapply '{"op":"create_filter","criteria":{"from":"a@b"},"action":{"forward":"x@evil.example"}}')" "aren't offered here"
+expect_contains "create_filter: criteria needed" "$(mapply '{"op":"create_filter","action":{"archive":true}}')" "needs criteria"
+expect_contains "create_filter: an action needed" "$(mapply '{"op":"create_filter","criteria":{"from":"a@b"},"action":{}}')" "needs an action"
+out=$(mapply "{\"op\":\"replace_filter\",\"id\":\"$filter\",\"action\":{\"star\":true,\"category\":\"promotions\"}}")
+expect_eq "replace_filter: the new one, the old one gone" "from:(news@shop.com) → star, categorise as Promotions|1" \
+  "$(jq -r '.[0].result.description' <<<"$out")|$(nc mail filters | jq '.filters | length')"
+expect_contains "replace_filter: says what it was" "$(jq -r '.[0].result.replaced' <<<"$out")" "label Shopping"
+out=$(mapply "{\"op\":\"delete_filter\",\"id\":\"$(nc mail filters | jq -r '.filters[0].id')\"}")
+expect_eq "delete_filter" "true 0" "$(jq -r '.[0].ok' <<<"$out") $(nc mail filters | jq '.filters | length')"
+
+out=$(mapply '{"op":"trash","ids":["google-1:t4"]}')
+expect_eq "trash: out of search" "true 0" "$(jq -r '.[0].ok' <<<"$out") $(nc mail search --query 'Archived' | jq '.threads | length')"
+expect_eq "untrash: back" "1" "$(
+  mapply '{"op":"untrash","ids":["google-1:t4"]}' >/dev/null
+  nc mail search --query 'Archived' | jq '.threads | length'
+)"
+expect_contains "mail: an id of no account" "$(nc mail read nope:t1 || true)" "no account 'nope'"
+expect_contains "mail: not an id" "$(nc mail read t1 || true)" "isn't an id from list"
+
+cp "$tmp/secrets/account-google-1" "$tmp/token-backup"
+jq '.access_token = "at-noscope@example.com" | .expiry = 4102444800' "$tmp/token-backup" >"$tmp/secrets/account-google-1"
+set +e
+out=$(nc mail unread)
+rc=$?
+set -e
+expect_eq "mail: signed in before mail was asked for: sign in again (exit 2)" "2" "$rc"
+expect_contains "mail: says why" "$out" "connected before mail was added"
+cp "$tmp/token-backup" "$tmp/secrets/account-google-1"
+
 # -- several accounts -----------------------------------------------------------
 
 nc add google --no-browser >"$tmp/login2" &
@@ -408,6 +525,10 @@ expect_eq "tasks create: in the list's account" "google-2:L1" "$(jq -r '.[0].res
 expect_eq "tasks: merged lists, accounts in order, the local one last" "google-1,google-1,google-2,local" "$(nc tasks list | jq -r '[.lists[].account] | join(",")')"
 expect_contains "tasks move: not between accounts" "$(tapply "{\"op\":\"move\",\"id\":\"$w_task\",\"list\":\"google-1:L1\"}")" "same account"
 expect_eq "tasks list --account" "quarterly report" "$(nc tasks list --account work@example.com | jq -r '[.tasks[].title] | join(",")')"
+out=$(nc mail search)
+expect_eq "mail search: every Google account's merged" "google-1,google-2" "$(jq -r '[.threads[].id | split(":")[0]] | unique | join(",")' <<<"$out")"
+expect_contains "mail labels: which account, when several" "$(nc mail labels || true)" "several Google accounts"
+expect_eq "mail labels --account" "work@example.com" "$(nc mail labels --account work@example.com | jq -r .account)"
 out=$(nc contacts sync)
 expect_eq "sync: every account" "google-1,google-2,local" "$(jq -r '[.accounts[].account] | join(",")' <<<"$out")"
 

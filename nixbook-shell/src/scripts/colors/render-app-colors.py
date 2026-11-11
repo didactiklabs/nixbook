@@ -8,11 +8,13 @@ Usage: render-app-colors.py TEMPLATE OUTPUT [TEMPLATE OUTPUT]... < PALETTE_JSON
 PALETTE_JSON maps Material roles (snake_case, e.g. "surface_container_low")
 to "#rrggbb". The templates use matugen's placeholders:
 {{colors.<role>.default.hex}} and .red / .green / .blue, and {{mode}}
-("light" or "dark", from the surface). {{colors.<role>.dark.hex}} is the
-dark version of the palette, for apps that only have a dark look (their own
-styles hard-code light text): the palette itself when it's dark, else
-dark_of() it. Prints the outputs whose content changed (one per line), so
-the caller only reloads those apps.
+("light" or "dark", from the surface); .gray is the role's lightness as a
+grey from 0 to 1, for recolouring black icons: `filter: brightness(0)
+invert(<gray>)` draws them at the role's lightness (its hue left out).
+{{colors.<role>.dark.hex}} is the dark version of the palette, for apps
+that only have a dark look (their own styles hard-code light text): the
+palette itself when it's dark, else dark_of() it. Prints the outputs whose
+content changed (one per line), so the caller only reloads those apps.
 
 The apps draw these colours as text, so the palette is made readable first
 (readable()): a theme variant's palette is chosen for the shell's look and may
@@ -30,7 +32,7 @@ import sys
 import tempfile
 
 PLACEHOLDER = re.compile(
-    r"\{\{\s*(?:colors\.([a-z_]+)\.(default|dark)\.(hex|red|green|blue)|(mode))\s*\}\}"
+    r"\{\{\s*(?:colors\.([a-z_]+)\.(default|dark)\.(hex|red|green|blue|gray)|(mode))\s*\}\}"
 )
 
 # The backgrounds the apps put text on.
@@ -197,6 +199,9 @@ def render(template, palettes):
             return match.group(0)
         if field == "hex":
             return color.lower()
+        if field == "gray":
+            r, g, b = rgb(color)
+            return f"{0.2126 * r + 0.7152 * g + 0.0722 * b:.3f}"
         channel = {"red": 1, "green": 3, "blue": 5}[field]
         return str(int(color[channel : channel + 2], 16))
 

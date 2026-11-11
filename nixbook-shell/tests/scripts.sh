@@ -403,6 +403,9 @@ printf '{{colors.primary.default.hex}} {{colors.on_primary.default.hex}} {{color
 expect_eq "render-app-colors.py: text roles made readable, .dark derived" "#7d5ad7 #f9f7fc #2d2540 light #0e0b13 #fcf9ff #b7a4e9" "$(cat "$tmp/apps/light.txt")"
 dark='{"surface":"#141218","on_surface":"#e6e0e9","primary":"#d0bcff","on_primary":"#381e72"}'
 "$colors/render-app-colors.py" "$tmp/modes.tpl" "$tmp/apps/dark.txt" <<<"$dark" >/dev/null
+printf '{{colors.surface.default.gray}} {{colors.on_surface.default.gray}}\n' >"$tmp/gray.tpl"
+"$colors/render-app-colors.py" "$tmp/gray.tpl" "$tmp/apps/gray.txt" <<<"$dark" >/dev/null
+expect_eq "render-app-colors.py: .gray, a role's lightness for icon filters" "0.074 0.886" "$(cat "$tmp/apps/gray.txt")"
 expect_eq "render-app-colors.py: a readable dark palette is left alone" "#d0bcff #381e72 #e6e0e9 dark #141218 #e6e0e9 #d0bcff" "$(cat "$tmp/apps/dark.txt")"
 
 # A home with a Zen profile (relative path in profiles.ini), Vesktop
@@ -424,7 +427,10 @@ expect_eq "zen-theme.py: profiles from profiles.ini" "$(realpath "$zen_profile")
 # Every role the templates use, all #abcdef.
 full_palette=$(grep -ohE 'colors\.[a-z_]+\.(default|dark)' "$colors"/app-templates/* | cut -d. -f2 | sort -u |
   jq -R -s -c 'split("\n") | map(select(. != "")) | map({(.): "#abcdef"}) | add')
-in_home "$colors/apply-app-colors.sh" "$full_palette" vesktop,youtube-music,zen
+gmail_css="$home/.local/state/quickshell/user/generated/apps/gmail.css"
+in_home "$colors/apply-app-colors.sh" "$full_palette" vesktop,youtube-music,gmail,zen
+expect_eq "apply-app-colors.sh: Gmail CSS written, every colour and grey filled" "true true false" \
+  "$(grep -q '#abcdef' "$gmail_css" && echo true) $(grep -q 'invert(0\.' "$gmail_css" && echo true) $(grep -q '{{' "$gmail_css" && echo true || echo false)"
 expect_eq "apply-app-colors.sh: Vesktop theme written" "true" "$(grep -q '#abcdef' "$home/.config/vesktop/themes/nixbook-shell.css" && echo true)"
 expect_eq "apply-app-colors.sh: ...and turned on, other themes kept" '["other.css","nixbook-shell.css"]' "$(jq -c .enabledThemes "$home/.config/vesktop/settings/settings.json")"
 expect_eq "apply-app-colors.sh: YouTube Music CSS written, every colour filled" "true false" \
@@ -452,6 +458,7 @@ rm "$zen_profile/lock"
 in_home "$colors/apply-app-colors.sh" "$full_palette" ""
 expect_eq "apply-app-colors.sh: switched off, Vesktop theme turned off" '["other.css"]' "$(jq -c .enabledThemes "$home/.config/vesktop/settings/settings.json")"
 expect_eq "apply-app-colors.sh: ...YouTube Music CSS removed" "false" "$([ -e "$ytm_css" ] && echo true || echo false)"
+expect_eq "apply-app-colors.sh: ...Gmail CSS removed" "false" "$([ -e "$gmail_css" ] && echo true || echo false)"
 expect_eq "apply-app-colors.sh: ...Zen import removed" 'body { color: red; }' "$(cat "$zen_profile/chrome/userChrome.css")"
 if [ -e "$zen_profile/chrome/nixbook-shell.css" ] || [ -e "$home/.config/vesktop/themes/nixbook-shell.css" ]; then
   fail "apply-app-colors.sh: ...generated files removed"

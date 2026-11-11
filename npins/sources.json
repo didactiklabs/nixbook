@@ -300,6 +300,12 @@
       "url": "https://api.github.com/repos/nix-community/lanzaboote/tarball/refs/tags/v1.2.0",
       "hash": "sha256-sr4Kfp6yaXUeyKL6n0Y8/ElcR3momIRC20HFc+LF22s="
     },
+    "meru": {
+      "type": "Url",
+      "url": "https://github.com/zoidsh/meru/releases/download/v3.64.2/Meru-3.64.2-x86_64.AppImage",
+      "unpack": false,
+      "hash": "sha256-TOV2um6FGmhL32BmNDjw7AYI3Savwf4fuSlk4IYJTe8="
+    },
     "moonfin": {
       "type": "Url",
       "url": "https://github.com/Moonfin-Client/Moonfin-Core/releases/download/2.6.0/Moonfin_Linux_v2.6.0.AppImage",

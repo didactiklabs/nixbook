@@ -115,6 +115,20 @@ ContentPage {
                             text: Translation.tr("Zen reads them when it starts: while it runs, a notification offers to restart it (tabs restored)")
                         }
                     }
+                }
+                ConfigRow {
+                    uniform: true
+                    ConfigSwitch {
+                        configKey: "appearance.wallpaperTheming.apps.gmail";
+                        enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;
+                        buttonIcon: "mail"
+                        text: Translation.tr("Gmail (Meru)")
+                        checked: Config.options.appearance.wallpaperTheming.apps.gmail
+                        onCheckedChanged: { Config.options.appearance.wallpaperTheming.apps.gmail = checked }
+                        StyledToolTip {
+                            text: Translation.tr("Live, through Meru's bridge: every account's Gmail in the theme's colours, light or dark")
+                        }
+                    }
                     Item {
                         Layout.fillWidth: true
                     }
