@@ -13,7 +13,8 @@ const src = fs
   )
   .replace(/^\.pragma library/m, "");
 const m = new Function(
-  src + "\nreturn { norm, sameSong, fresh, followStep, playStep, seekStep }",
+  src +
+    "\nreturn { norm, sameSong, fresh, followStep, playStep, seekStep, goneStep }",
 )();
 
 let failed = 0,
@@ -442,6 +443,52 @@ function seekAt(f, now, pos, target, opts) {
   check(
     "then no more",
     step(5000, queue) === "wait" && step(30000, queue) === "wait",
+  );
+}
+
+// -- The player gone ----------------------------------------------------------
+// The background player leaves the bus when its one-song queue ends: not
+// "you closed it" (that kicked listeners out between songs).
+{
+  const synced = () =>
+    Object.assign(m.fresh(), {
+      syncedTo: "song1111111",
+      lastPos: 178,
+      lastLen: 180,
+    });
+  let f = synced();
+  const gone = (now, wantId, extra) =>
+    m.goneStep(
+      f,
+      Object.assign({ now, wantId, background: true, target: 180 }, extra),
+    );
+  check(
+    "background, gone at its song's end: waits for the host's next song, however long",
+    gone(0, "song1111111") === "next" && gone(60000, "song1111111") === "next",
+  );
+  check(
+    "…the host's next song: opened",
+    gone(61000, "song2222222") === "reopen",
+  );
+  f = synced();
+  check(
+    "…the host started it again (repeat one): opened",
+    gone(0, "song1111111", { target: 3 }) === "reopen",
+  );
+  f = Object.assign(synced(), { lastPos: 60 });
+  check(
+    "background, gone in the middle of the song (stopped): out after 5 s",
+    gone(1000, "song1111111") === "wait" &&
+      gone(5000, "song1111111") === "wait" &&
+      gone(6000, "song1111111") === "leave",
+  );
+  f = synced();
+  check(
+    "an app gone (closed), even at the song's end: out after 5 s",
+    m.goneStep(f, { now: 1000, wantId: "song1111111", background: false }) ===
+      "wait" &&
+      m.goneStep(f, { now: 6000, wantId: "song1111111", background: false }) ===
+        "leave",
   );
 }
 

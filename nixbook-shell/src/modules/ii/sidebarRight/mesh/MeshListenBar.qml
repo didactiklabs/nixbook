@@ -54,6 +54,7 @@ ColumnLayout {
         case "synced": return Translation.tr("In sync, in %1").arg(svc);
         case "opening": return root.video ? Translation.tr("Opening it in mpv…") : Translation.tr("Opening the song in %1…").arg(svc);
         case "starting": return Translation.tr("Starting %1…").arg(svc);
+        case "next": return Translation.tr("Waiting for their next song…");
         case "matching": return Translation.tr("Looking for it on YouTube Music…");
         case "nomatch": return Translation.tr("Not found on YouTube Music: waiting for the next song");
         case "unavailable": return Translation.tr("This song doesn't play in your %1 (not available to your account or country): waiting for the next one").arg(svc);
