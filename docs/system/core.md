@@ -27,6 +27,7 @@ Memory is tuned for zram (`vm.swappiness = 180`, `vm.page-cluster = 0`, watermar
 - sudo restricted to members of `wheel`.
 - **GNOME Keyring** system support: Secret Service, the gcr unlock prompter, the Secret portal backend and PAM unlock at login.
 - A `plugdev` group (Yubico's udev rules use it).
+- No hardware random-number source (`hw_random` set to `none` when a TPM appears): AMD's firmware TPM stops answering after sleep, and the kernel logged a TPM error every 10 s until the next reboot. The kernel's own generator is unaffected.
 
 See [Security](./security) for Secure Boot, encryption, secrets and the firewall.
 
