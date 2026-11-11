@@ -166,6 +166,55 @@ Singleton {
         Pipewire.preferredDefaultAudioSource = node;
     }
 
+    // EasyEffects' sink (easyeffects_sink, a null sink EasyEffects reads
+    // through its monitor) is the default output while EasyEffects runs, so
+    // the volume slider, the volume keys and wpctl all set its volume, which
+    // a null sink doesn't apply to its monitor (monitor.channel-volumes is
+    // off): the volume did nothing (at 0, the sound still reached the
+    // earbuds at full level). Turned on whenever that sink appears
+    // (EasyEffects makes a new one each time it starts); measured on a null
+    // sink: volume 0 silent, 0.5 the cube's eighth, as on a device.
+    readonly property var eeSink: Pipewire.nodes.values.find(n => n.name === "easyeffects_sink" && !n.isStream) ?? null
+    property int _eeVolumesFor: -1
+    onEeSinkChanged: {
+        if (!root.eeSink || root.eeSink.id === root._eeVolumesFor) return;
+        root._eeVolumesFor = root.eeSink.id;
+        Quickshell.execDetached(["pw-cli", "set-param", String(root.eeSink.id), "Props", '{ params = [ "monitor.channel-volumes" true ] }']);
+    }
+
+    // An app's output connected to nothing: after EasyEffects restarts (its
+    // sink goes and comes back with another id), a stream it had moved there
+    // can keep that sink as its target and stay unlinked: no sound until
+    // the output is switched by hand. A stream with no link for 5 s gets its
+    // stale target cleared, so WirePlumber connects it to the default output
+    // (at most once a minute per stream; one that doesn't want to connect,
+    // node.autoconnect false, is left alone).
+    readonly property var linkedSources: {
+        const ids = {};
+        for (const g of Pipewire.linkGroups.values) if (g.source) ids[g.source.id] = true;
+        return ids;
+    }
+    property var _unlinkedSince: ({})
+    property var _relinkedAt: ({})
+    Timer {
+        interval: 2500
+        repeat: true
+        running: root.outputAppNodes.length > 0
+        onTriggered: {
+            const now = Date.now();
+            const since = {};
+            for (const n of root.outputAppNodes) {
+                if (root.linkedSources[n.id] || n.properties?.["node.autoconnect"] === "false") continue;
+                since[n.id] = root._unlinkedSince[n.id] ?? now;
+                if (now - since[n.id] < 5000 || now - (root._relinkedAt[n.id] ?? 0) < 60000) continue;
+                root._relinkedAt[n.id] = now;
+                console.log(`[Audio] ${n.name} (${n.id}) is connected to nothing: its target cleared, back to the default output`);
+                Quickshell.execDetached(["sh", "-c", 'pw-metadata -d "$1" target.object; pw-metadata -d "$1" target.node', "sh", String(n.id)]);
+            }
+            root._unlinkedSince = since;
+        }
+    }
+
     // Internals
     PwObjectTracker {
         objects: [sink, source]
