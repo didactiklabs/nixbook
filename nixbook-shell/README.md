@@ -1444,11 +1444,12 @@ off undoes its setup). `services/AppTheming.qml` hands the palette to
 `scripts/colors/apply-app-colors.sh`, which renders the templates in
 `scripts/colors/app-templates/` and gets them to the apps:
 
-| App         | How the running app gets the new colours                                                                                                                                                        |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Qt & KDE    | Live: kdeglobals + a palette-changed signal; Qt apps read the palette through qt6ct/qt5ct, set up by `programs.nixbook-shell.appTheming.qt.enable`                                              |
-| Vesktop     | Live: its themes folder                                                                                                                                                                         |
-| Zen Browser | At startup only (`zen-theme.py`): the CSS is imported by each profile's `userChrome.css`; while Zen runs, a notification offers to restart it (SIGTERM, a normal quit; the session is restored) |
+| App           | How the running app gets the new colours                                                                                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Qt & KDE      | Live: kdeglobals + a palette-changed signal; Qt apps read the palette through qt6ct/qt5ct, set up by `programs.nixbook-shell.appTheming.qt.enable`                                                     |
+| Vesktop       | Live: its themes folder                                                                                                                                                                                |
+| YouTube Music | Live, through its Electron bridge (`electron-bridge.py`'s `style`: a `<style>` in the page, put back after each load of it); always the palette's dark version (`.dark`), the app having no light look |
+| Zen Browser   | At startup only (`zen-theme.py`): the CSS is imported by each profile's `userChrome.css`; while Zen runs, a notification offers to restart it (SIGTERM, a normal quit; the session is restored)        |
 
 The palette is made readable before it is rendered
 (`render-app-colors.py`): a theme variant's colours are picked for the
@@ -1459,7 +1460,9 @@ is unreadable as the link, tab or icon colour the apps use it for. Text roles
 each `on_<role>` against its `<role>`, by moving only their lightness; colours
 that already read are untouched (Material's generated palettes are). Besides
 matugen's `{{colors.<role>.default.hex}}`, templates can use `{{mode}}`
-(`light`/`dark`). Zen's template overrides what its workspace theme sets
+(`light`/`dark`) and `{{colors.<role>.dark.hex}}`, the palette's dark version
+(itself when dark; else its hues at Material's dark tones), for an app that
+only has a dark look. Zen's template overrides what its workspace theme sets
 inline on the window and on each `zen-workspace` (`--toolbox-textcolor`,
 `--zen-primary-color`, `color-scheme`), which otherwise kept its own
 light/dark text over the palette's background; web pages keep Zen's own

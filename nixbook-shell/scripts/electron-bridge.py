@@ -33,6 +33,9 @@ operations, run in the page's main world through the app's own client
 code (Discord: Vencord's webpack modules; Actual Budget: the $send/$query
 client its page exposes: its public API's handlers), which never return a token,
 a cookie or a header (and the answers are scrubbed for tokens anyway).
+`style` puts the shell's colours in an app it colours (STYLED_APPS:
+YouTube Music), from the CSS file apply-app-colors.sh renders, and the bridge
+puts them back after each load of the page; a client never sends CSS.
 Password fields are refused; password managers are never bridged (the app
 starts without the bridge); sends are rate-limited and written to the audit
 log ($XDG_STATE_HOME/nixbook-shell/electron-bridge.log, lengths only), and
@@ -122,6 +125,30 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 def runtime_base():
     return os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+
+
+# The apps whose page gets the shell's colours (Settings > Appearance > Color
+# generation > Apps): the CSS apply-app-colors.sh renders for them, put in the
+# main page by the `style` operation and again after the page reloads. The
+# file only: a client never sends CSS.
+STYLED_APPS = ("youtube-music",)
+
+
+def style_path(app):
+    state = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
+    return os.path.join(state, "quickshell", "user", "generated", "apps", f"{app}.css")
+
+
+# A <style> of its own, last in the page so it wins over the app's own rules
+# of the same weight; no CSS: removed.
+STYLE_JS = """((css) => {
+  let s = document.getElementById("nixbook-app-style");
+  if (!css) { if (s) s.remove(); return {styled: false}; }
+  if (!s) { s = document.createElement("style"); s.id = "nixbook-app-style"; }
+  if (s.textContent !== css) s.textContent = css;
+  (document.head || document.documentElement).appendChild(s);
+  return {styled: true};
+})(%s)"""
 
 
 def socket_path(app):
@@ -291,6 +318,9 @@ class Bridge:
         self.worlds = {}  # sessionId → isolated world's executionContextId
         self.lock = threading.RLock()
         self.sends, self.acts = [], []
+        # The main page's session while it is styled; its next load sets
+        # restyle (keep_styled puts the style back).
+        self.styled_session, self.restyle = None, threading.Event()
         cdp.on_event = self.event
 
     def event(self, msg):
@@ -303,6 +333,9 @@ class Bridge:
                     self.sessions.pop(t, None)
         elif method in ("Runtime.executionContextsCleared", "Page.frameNavigated"):
             self.worlds.pop(msg.get("sessionId"), None)
+            if (method == "Page.frameNavigated" and not (params.get("frame") or {}).get("parentId")
+                    and msg.get("sessionId") and msg.get("sessionId") == self.styled_session):
+                self.restyle.set()
 
     def pages(self):
         infos = self.cdp.call("Target.getTargets").get("targetInfos") or []
@@ -403,6 +436,28 @@ class Bridge:
         log_.append(now)
 
     # ── Operations ──
+
+    def op_style(self, req):
+        """The shell's colours in the main page, from the file only
+        (style_path); none there: the page's own look again."""
+        if self.app not in STYLED_APPS:
+            raise Refused(f"{self.app} isn't coloured by the shell")
+        try:
+            with open(style_path(self.app), encoding="utf-8") as f:
+                css = f.read()
+        except OSError:
+            css = ""
+        page = self.page(None)
+        sid = self.session(page)
+        self.cdp.call("Page.enable", session=sid)
+        self.styled_session = sid
+        expr = STYLE_JS % json.dumps(css)
+        for attempt in (0, 1):
+            try:
+                return self.evaluate(sid, expr, self.world(sid, fresh=attempt == 1))
+            except CdpError as e:
+                if attempt or "context" not in str(e).lower():
+                    raise Refused(f"the page can't be styled ({e})")
 
     def op_status(self, req):
         version = self.cdp.call("Browser.getVersion")
@@ -647,12 +702,12 @@ ADAPTER_WRITES = {"actual": ACTUAL_WRITES, "discord": DISCORD_WRITES, "slack": S
 CONTENT_MAX_BY_APP = {"discord": 2000, "slack": 12000}
 LIMIT_MAX_BY_APP = {"discord": 50, "slack": 200, "youtube-music": 500}
 OPS = {"status": "op_status", "pages": "op_pages", "read": "op_read", "act": "op_act", "wait": "op_wait",
-       "screenshot": "op_screenshot", "go": "op_go", "app": "op_app"}
+       "screenshot": "op_screenshot", "go": "op_go", "app": "op_app", "style": "op_style"}
 
 
 # What can run again after the page's session went away (a reload in
 # another process, a crashed renderer): nothing that acts.
-RETRYABLE = {"op_status", "op_pages", "op_read", "op_wait", "op_screenshot"}
+RETRYABLE = {"op_status", "op_pages", "op_read", "op_wait", "op_screenshot", "op_style"}
 
 
 def handle(bridge, request):
@@ -948,6 +1003,30 @@ def open_when_loaded(bridge, url, seconds=60):
     log(f"{bridge.app}: no page loaded within {seconds} s; the link it was started with wasn't opened")
 
 
+def keep_styled(bridge):
+    """The shell's colours in the main page once it has loaded, and again
+    after each load of it (a reload drops the <style>)."""
+    first = True
+    while not bridge.cdp.closed.is_set():
+        if not first:
+            if not bridge.restyle.wait(5):
+                continue
+            bridge.restyle.clear()
+        try:
+            with bridge.lock:
+                page = bridge.page(None)
+            if not page["url"].startswith(("http:", "https:")):
+                time.sleep(0.5)
+                continue
+            bridge.wait_loaded(page, 30)
+            r = handle(bridge, {"cmd": "style"})
+            if not r.get("ok"):
+                log(f"{bridge.app}: not styled: {r.get('error')}")
+            first = False
+        except (Refused, CdpError):
+            time.sleep(0.5)
+
+
 def run_bridged(opts, app, command, markers, link=None):
     """The app through the bridge, again when it relaunches itself (its
     app.relaunch(), an update applied): that new instance, unbridged, is
@@ -1043,6 +1122,8 @@ def run_once(opts, app, command, path, page_js, adapter_js, state):
                 server, ino = serve(path, bridge)
                 if state.get("open"):
                     threading.Thread(target=open_when_loaded, args=(bridge, state.pop("open")), daemon=True).start()
+                if app in STYLED_APPS:
+                    threading.Thread(target=keep_styled, args=(bridge,), daemon=True).start()
                 break
             except (Refused, CdpError):
                 time.sleep(0.2)

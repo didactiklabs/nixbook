@@ -48,13 +48,14 @@ Google Sans Flex (main text, titles, numbers), Space Grotesk (desktop clock) and
 
 Other apps can follow the palette the shell shows (the wallpaper's or the theme's), each switched on under **Settings → Appearance → Color generation → Apps**:
 
-| App         | How it gets the new colours                                                                                                  |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Qt & KDE    | Live: `kdeglobals` and a palette-changed signal; Qt apps through qt6ct/qt5ct (`programs.nixbook-shell.appTheming.qt.enable`) |
-| Vesktop     | Live, through its themes folder                                                                                              |
-| Zen Browser | At startup (its `userChrome.css`); while Zen runs, a notification offers to restart it                                       |
+| App           | How it gets the new colours                                                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Qt & KDE      | Live: `kdeglobals` and a palette-changed signal; Qt apps through qt6ct/qt5ct (`programs.nixbook-shell.appTheming.qt.enable`)                |
+| Vesktop       | Live, through its themes folder                                                                                                             |
+| YouTube Music | Live, through its Electron bridge; always dark (the app has no light look), in the theme's colours: surfaces, text, menus, the progress bar |
+| Zen Browser   | At startup (its `userChrome.css`); while Zen runs, a notification offers to restart it                                                      |
 
-The palette is made **readable** first: text colours get at least 4.5:1 contrast against every surface (outlines 3:1), so a pastel accent that works as a fill never becomes unreadable link or tab text. While the Qt switch is on, colour schemes that a KDE app pinned for itself are removed so it follows the shell. Slack and YouTube Music are deliberately not themed.
+The palette is made **readable** first: text colours get at least 4.5:1 contrast against every surface (outlines 3:1), so a pastel accent that works as a fill never becomes unreadable link or tab text. While the Qt switch is on, colour schemes that a KDE app pinned for itself are removed so it follows the shell. Slack is deliberately not themed.
 
 ## Adding a theme
 

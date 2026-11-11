@@ -194,6 +194,12 @@ def answer(msg):
         return {"executionContextId": 42}
     if method == "Runtime.evaluate":
         expr = params.get("expression") or ""
+        if "nixbook-app-style" in expr:
+            # The `style` operation: the CSS is the argument of its last line.
+            css = json.loads(re.search(r"\}\)\((.*)\)$", expr, re.S).group(1))
+            log({"eval": "style", "length": len(css), "isolated": params.get("contextId") is not None,
+                 "session": msg.get("sessionId")})
+            return {"result": {"type": "object", "value": {"styled": bool(css)}}}
         last = expr.rsplit("\n", 1)[-1]
         m = re.match(r"^;(nixbookPage|nixbookApp)\((.*)\)$", last, re.S)
         if not m:
@@ -209,7 +215,7 @@ def answer(msg):
     if method == "Input.insertText":
         typed["text"] += params.get("text") or ""
         return {}
-    if method in ("Input.dispatchKeyEvent", "Emulation.setFocusEmulationEnabled", "Page.reload",
+    if method in ("Input.dispatchKeyEvent", "Emulation.setFocusEmulationEnabled", "Page.reload", "Page.enable",
                   "Page.navigateToHistoryEntry", "Page.navigate"):
         return {}
     if method == "Page.getNavigationHistory":
