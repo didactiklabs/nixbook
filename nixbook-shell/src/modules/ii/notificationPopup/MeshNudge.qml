@@ -4,6 +4,7 @@ import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.common.functions
 import qs.modules.ii.sidebarRight.mesh
 import QtQuick
 import QtQuick.Layouts
@@ -22,13 +23,25 @@ import Quickshell.Wayland
  * holds it); several queue up. Mesh decides when one shows
  * (Mesh._nudgeCutInNow): not locked or on Do Not Disturb; over a fullscreen
  * window and with the Mesh tab open too.
+ *
+ * Welcome back (Mesh `welcomed`): the nudges that came while this desktop
+ * wasn't there, in one card — "Welcome back", then a line per sender and
+ * kind (their picture, the emoji, the words, ×count), at most four and "and
+ * N more"; it stays 10 s. Click: the latest one's conversation.
  */
 Scope {
     id: root
 
     property var queue: []
     readonly property var current: root.queue.length > 0 ? root.queue[0] : null
-    readonly property var nudge: root.current ? Mesh.nudgeOf(root.current.quick) : null
+    readonly property bool welcome: root.current?.welcome ?? false
+    readonly property var groups: root.welcome ? root.current.groups : []
+    readonly property var nudge: root.current && !root.welcome ? Mesh.nudgeOf(root.current.quick) : null
+    // What floats up: the nudge's emoji, or the welcome's in turn.
+    function emojiAt(i) {
+        if (!root.welcome) return root.nudge?.emoji ?? "";
+        return root.groups.length > 0 ? root.groups[i % root.groups.length].emoji : "";
+    }
     onCurrentChanged: MakeWay.setCutIn("meshNudge", root.current !== null)
     Component.onDestruction: MakeWay.setCutIn("meshNudge", false)
     Connections {
@@ -41,6 +54,11 @@ Scope {
         target: Mesh
         function onNudged(m) {
             root.queue = root.queue.concat([m]).slice(-5);
+            Notifications.playNotificationSound({ hints: {} });
+        }
+        function onWelcomed(groups) {
+            // One welcome at a time: a newer one replaces a waiting one.
+            root.queue = root.queue.filter((q, i) => i === 0 || !q.welcome).concat([{ welcome: true, groups: groups }]).slice(-5);
             Notifications.playNotificationSound({ hints: {} });
         }
     }
@@ -64,8 +82,8 @@ Scope {
         color: "transparent"
         anchors.top: true
         margins.top: (Config.options.bar.bottom ?? false) ? 12 : Appearance.sizes.barHeight + 8
-        implicitWidth: 520
-        implicitHeight: 260
+        implicitWidth: 560
+        implicitHeight: root.welcome ? Math.max(260, welcomeCol.implicitHeight + 140) : 260
 
         Item {
             id: stage
@@ -91,7 +109,7 @@ Scope {
                 delegate: StyledText {
                     id: bit
                     required property int index
-                    text: root.nudge?.emoji ?? ""
+                    text: root.emojiAt(bit.index)
                     font.pixelSize: 22 + (index % 3) * 6
                     x: card.x + card.width * ((index + 0.5) / 7) - width / 2
                     y: card.y + card.height - 20
@@ -136,8 +154,8 @@ Scope {
                 id: card
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: 40
-                width: Math.min(440, row.implicitWidth + 40)
-                height: row.implicitHeight + 32
+                width: root.welcome ? Math.min(480, welcomeCol.implicitWidth + 40) : Math.min(440, row.implicitWidth + 40)
+                height: (root.welcome ? welcomeCol.implicitHeight : row.implicitHeight) + 32
                 radius: Appearance.rounding.large
                 // The theme's accent, not a plain card: it is a cut-in.
                 readonly property bool framed: Persona.shapes || Cyberpunk.frames
@@ -155,7 +173,8 @@ Scope {
                     acceptedButtons: Qt.LeftButton
                     onTapped: {
                         const m = root.current;
-                        if (m) Mesh.open(Mesh.conversationOf(m));
+                        if (m?.welcome) Mesh.open(m.groups[0]?.conv ?? "");
+                        else if (m) Mesh.open(Mesh.conversationOf(m));
                         root.leave();
                     }
                 }
@@ -164,8 +183,94 @@ Scope {
                     onTapped: root.leave()
                 }
 
+                // Welcome back: who nudged while you were away.
+                ColumnLayout {
+                    id: welcomeCol
+                    visible: root.welcome
+                    anchors.centerIn: parent
+                    spacing: 8
+                    RowLayout {
+                        spacing: 10
+                        StyledText {
+                            text: "👋"
+                            font.pixelSize: 40
+                            transformOrigin: Item.Bottom
+                            SequentialAnimation on rotation {
+                                running: window.visible && root.welcome
+                                loops: Animation.Infinite
+                                NumberAnimation { to: 18; duration: 220; easing.type: Easing.OutQuad }
+                                NumberAnimation { to: -10; duration: 260; easing.type: Easing.InOutQuad }
+                                NumberAnimation { to: 0; duration: 220; easing.type: Easing.OutBack }
+                                PauseAnimation { duration: 900 }
+                            }
+                        }
+                        ColumnLayout {
+                            spacing: 0
+                            StyledText {
+                                text: Translation.tr("Welcome back!")
+                                font.pixelSize: Appearance.font.pixelSize.hugeass + 4
+                                font.weight: Font.Bold
+                                color: card.fg
+                            }
+                            StyledText {
+                                text: Translation.tr("While you were away")
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                color: card.fg
+                                opacity: 0.8
+                            }
+                        }
+                    }
+                    Repeater {
+                        model: root.groups.slice(0, MeshWelcome.shown)
+                        delegate: RowLayout {
+                            id: line
+                            required property var modelData
+                            spacing: 8
+                            MeshAvatar {
+                                size: 28
+                                memberId: line.modelData.from
+                            }
+                            StyledText {
+                                text: line.modelData.emoji
+                                font.pixelSize: 22
+                            }
+                            StyledText {
+                                Layout.maximumWidth: 300
+                                elide: Text.ElideRight
+                                text: (line.modelData.to ?? "") === ""
+                                    ? Translation.tr("%1 · %2 (to everyone)").arg(line.modelData.name).arg(line.modelData.text)
+                                    : Translation.tr("%1 · %2").arg(line.modelData.name).arg(line.modelData.text)
+                                font.pixelSize: Appearance.font.pixelSize.normal
+                                font.weight: Font.DemiBold
+                                color: card.fg
+                            }
+                            StyledText {
+                                visible: line.modelData.count > 1
+                                text: `×${line.modelData.count}`
+                                font.pixelSize: Appearance.font.pixelSize.normal
+                                font.weight: Font.Bold
+                                color: card.framed ? Appearance.colors.colPrimary : card.fg
+                            }
+                        }
+                    }
+                    StyledText {
+                        visible: root.groups.length > MeshWelcome.shown
+                        text: Translation.tr("and %1 more").arg(root.groups.length - MeshWelcome.shown)
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: card.fg
+                        opacity: 0.8
+                    }
+                    StyledText {
+                        text: Translation.tr("Click to answer")
+                        font.pixelSize: Appearance.font.pixelSize.smallest
+                        color: card.fg
+                        opacity: 0.7
+                    }
+                }
+
                 RowLayout {
                     id: row
+                    visible: !root.welcome
                     anchors.centerIn: parent
                     spacing: 14
                     // Head pats: a hand pats the receiver's own picture (a
@@ -239,7 +344,7 @@ Scope {
                             font.pixelSize: 50
                             transformOrigin: Item.Bottom
                             SequentialAnimation on scale {
-                                running: window.visible
+                                running: window.visible && !root.welcome
                                 loops: Animation.Infinite
                                 NumberAnimation { to: 1.18; duration: 260; easing.type: Easing.OutQuad }
                                 NumberAnimation { to: 1.0; duration: 420; easing.type: Easing.OutBounce }
@@ -295,10 +400,10 @@ Scope {
                 }
                 ScriptAction { script: root.next() }
             }
-            // Left alone: away after 6 s; hovering holds it.
+            // Left alone: away after 6 s (a welcome back 10 s); hovering holds it.
             Timer {
                 id: stay
-                interval: 6000
+                interval: root.welcome ? 10000 : 6000
                 running: root.current !== null && !cardHover.hovered && !leaveAnim.running
                 onTriggered: root.leave()
             }
