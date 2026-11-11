@@ -68,8 +68,9 @@ DEFAULT_CONFIG = {
     # smartClipboard: run would take the action offered for what the user
     # copied, offer would show chips the user never asked for.
     # "mesh": messages to people in the user's name (services/Mesh.qml).
+    # "audio": it could unmute the microphone (services/Audio.qml).
     "shellIpcDenyTargets": ["session", "nixManaged", "desktopControl", "layouts", "settings", "makeWay", "projects",
-                            "smartClipboard", "mesh"],
+                            "smartClipboard", "mesh", "audio"],
     "allowSuperKey": False,
     "maxTextLength": 4000,
     # A note written into the notes widget (it goes through a file, not the

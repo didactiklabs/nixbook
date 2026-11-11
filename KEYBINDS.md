@@ -140,7 +140,7 @@ Inside the right sidebar (nixbook-shell): `Ctrl+P` pins it (open beside the wind
 | `XF86AudioRaiseVolume`             | Volume +3%                                                                               |
 | `XF86AudioLowerVolume`             | Volume -3%                                                                               |
 | `XF86AudioMute`                    | Toggle mute                                                                              |
-| `XF86AudioMicMute`                 | Toggle microphone mute                                                                   |
+| `XF86AudioMicMute`                 | Toggle microphone mute (nixbook-shell: every microphone)                                 |
 | `XF86AudioPlay`                    | Play / pause (nixbook-shell's chosen player, else playerctl)                             |
 | `XF86AudioPause` / `XF86AudioStop` | Pause the music                                                                          |
 | `XF86AudioNext`                    | Next track                                                                               |

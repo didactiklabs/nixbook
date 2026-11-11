@@ -839,12 +839,25 @@ in
             "@DEFAULT_SINK@"
             "toggle"
           ];
-          "XF86AudioMicMute" = lockedSpawn "Mute / unmute the microphone" [
-            "${wpctl}"
-            "set-mute"
-            "@DEFAULT_SOURCE@"
-            "toggle"
-          ];
+          # nixbook-shell mutes every microphone (the default one alone left
+          # the others, and the real mic under echo cancellation, live);
+          # wpctl on the default one when the shell doesn't answer.
+          "XF86AudioMicMute" = lockedSpawn "Mute / unmute the microphone" (
+            if cfg.nixbookShellConfig.enable then
+              [
+                "sh"
+                "-c"
+                # (ipc call exits 0 even when no shell or no such target answers)
+                "case \"$(nixbook-shell ipc call audio micToggle 2>&1)\" in muted | unmuted) ;; *) exec ${wpctl} set-mute @DEFAULT_SOURCE@ toggle ;; esac"
+              ]
+            else
+              [
+                "${wpctl}"
+                "set-mute"
+                "@DEFAULT_SOURCE@"
+                "toggle"
+              ]
+          );
 
           # Media keys (unbound, they only reached the focused app)
           "XF86AudioPlay" = lockedSpawn "Play / pause" (media "playPause" [ "play-pause" ]);
