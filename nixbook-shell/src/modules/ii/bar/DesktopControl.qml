@@ -12,9 +12,10 @@ import Quickshell
 // - Claude (a robot): ask Claude anything in its speech bubble, again to put
 //   it away (Mod+C). It hops when Claude has something new to say and nods
 //   while Claude answers in its bubble.
-// - What Claude has for the user (a speech bubble, breathing slowly; only
-//   then): something new it waits to tell (services/Initiative.qml) or an
-//   answer not read in a conversation put away. Click brings it back in
+// - What Claude has for the user (a speech bubble, breathing slowly for a
+//   while when it comes and when the user is back; only then): something
+//   new it waits to tell (services/Initiative.qml) or an answer not read in
+//   a conversation put away. Click brings it back in
 //   Claude's speech bubble, right-click is "not now". What they've read
 //   stays dark; a count says how many they haven't.
 // - Desktop control (services/DesktopControl.qml): a pause button while
@@ -63,9 +64,32 @@ Item {
     readonly property bool waiting: root.said !== null || (Initiative.parked?.unread ?? false)
     // How many: on the bubble button, like the bar's notification count.
     readonly property int waitingCount: Initiative.unread.length + ((Initiative.parked?.unread ?? false) ? 1 : 0)
+    // Breathes for a while when something new comes, and again when the
+    // user is back at the screen, then rests (the count stays): every frame
+    // of it redraws the bar and makes niri recomposite the whole output with
+    // its blur (measured on totoro: ~35 % of the GPU in the shell and ~35 %
+    // in niri, for hours while a word stayed unread).
+    property bool breatheFresh: false
+    function freshBreath() {
+        if (!root.waiting) return;
+        root.breatheFresh = true;
+        breatheTimer.restart();
+    }
+    onWaitingCountChanged: if (root.waitingCount > 0) root.freshBreath()
+    onWaitingChanged: if (root.waiting) root.freshBreath()
+    Component.onCompleted: root.freshBreath()
+    Connections {
+        target: Idle
+        function onScreensOffChanged() { if (!Idle.screensOff) root.freshBreath(); }
+    }
+    Timer {
+        id: breatheTimer
+        interval: 45000
+        onTriggered: root.breatheFresh = false
+    }
     property real breathe: 1
     SequentialAnimation on breathe {
-        running: root.waiting
+        running: root.waiting && root.breatheFresh
         loops: Animation.Infinite
         NumberAnimation { to: 0.5; duration: 1600; easing.type: Easing.InOutSine }
         NumberAnimation { to: 1; duration: 1600; easing.type: Easing.InOutSine }
