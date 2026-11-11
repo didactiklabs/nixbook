@@ -42,6 +42,8 @@ Singleton {
     // The playlists ({id, title, count, author, thumb: a cached file}), Liked
     // Music first; kept so the tab shows them at once while it refreshes.
     property var playlists: null
+    // The playlists came from their last copy (no network).
+    property bool playlistsOffline: false
     property real playlistsAt: 0
     property bool playlistsLoading: false
     property string playlistsError: ""
@@ -53,18 +55,61 @@ Singleton {
             root.playlistsLoading = false;
             if (ok) {
                 root.playlists = answer.playlists ?? [];
-                root.playlistsAt = Date.now();
+                root.playlistsOffline = !!answer.offline;
+                // Offline, tried again soon: the network may be back.
+                root.playlistsAt = answer.offline ? Date.now() - 4 * 60 * 1000 : Date.now();
                 root.playlistsError = "";
             } else root.playlistsError = answer?.error ?? "";
         });
     }
     onSignedInChanged: {
-        if (root.signedIn) root.refreshPlaylists(true);
-        else root.playlists = null;
+        if (root.signedIn) {
+            root.refreshPlaylists(true);
+            root.refreshOffline();
+        } else root.playlists = null;
     }
 
+    // Offline listening (`nixbook-ytmusic offline`): {limitMB, auto, used,
+    // count, kept: [{id, title, total, cached}], downloading: {videoId,
+    // title, artist}|null, left, full, error}. Songs heard 30 s (auto) and
+    // the playlists kept offline are downloaded by the player's service, in
+    // ~/.cache/nixbook-ytmusic/offline; over limitMB the least recently
+    // played go, never a kept playlist's. Read while the tab shows (every
+    // 2 s while something downloads), and after each change.
+    property var offline: null
+    readonly property bool downloading: (root.offline?.downloading ?? null) !== null
+    property bool offlineWatched: false
+    function refreshOffline() {
+        root.run(["offline", "status"], "", (ok, answer) => {
+            if (ok) root.offline = answer;
+        });
+    }
+    function offlineDo(args, then) {
+        root.run(["offline", ...args], "", (ok, answer) => {
+            if (ok) root.offline = answer;
+            if (then) then(ok, answer);
+        });
+    }
+    function isKept(id) {
+        return (root.offline?.kept ?? []).some(k => k.id === id);
+    }
+    function keepOffline(id, title, then) {
+        root.offlineDo(["keep", id, ...String(title ?? "").split(/\s+/).filter(w => w !== "")], then);
+    }
+    function unkeepOffline(id, then) {
+        root.offlineDo(["unkeep", id], then);
+    }
+    Timer {
+        interval: 2000
+        repeat: true
+        running: root.offlineWatched && (root.downloading || (root.offline?.left ?? 0) > 0)
+        onTriggered: root.refreshOffline()
+    }
+    onDownloadingChanged: if (!root.downloading && root.signedIn) root.refreshPlaylists(true)
+
     // A playlist's songs ({id, title, tracks: [{videoId, title, artist,
-    // album, duration, art, thumb}]}); then(ok, answer).
+    // album, duration, art, thumb, cached}], kept, offline: from its last
+    // copy}); then(ok, answer). "_offline": every song on this computer.
     function playlist(id, then) {
         root.run(["playlist", id], "", then);
     }

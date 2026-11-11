@@ -14,6 +14,19 @@ The shell follows every MPRIS player (Spotify, browsers, mpv, YouTube Music, pho
 
 Your YouTube Music playlists, played without a window: the right sidebar's **YouTube Music** tab (Mod+N; Settings > Panels turns the tab off) lists them, Liked Music first. Click one for its songs, then **Play**, **Shuffle**, or a song to start from. The **Search YouTube Music** field above them searches the whole catalogue, songs first and then videos (covers, live versions, what isn't released as a song), once you stop typing or on Enter. Click a result to play it, with the rest of that list after it. Escape or the cross clears the search. It plays in mpv, audio only, and shows like any player: the bar, the media controls, the media keys and the synced lyrics. The tab has shuffle, previous, play/pause, next, repeat (off, the playlist, one song) and the lyrics.
 
+### Offline listening
+
+Songs can play without network:
+
+- **Songs you listen to:** a song heard for 30 seconds is downloaded to this computer (turn it off with **Keep the songs I listen to**).
+- **Whole playlists:** open a playlist and click its download button to keep all of it; new songs added to it come down too (it is looked at again every 3 hours).
+- **On this computer** (after Liked Music) lists every downloaded song, the last played first.
+- **Without network**, the tab says **Offline**: your playlists show as they were the last time, and only the downloaded songs play (the others are dimmed).
+
+The download button next to Refresh opens **Offline listening**: the space used, how much it may use (1 to 32 GB, 4 GB by default), what is downloading, the kept playlists, **Free space** (the songs no kept playlist has) and **Remove everything**. When the space is full, the songs played longest ago make room; a kept playlist's songs never do (if the kept playlists alone fill it, the rest of them waits, and the page says so). The songs are yt-dlp's best audio as it comes (Opus or AAC, about 3–5 MB each), in `~/.cache/nixbook-ytmusic/offline`, downloaded one at a time at low priority by the player's service. From the command line: `nixbook-ytmusic offline status|keep ID|unkeep ID|set limit MB|set auto on|off|clear [--all]`.
+
+The song playing has a seek bar with its time in the tab, and the dock's media card a thin progress line along its bottom edge: click or drag it to seek, hover it for the time.
+
 **Signing in** (the tab, or Settings > Apps & accounts > YouTube Music):
 
 1. Sign in to YouTube Music in your browser (Zen, Firefox, LibreWolf, Floorp, Waterfox, Mullvad Browser, Chrome, Chromium, Brave, Vivaldi, Edge, Opera, Thorium; Flatpak and Snap ones too) or in the YouTube Music app.
