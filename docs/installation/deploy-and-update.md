@@ -23,16 +23,18 @@ Users created with `mkUser` may run `colmena` through `sudo` without a password,
 ### `osupdate`
 
 ```bash
-osupdate           # refuses to run while offline
-osupdate --force   # skip the network check (or OSUPDATE_FORCE=1)
+osupdate             # refuses to run while offline
+osupdate --force     # skip the network check (or OSUPDATE_FORCE=1)
+osupdate --no-wait   # don't wait for CI to cache the revision (or OSUPDATE_NO_WAIT=1)
 ```
 
 `osupdate` (installed by the `tools` module):
 
 1. checks the network (`nm-online`, 30 s) unless forced;
 2. resolves the latest `main` revision of the nixbook repository;
-3. runs [`ginx`](/packages/#ginx) to fetch that revision and run `colmena apply-local` in it;
-4. verifies that `/etc/nixos/version` now records that revision, and **exits non-zero** if it does not (ginx itself exits 0 even when its command fails).
+3. waits until CI has pushed that revision's systems to the [binary cache](/development/ci-cd) (the `cache-ready` job writes `nixbook/revs/<rev>` to the bucket once the push is over, ~30 min after a merge), re-reading `main` every 30 s so a newer merge is waited for instead; after `OSUPDATE_CACHE_WAIT` minutes (default 45) it goes ahead and builds whatever isn't cached. Without the wait, an update right after a merge built everything locally;
+4. runs [`ginx`](/packages/#ginx) to fetch that revision and run `colmena apply-local` in it;
+5. verifies that `/etc/nixos/version` now records that revision, and **exits non-zero** if it does not (ginx itself exits 0 even when its command fails).
 
 The same update can run without a terminal as the `nixos-upgrade-manual.service` systemd unit (niced, idle I/O, two-hour timeout), which is what the desktop shells' **update widgets** trigger — passwordless through polkit.
 

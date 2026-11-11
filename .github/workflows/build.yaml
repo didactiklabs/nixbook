@@ -241,3 +241,29 @@ jobs:
           # shellcheck disable=SC2016
           CACHE_KEY="$key" nix-shell -p awscli2 jq curl --run \
             'mapfile -t builds < "$RUNNER_TEMP/builds" && bash .github/push-cache.sh "${builds[@]}"'
+
+  # Tells the machines this main commit's push is over: osupdate waits for
+  # nixbook/revs/<sha> in the bucket before applying a revision, so an
+  # update right after a merge fetches the systems instead of building them
+  # (the push lands ~30 min after the merge). Also written when the push
+  # failed or was skipped (docs-only commit, duplicate tree): there is
+  # nothing more to wait for then.
+  cache-ready:
+    timeout-minutes: 10
+    needs: [pre_job, push-cache]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Pin nixpkgs for nix-shell
+        run: |
+          echo "NIX_PATH=nixpkgs=$(jq -r .pins.nixpkgs.url npins/sources.json)" >> "$GITHUB_ENV"
+      - name: Mark the revision cached
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_ID }}
+          RESULT: ${{ needs.push-cache.result }}
+        run: |
+          # shellcheck disable=SC2016
+          nix-shell -p awscli2 jq --run 'bash .github/push-cache.sh --mark "$GITHUB_SHA" "$RESULT"'
