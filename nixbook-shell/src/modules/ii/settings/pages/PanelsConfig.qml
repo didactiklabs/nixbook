@@ -166,6 +166,17 @@ ContentPage {
                 }
 
                 ConfigSwitch {
+                    configKey: "sidebar.youtubeMusicTab";
+                    enabled: !nixManaged;
+                    buttonIcon: "queue_music"
+                    text: Translation.tr('YouTube Music tab: your playlists, played in the background')
+                    checked: Config.options.sidebar.youtubeMusicTab
+                    onCheckedChanged: {
+                        Config.options.sidebar.youtubeMusicTab = checked;
+                    }
+                }
+
+                ConfigSwitch {
                     configKey: "sidebar.mediaPlayer";
                     enabled: !nixManaged;
                     buttonIcon: "music_note"

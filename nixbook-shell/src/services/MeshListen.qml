@@ -46,8 +46,29 @@ Singleton {
         return service === "spotify" ? "Spotify" : service === "youtube-music" ? "YouTube Music"
             : service === "jellyfin" ? "Jellyfin" : "";
     }
+    // The player of `service` that plays, else one on a song, else any: the
+    // YouTube Music app and the background player (nixbook-ytmusic) can
+    // both be there.
     function playerFor(service) {
-        return root.players().find(p => root.serviceOf(p) === service) ?? null;
+        const all = root.players().filter(p => root.serviceOf(p) === service);
+        return all.find(p => p.isPlaying) ?? all.find(p => root.trackOf(p) !== null) ?? all[0] ?? null;
+    }
+    // YouTube Music in the background (services/YouTubeMusic.qml): signed
+    // in, listening along plays there, without a window (tests set
+    // testBackground).
+    property var testBackground: null
+    function backgroundYt() {
+        return root.testBackground !== null ? !!root.testBackground : YouTubeMusic.signedIn;
+    }
+    function isBackground(p) {
+        return /nixbook_ytmusic/.test(`${p?.dbusName ?? ""}`);
+    }
+    // The player that follows the host: the background one for YouTube
+    // Music when it is signed in (there or not yet), else playerFor.
+    function followerFor(service) {
+        if (service === "youtube-music" && root.backgroundYt())
+            return root.players().find(p => root.isBackground(p)) ?? null;
+        return root.playerFor(service);
     }
     // The song a player is on: { id, title, artist, album, length, art }, or
     // null (nothing, or an ad).
@@ -103,6 +124,7 @@ Singleton {
     function localService(service) {
         // Jellyfin: this computer's mpv, once Jellyfin is set up here.
         if (service === "jellyfin") return root.jellyfinReady() ? "jellyfin" : "";
+        if (service === "youtube-music" && root.backgroundYt()) return service;
         const other = service === "spotify" ? "youtube-music" : "spotify";
         if (root.playerFor(service)) return service;
         if (root.playerFor(other)) return other;
@@ -393,7 +415,7 @@ Singleton {
                 return;
             }
         }
-        const p = root.playerFor(svc);
+        const p = root.followerFor(svc);
         // The app closed while listening along (it was there): the listener
         // closed it, so they stop (5 s: an app restarting itself comes back);
         // only an app not started yet is started.
@@ -411,9 +433,13 @@ Singleton {
         if (!p) {
             if (now - f.launchedAt > 20000) {
                 f.launchedAt = now;
-                // YouTube Music starts on the song (the Electron bridge opens
-                // it once the app has loaded); never its website.
-                if (!root.openInApp(svc, svc === "youtube-music" ? root.uriFor(svc, wantId, target + 5) : "")) {
+                // YouTube Music starts on the song: in the background player
+                // (its yt-dlp takes a few seconds: a little ahead), else the
+                // app (the Electron bridge opens it once the app has
+                // loaded); never its website.
+                if (svc === "youtube-music" && root.backgroundYt()) {
+                    root._openSong(svc, wantId, target + 6, f);
+                } else if (!root.openInApp(svc, svc === "youtube-music" ? root.uriFor(svc, wantId, target + 5) : "")) {
                     root.followStatus = "noapp";
                     return;
                 }
@@ -463,6 +489,14 @@ Singleton {
     // MPRIS's OpenUri didn't, never passes by the browser, and doesn't raise
     // the app's window), else MPRIS.
     function _openSong(svc, id, at, f, noBridge) {
+        // The background player: `nixbook-ytmusic play-id`, which also
+        // starts it.
+        if (svc === "youtube-music" && root.backgroundYt()) {
+            f.tried = [...(f.tried ?? []).filter(x => x !== id), id];
+            if (root.testBackground !== null) root.testBackground(id, at);
+            else YouTubeMusic.playId(id, at);
+            return;
+        }
         const p = root.playerFor(svc);
         if (!p) return;
         const uri = root.uriFor(svc, id, at);

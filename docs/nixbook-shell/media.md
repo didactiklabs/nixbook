@@ -10,6 +10,23 @@ The shell follows every MPRIS player (Spotify, browsers, mpv, YouTube Music, pho
 - transport controls: previous/next, ±10 s seek, shuffle, repeat;
 - a **⋯ menu** with what the player supports: stop, fullscreen, the track link (copy, open, **send to your phone**), play a link from the clipboard, _Up next_, playlists, raise or quit the player.
 
+## YouTube Music in the background
+
+Your YouTube Music playlists, played without a window: the right sidebar's **YouTube Music** tab (Mod+N; Settings > Panels turns the tab off) lists them, Liked Music first. Click one for its songs, then **Play**, **Shuffle**, or a song to start from. It plays in mpv, audio only, and shows like any player: the bar, the media controls, the media keys and the synced lyrics. The tab has shuffle, previous, play/pause, next, repeat (off, the playlist, one song) and the lyrics.
+
+**Signing in** (the tab, or Settings > Services > YouTube Music):
+
+1. Sign in to YouTube Music in your browser (Zen, Firefox, LibreWolf, Floorp, Waterfox, Mullvad Browser, Chrome, Chromium, Brave, Vivaldi, Edge, Opera, Thorium; Flatpak and Snap ones too) or in the YouTube Music app.
+2. Click **Use my browser's session**. When several have a login, pick one (the most recent is the default).
+
+The session (that login's YouTube cookies) is kept in your keyring, never in a file; **Sign out** takes it out (your browser stays signed in). The songs play without it; it's only tried for a song that won't play otherwise (age-restricted…).
+
+**Last.fm**: **Sign in to Last.fm** opens Last.fm's page where you allow nixbook, then click **I've allowed it**. Last.fm asks for an API key: the YouTube Music app's is used when it is installed; on another computer, **Create an API key** (free, at once) and paste the key and the secret. **Use the YouTube Music app's sign-in** takes its Last.fm sign-in as it is. A song is scrobbled once it has played half its length or 4 minutes (songs over 30 seconds), and shown as now playing when it starts.
+
+**Listening together** in the [Mesh](./mesh.md#listening-together) plays the friend's song in this background player once you are signed in, instead of opening the YouTube Music app.
+
+Under the hood: `nixbook-ytmusic` (`programs.nixbook-shell.ytmusic.enable`, on by default) reads the library with [ytmusicapi](https://github.com/sigma67/ytmusicapi) and plays through mpv and yt-dlp, the next song's stream resolved while the current one plays (no pause between songs); its player (the `nixbook-ytmusic` user unit) starts when something plays and is the MPRIS player "YouTube Music (background)" only while a song is loaded. `nixbook-ytmusic control next|toggle|shuffle|repeat…` drives it from a terminal or a shortcut.
+
 ## Equalizer
 
 The equalizer panel drives **EasyEffects**: presets or a 10-band curve with preamp, or **Auto**, which picks a curve from the song's Last.fm genre tags. Its optional **agent mode** has a small Claude Code task (Haiku by default) tune the curve for each new song (`equalizer.agent`, `equalizer.agentModel`). The curve it makes for a song is remembered (the last 500 songs, in `~/.local/state/quickshell/user/eq/agent-curves.json`): when that song plays again, the same curve comes back at once, with no new agent run.

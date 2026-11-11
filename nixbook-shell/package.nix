@@ -27,6 +27,8 @@ let
   keep = import ./keep.nix { inherit pkgs gkeepapiSrc; };
   # The mesh between people's desktops (`nixbook-mesh`, services/Mesh.qml).
   mesh = import ./mesh.nix { inherit pkgs; };
+  # YouTube Music in the background (`nixbook-ytmusic`, services/YouTubeMusic.qml).
+  ytmusic = import ./ytmusic.nix { inherit pkgs; };
   settingsLib = import ./lib.nix { inherit lib; };
   # wl-clipboard with a wl-copy that keeps text as text (wl-copy.nix).
   wlClipboard = import ./wl-copy.nix { inherit pkgs; };
@@ -249,6 +251,7 @@ let
       accounts # `nixbook-accounts` — the accounts, contacts and tasks (services/Accounts.qml)
       keep # `nixbook-keep` — the notes' sync with Google Keep (services/KeepSync.qml)
       mesh # `nixbook-mesh` — the mesh between people's desktops (services/Mesh.qml)
+      ytmusic # `nixbook-ytmusic` — YouTube Music in the background (services/YouTubeMusic.qml)
       shell.passthru.pythonEnv
       anthropicUsage # `anthropic-usage` — AnthropicUsage bar widget
       desktopMcp # `nixbook-desktop-mcp` — desktop tools of the AI chat
@@ -376,6 +379,7 @@ launcher.overrideAttrs (old: {
       fonts
       keep
       mesh
+      ytmusic
       electronBridge
       ;
     zenAgent = {

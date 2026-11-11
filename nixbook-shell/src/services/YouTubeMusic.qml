@@ -1,0 +1,168 @@
+pragma Singleton
+pragma ComponentBehavior: Bound
+
+import qs
+import qs.modules.common
+import Quickshell
+import Quickshell.Io
+import Quickshell.Services.Mpris
+import QtQuick
+
+/**
+ * YouTube Music in the background, without a window (no AI): `nixbook-ytmusic`
+ * (scripts/ytmusic.py) reads the library with the YouTube session signed in
+ * from a browser or the YouTube Music app, and its player (the
+ * `nixbook-ytmusic` user unit, started when something plays) plays it with
+ * mpv, audio only, as the MPRIS player "YouTube Music (background)" —
+ * scrobbled to Last.fm once signed in there. The right sidebar's YouTube
+ * Music tab (sidebar.youtubeMusicTab) lists the playlists; Settings >
+ * Services > YouTube Music signs in. Listening along (MeshListen) follows a
+ * friend's song with this player when it is signed in.
+ */
+Singleton {
+    id: root
+
+    readonly property string bin: "nixbook-ytmusic"
+    // {signedIn, account, browser, player, lastfm: {on, user}}; null until read.
+    property var state: null
+    readonly property bool signedIn: root.state?.signedIn ?? false
+    readonly property string account: root.state?.account ?? ""
+    readonly property bool lastfmOn: root.state?.lastfm?.on ?? false
+    readonly property string lastfmUser: root.state?.lastfm?.user ?? ""
+    // The player on the bus (only while something is loaded).
+    readonly property MprisPlayer player: Mpris.players.values.find(p => String(p?.dbusName ?? "").includes("nixbook_ytmusic")) ?? null
+
+    function refresh() {
+        root.run(["status"], "", (ok, answer) => {
+            if (ok) root.state = answer;
+        });
+    }
+    Component.onCompleted: root.refresh()
+
+    // The playlists ({id, title, count, author, thumb: a cached file}), Liked
+    // Music first; kept so the tab shows them at once while it refreshes.
+    property var playlists: null
+    property real playlistsAt: 0
+    property bool playlistsLoading: false
+    property string playlistsError: ""
+    function refreshPlaylists(force) {
+        if (root.playlistsLoading || !root.signedIn) return;
+        if (!force && root.playlists && Date.now() - root.playlistsAt < 5 * 60 * 1000) return;
+        root.playlistsLoading = true;
+        root.run(["playlists"], "", (ok, answer) => {
+            root.playlistsLoading = false;
+            if (ok) {
+                root.playlists = answer.playlists ?? [];
+                root.playlistsAt = Date.now();
+                root.playlistsError = "";
+            } else root.playlistsError = answer?.error ?? "";
+        });
+    }
+    onSignedInChanged: {
+        if (root.signedIn) root.refreshPlaylists(true);
+        else root.playlists = null;
+    }
+
+    // A playlist's songs ({id, title, tracks: [{videoId, title, artist,
+    // album, duration, art, thumb}]}); then(ok, answer).
+    function playlist(id, then) {
+        root.run(["playlist", id], "", then);
+    }
+    // Plays `tracks` from `index` (shuffled); then(ok, answer).
+    function playTracks(tracks, index, shuffle, playlistId, then) {
+        root.run(["play-tracks"], JSON.stringify({ tracks: tracks, index: index, shuffle: !!shuffle, playlist: playlistId ?? "" }), then);
+    }
+    // One song (a friend's, listening along), from `start` seconds.
+    function playId(videoId, start, then) {
+        root.run(["play-id", videoId, "--start", String(Math.max(0, Math.floor(start ?? 0)))], "", then);
+    }
+    function control(action, value, then) {
+        root.run(["control", action, ...(value !== undefined && value !== "" ? [String(value)] : [])], "", then);
+    }
+
+    // Signing in: the browsers (and the YouTube Music app) with a YouTube
+    // login, the most recent first; the session of one (or the most recent).
+    function browsers(then) {
+        root.run(["browsers"], "", then);
+    }
+    function login(browser, then) {
+        root.run(["login-from-browser", ...(browser ? [browser] : [])], "", (ok, answer) => {
+            root.refresh();
+            if (then) then(ok, answer);
+        });
+    }
+    function forget(then) {
+        root.run(["forget"], "", (ok, answer) => {
+            root.refresh();
+            if (then) then(ok, answer);
+        });
+    }
+
+    // Last.fm: the desktop sign-in (start opens the page where you allow it;
+    // finish once allowed), or the YouTube Music app's own sign-in.
+    function lastfm(what, input, then) {
+        root.run(["lastfm", what], input ?? "", (ok, answer) => {
+            if (ok && what === "start" && answer?.url) AppLaunch.openUrl(answer.url);
+            if (what !== "status") root.refresh();
+            if (then) then(ok, answer);
+        });
+    }
+
+    // `nixbook-ytmusic ARGS`, `input` on stdin; then(ok, answer).
+    function run(args, input, then) {
+        runner.createObject(root, { input: input ?? "", then: then ?? null, command: [root.bin, ...args] });
+    }
+    Component {
+        id: runner
+        Process {
+            id: proc
+            property string input
+            property var then
+            stdinEnabled: true
+            stdout: StdioCollector { id: out }
+            Component.onCompleted: proc.running = true
+            onRunningChanged: {
+                if (!proc.running) return;
+                proc.write(proc.input + "\n");
+                proc.stdinEnabled = false;
+            }
+            onExited: code => {
+                let answer = null;
+                try {
+                    answer = JSON.parse(out.text);
+                } catch (e) {}
+                // The player's commands answer {ok, result}; the others the
+                // result itself, or {error}.
+                const ok = code === 0 && !!answer && !answer.error && answer.ok !== false;
+                const result = answer && "result" in answer ? answer.result : answer;
+                const done = proc.then;
+                proc.destroy();
+                if (done) done(ok, ok ? result : (answer ?? { error: Translation.tr("Couldn't run nixbook-ytmusic") }));
+            }
+        }
+    }
+
+    IpcHandler {
+        target: "youtubeMusic"
+        function status(): string {
+            return JSON.stringify({ signedIn: root.signedIn, account: root.account, lastfm: root.lastfmOn,
+                playing: root.player ? { title: root.player.trackTitle, artist: root.player.trackArtist,
+                    status: root.player.isPlaying ? "Playing" : "Paused" } : null });
+        }
+        // A playlist by its id (LM: Liked Music), from its first song.
+        function play(playlistId: string): void {
+            root.playlist(playlistId, (ok, answer) => {
+                if (ok) root.playTracks(answer.tracks ?? [], 0, false, playlistId);
+            });
+        }
+        function shuffle(playlistId: string): void {
+            root.playlist(playlistId, (ok, answer) => {
+                if (ok) root.playTracks(answer.tracks ?? [], 0, true, playlistId);
+            });
+        }
+        function toggle(): void { root.control("toggle"); }
+        function next(): void { root.control("next"); }
+        function previous(): void { root.control("previous"); }
+        function stop(): void { root.control("stop"); }
+    }
+}

@@ -207,6 +207,18 @@ ContentPage {
             }
         }
 
+        // YouTube Music in the background (services/YouTubeMusic.qml): no AI,
+        // signed in with a browser's YouTube session; Last.fm scrobbling.
+        ContentSection {
+            icon: "queue_music"
+            shape: MaterialShape.Shape.Cookie4Sided
+            title: Translation.tr("YouTube Music")
+
+            YouTubeMusicAccount {
+                Layout.fillWidth: true
+            }
+        }
+
         ContentSection {
             icon: "file_open"
             shape: MaterialShape.Shape.Slanted

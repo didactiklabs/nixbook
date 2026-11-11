@@ -6,6 +6,7 @@ import qs.services
 // Quickshell only serves directories that are imported, Loader sources included.
 import qs.modules.ii.sidebarRight.calendar
 import qs.modules.ii.sidebarRight.jellyfin
+import qs.modules.ii.sidebarRight.youtubeMusic
 import qs.modules.ii.sidebarRight.mesh
 import qs.modules.ii.sidebarRight.notifications
 import qs.modules.ii.sidebarRight.pomodoro
@@ -46,6 +47,16 @@ ColumnLayout {
                 "name": Translation.tr("Jellyfin"),
                 "icon": "live_tv",
                 "widget": "jellyfin/JellyfinWidget.qml"
+            });
+        }
+        // YouTube Music in the background: on by default, shown signed out
+        // too (how to sign in).
+        if (Config.options.sidebar.youtubeMusicTab) {
+            list.push({
+                "type": "youtubeMusic",
+                "name": Translation.tr("YouTube Music"),
+                "icon": "queue_music",
+                "widget": "youtubeMusic/YouTubeMusicWidget.qml"
             });
         }
         if (Config.options.sidebar.bottomGroup) {
