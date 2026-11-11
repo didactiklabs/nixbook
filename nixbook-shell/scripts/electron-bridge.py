@@ -131,7 +131,10 @@ def runtime_base():
 # generation > Apps): the CSS apply-app-colors.sh renders for them, put in the
 # main page by the `style` operation and again after the page reloads. The
 # file only: a client never sends CSS.
-STYLED_APPS = ("youtube-music",)
+STYLED_APPS = ("youtube-music", "gmail")
+# Styled in each of its web pages, not only the main one: Meru shows one
+# Gmail page per account.
+STYLE_EVERY_PAGE = ("gmail",)
 
 
 def style_path(app):
@@ -318,9 +321,9 @@ class Bridge:
         self.worlds = {}  # sessionId → isolated world's executionContextId
         self.lock = threading.RLock()
         self.sends, self.acts = [], []
-        # The main page's session while it is styled; its next load sets
-        # restyle (keep_styled puts the style back).
-        self.styled_session, self.restyle = None, threading.Event()
+        # The styled pages' sessions; the next load of one sets restyle
+        # (keep_styled puts the style back).
+        self.styled_sessions, self.restyle = set(), threading.Event()
         cdp.on_event = self.event
 
     def event(self, msg):
@@ -328,13 +331,14 @@ class Bridge:
         if method == "Target.detachedFromTarget":
             sid = params.get("sessionId")
             self.worlds.pop(sid, None)
+            self.styled_sessions.discard(sid)
             for t, s in list(self.sessions.items()):
                 if s == sid:
                     self.sessions.pop(t, None)
         elif method in ("Runtime.executionContextsCleared", "Page.frameNavigated"):
             self.worlds.pop(msg.get("sessionId"), None)
             if (method == "Page.frameNavigated" and not (params.get("frame") or {}).get("parentId")
-                    and msg.get("sessionId") and msg.get("sessionId") == self.styled_session):
+                    and msg.get("sessionId") in self.styled_sessions):
                 self.restyle.set()
 
     def pages(self):
@@ -437,9 +441,21 @@ class Bridge:
 
     # ── Operations ──
 
+    def styled_pages(self):
+        """The pages the shell's colours go in: the main one, or every web
+        page for STYLE_EVERY_PAGE."""
+        web = [p for p in self.pages() if p["url"].startswith(("http:", "https:"))]
+        return web if self.app in STYLE_EVERY_PAGE else [p for p in web if p["main"]]
+
+    def unstyled(self):
+        """Whether a page to style has none of the style yet (a new one:
+        an account added in Meru)."""
+        with self.lock:
+            return any(self.sessions.get(p["targetId"]) not in self.styled_sessions for p in self.styled_pages())
+
     def op_style(self, req):
-        """The shell's colours in the main page, from the file only
-        (style_path); none there: the page's own look again."""
+        """The shell's colours in the pages styled_pages names, from the
+        file only (style_path); none there: the pages' own look again."""
         if self.app not in STYLED_APPS:
             raise Refused(f"{self.app} isn't coloured by the shell")
         try:
@@ -447,17 +463,25 @@ class Bridge:
                 css = f.read()
         except OSError:
             css = ""
-        page = self.page(None)
-        sid = self.session(page)
-        self.cdp.call("Page.enable", session=sid)
-        self.styled_session = sid
+        pages = self.styled_pages()
+        if not pages:
+            raise Refused(f"{self.app} has no page to colour yet")
         expr = STYLE_JS % json.dumps(css)
-        for attempt in (0, 1):
-            try:
-                return self.evaluate(sid, expr, self.world(sid, fresh=attempt == 1))
-            except CdpError as e:
-                if attempt or "context" not in str(e).lower():
-                    raise Refused(f"the page can't be styled ({e})")
+        result = {}
+        for page in pages:
+            sid = self.session(page)
+            self.cdp.call("Page.enable", session=sid)
+            self.styled_sessions.add(sid)
+            for attempt in (0, 1):
+                try:
+                    result = self.evaluate(sid, expr, self.world(sid, fresh=attempt == 1))
+                    break
+                except CdpError as e:
+                    if attempt or "context" not in str(e).lower():
+                        raise Refused(f"the page can't be styled ({e})")
+        if self.app in STYLE_EVERY_PAGE:
+            return {**result, "pages": len(pages)}
+        return result
 
     def op_status(self, req):
         version = self.cdp.call("Browser.getVersion")
@@ -1004,21 +1028,24 @@ def open_when_loaded(bridge, url, seconds=60):
 
 
 def keep_styled(bridge):
-    """The shell's colours in the main page once it has loaded, and again
-    after each load of it (a reload drops the <style>)."""
+    """The shell's colours in the page(s) once loaded, and again after each
+    load of one (a reload drops the <style>) or when a new one shows up (an
+    account added in Meru)."""
     first = True
     while not bridge.cdp.closed.is_set():
         if not first:
             if not bridge.restyle.wait(5):
-                continue
+                if bridge.app not in STYLE_EVERY_PAGE or not bridge.unstyled():
+                    continue
             bridge.restyle.clear()
         try:
             with bridge.lock:
-                page = bridge.page(None)
-            if not page["url"].startswith(("http:", "https:")):
+                pages = bridge.styled_pages()
+            if not pages:
                 time.sleep(0.5)
                 continue
-            bridge.wait_loaded(page, 30)
+            for page in pages:
+                bridge.wait_loaded(page, 30)
             r = handle(bridge, {"cmd": "style"})
             if not r.get("ok"):
                 log(f"{bridge.app}: not styled: {r.get('error')}")

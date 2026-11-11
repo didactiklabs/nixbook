@@ -7,7 +7,7 @@ pkgs.buildGoModule {
   pname = "nixbook-accounts";
   version = "0.1.0";
   src = ./accounts;
-  vendorHash = "sha256-dpopbsJFmPMKOBwsH5wToupxOz3WCtvzPqW4GvvcM0w=";
+  vendorHash = "sha256-qRY+dX32yrSD69fgDFkkkBKj4/Rcg3Ezt1KzqZ9T0Zg=";
   env.CGO_ENABLED = 0;
   nativeBuildInputs = [ pkgs.makeWrapper ];
   postInstall = ''

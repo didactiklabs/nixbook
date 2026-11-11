@@ -3,7 +3,8 @@
 // computer only), each signed in once, and the services
 // merged across them: contacts (the Contacts app and widget, the desktop MCP
 // server's `contacts` tool), tasks (the to-do list, the Tasks app, the
-// `tasks` tool) and calendars (the shell's calendars and reminders).
+// `tasks` tool), calendars (the shell's calendars and reminders) and, for
+// Google accounts, mail (Gmail, live: the `mail` tools).
 package main
 
 import (
@@ -75,6 +76,28 @@ const usage = `nixbook-accounts: the accounts behind nixbook-shell's contacts an
                                          delete {id, occurrence?}, show_calendar and
                                          hide_calendar {calendar}: listed and reminded
                                          or not, Google's fetched or not), each on its own
+  nixbook-accounts mail unread [--account A]
+                                         each Google account's unread inbox conversations
+  nixbook-accounts mail search [--query Q] [--label L] [--account A] [--max N] [--page P]
+                                         threads, newest first (Gmail's search syntax;
+                                         default the inbox; every account's merged)
+  nixbook-accounts mail read ID [--all]  a thread: its messages' text (quoted replies
+                                         cut), attachments, unsubscribe links
+  nixbook-accounts mail labels [--account A]
+  nixbook-accounts mail drafts [--account A]
+  nixbook-accounts mail filters [--account A]
+  nixbook-accounts mail apply JSON|@FILE|-
+                                         {op…} or {ops: […]}: archive, unarchive, mark_read,
+                                         mark_unread, star, unstar, important, not_important,
+                                         spam, not_spam, trash, untrash {ids}; label {ids, add?,
+                                         remove?}; draft and send {account?, to, cc?, bcc?,
+                                         subject, body, replyTo? (a thread), replyAll?,
+                                         attachments? (paths)}; send_draft, delete_draft {id};
+                                         create_label {name}, rename_label {label, name},
+                                         delete_label {label}; create_filter {criteria,
+                                         action, applyExisting?}, replace_filter {id,
+                                         criteria?, action?, applyExisting?}, delete_filter
+                                         {id}; save_attachment {message, part, dir?}
 
 ACCOUNT: an account's id (google-1), name or email; "local" is the built-in one,
 kept on this computer only ($XDG_DATA_HOME/nixbook-accounts/local/). Ids are
@@ -226,6 +249,8 @@ func run(argv []string, stdout io.Writer) (any, error) {
 		return runTasks(args)
 	case "calendar":
 		return runCalendar(args)
+	case "mail":
+		return runMail(args)
 	}
 	return nil, core.Errorf("unknown command '%s' (see --help)", cmd)
 }
@@ -417,6 +442,58 @@ func runCalendar(argv []string) (any, error) {
 		return calendar.Apply(req)
 	}
 	return nil, core.Errorf("unknown calendar command '%s' (see --help)", cmd)
+}
+
+func runMail(argv []string) (any, error) {
+	if len(argv) == 0 {
+		return nil, core.Errorf("mail unread|search|read|labels|drafts|filters|apply (see --help)")
+	}
+	cmd, args := argv[0], argv[1:]
+	account, err := flag(&args, "--account")
+	if err != nil {
+		return nil, err
+	}
+	switch cmd {
+	case "unread":
+		return google.Unread(account)
+	case "search":
+		f, err := flags(&args, "--query", "--label", "--max", "--page")
+		if err != nil {
+			return nil, err
+		}
+		max := 0
+		if f["--max"] != "" {
+			if max, err = strconv.Atoi(f["--max"]); err != nil || max < 1 {
+				return nil, core.Errorf("--max must be a number from 1 to 50")
+			}
+		}
+		return google.Search(account, f["--query"], f["--label"], max, f["--page"])
+	case "read":
+		if len(args) == 0 {
+			return nil, core.Errorf("mail read ID [--all]")
+		}
+		return google.Read(args[0], slices.Contains(args, "--all"))
+	case "labels":
+		return google.LabelList(account)
+	case "drafts":
+		return google.Drafts(account)
+	case "filters":
+		return google.Filters(account)
+	case "apply":
+		if len(args) == 0 {
+			return nil, core.Errorf("mail apply JSON|@FILE|-")
+		}
+		req, err := readRequest(args[0])
+		if err != nil {
+			return nil, err
+		}
+		results, authErr := google.ApplyMail(req)
+		if authErr != nil {
+			return nil, authErr
+		}
+		return results, nil
+	}
+	return nil, core.Errorf("unknown mail command '%s' (see --help)", cmd)
 }
 
 func truncate(s string, n int) string {

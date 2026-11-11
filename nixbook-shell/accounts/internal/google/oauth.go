@@ -1,6 +1,7 @@
 // Package google is the Google provider: the sign-in (the user's own OAuth
-// client, one consent for contacts, tasks and calendar, a token per
-// account), Google Contacts (People API) and Google Tasks.
+// client, one consent for contacts, tasks, calendar and mail, a token per
+// account), Google Contacts (People API), Google Tasks, Google Calendar and
+// Gmail.
 package google
 
 import (
@@ -29,11 +30,16 @@ import (
 )
 
 // Scopes: the one consent covers every service (contacts, tasks,
-// calendar).
+// calendar, mail). Gmail: reading, labelling, drafts and sending
+// (gmail.modify: no deleting for good), and the filters and labels
+// (gmail.settings.basic); never gmail.settings.sharing, which forwarding
+// needs: an agent could send all the user's mail elsewhere.
 var Scopes = []string{
 	"https://www.googleapis.com/auth/contacts",
 	"https://www.googleapis.com/auth/tasks",
 	"https://www.googleapis.com/auth/calendar",
+	"https://www.googleapis.com/auth/gmail.modify",
+	"https://www.googleapis.com/auth/gmail.settings.basic",
 	"openid",
 	"email",
 }
@@ -49,6 +55,7 @@ var APILibrary = map[string]string{
 	"people":   "https://console.cloud.google.com/apis/library/people.googleapis.com",
 	"tasks":    "https://console.cloud.google.com/apis/library/tasks.googleapis.com",
 	"calendar": "https://console.cloud.google.com/apis/library/calendar-json.googleapis.com",
+	"gmail":    "https://console.cloud.google.com/apis/library/gmail.googleapis.com",
 }
 
 func authURL() string {

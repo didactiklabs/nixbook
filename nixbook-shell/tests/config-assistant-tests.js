@@ -82,6 +82,9 @@ cant("vi", ["nhớ cái này", "thêm cái đó vào bộ nhớ", "lưu cái đ�
 // A how-to answers on its topic or one sentence, not on scattered words.
 check("can dai add a transaction in actual budget", howTos.budgetQuestions);
 check("can dai create a schedule in actual", howTos.budgetQuestions);
+check("can dai read my gmail", howTos.gmailMail);
+check("how do I make a gmail filter", howTos.gmailMail);
+check("how do I put gmail in the theme colours", howTos.gmailMail);
 check("add memory", howTos.desktopMemory);
 check("how does the agent memory work", howTos.desktopMemory);
 check("how do i remember this", howTos.personalMemory);

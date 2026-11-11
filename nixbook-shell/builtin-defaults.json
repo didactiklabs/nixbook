@@ -153,6 +153,7 @@
     "wallpaperPerTheme": true,
     "wallpaperTheming": {
       "apps": {
+        "gmail": true,
         "qt": true,
         "vesktop": true,
         "youtubeMusic": true,

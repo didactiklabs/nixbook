@@ -16,15 +16,17 @@ Open the accounts window from the Contacts window, the Tasks window (**Accounts*
 
 `nixbook-accounts` signs in to Google with **your own Google Cloud app**: DankCalendar's built-in client is licensed only for DankCalendar, and it can't read contacts. You make the app once, in about five minutes; every Google account you add uses it. The window walks you through it:
 
-1. In [Google Cloud](https://console.cloud.google.com/apis/credentials), create a project and enable the **People API** and the **Tasks API** (and the **Calendar API**, for later).
+1. In [Google Cloud](https://console.cloud.google.com/apis/credentials), create a project and enable the **People API**, the **Tasks API**, the **Calendar API** and the **Gmail API** (the assistant's [mail](./desktop-agents#mail)).
 2. **Google Auth Platform → Branding**: an app name and your email. **Audience**: _External_, then **Publish** the app. An app left in _Testing_ is signed out every 7 days. Google says the published app is unverified: that's fine, it's yours.
 3. **Clients → Create client → Desktop app**, and download its JSON (`client_secret_….json`).
 4. In the accounts window, **Use the downloaded file** (it picks the newest one in `~/Downloads`), or enter the ID and secret.
 5. Your browser opens Google's sign-in; once you accept, the account's contacts and tasks sync.
 
+The sign-in asks for contacts, tasks, calendars and **Gmail** (reading, labelling, drafts and sending; Gmail's filters and labels; never forwarding, nor deleting for good). An account connected before mail was added keeps working for the rest: connect it again to allow Gmail.
+
 Add another Google account the same way (**Add**). Signing in with an account already added signs it in again (for example after Google signed it out). **Remove** takes an account's contacts and tasks out of the shell; they stay in the account.
 
-The app's client and your accounts' tokens are kept in the keyring (GNOME Keyring, through `secret-tool`). From a terminal: `nixbook-accounts setup google --find`, `nixbook-accounts add google`, `nixbook-accounts status`, `nixbook-accounts remove <account>`.
+The app's client and your accounts' tokens are kept in the keyring (GNOME Keyring, through `secret-tool`). From a terminal: `nixbook-accounts setup google --find`, `nixbook-accounts add google`, `nixbook-accounts status`, `nixbook-accounts remove <account>`, and the mail: `nixbook-accounts mail unread|search|read|labels|drafts|filters|apply` (`--help` lists them).
 
 ### iCloud, Fastmail, Nextcloud or another server
 

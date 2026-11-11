@@ -8,6 +8,9 @@ let
   inherit (pkgs.customPkgs) actual-budget moonfin;
   # Bridged (nixbook-shell): it opens music.youtube.com links itself.
   pear-desktop = config.customHomeManagerModules.nixbookShellConfig.electronA11y pkgs.customPkgs.pear-desktop "pear-desktop";
+  # Gmail's desktop app (bridged: it opens mail.google.com links itself; the
+  # assistant's mail goes through Gmail's API, nixbook-accounts).
+  meru = config.customHomeManagerModules.nixbookShellConfig.electronA11y pkgs.customPkgs.meru "meru";
 in
 {
   imports = [
@@ -24,7 +27,10 @@ in
     (config.customHomeManagerModules.nixbookShellConfig.electronA11y actual-budget "actual-budget")
     moonfin
     pear-desktop
+    meru
   ];
+  # Mail links (mailto:) open a message to write in Meru.
+  xdg.mimeApps.defaultApplications."x-scheme-handler/mailto" = "meru.desktop";
   programs = {
     go = {
       enable = true;
@@ -89,8 +95,9 @@ in
     opencodeConfig.enable = true;
     zenBrowserConfig = {
       enable = true;
-      # YouTube Music links (clicked in Zen or opened by other apps) play in the app.
-      openInApps = pear-desktop.nixbookOpenLinks or { };
+      # YouTube Music links (clicked in Zen or opened by other apps) play in
+      # the app, Gmail's open in Meru.
+      openInApps = (pear-desktop.nixbookOpenLinks or { }) // (meru.nixbookOpenLinks or { });
     };
     rtk = {
       enable = true;

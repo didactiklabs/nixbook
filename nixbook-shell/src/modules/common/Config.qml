@@ -597,6 +597,7 @@ Singleton {
                     // Each app under "Apps" (enableQtApps, the master switch),
                     // services/AppTheming.qml.
                     property JsonObject apps: JsonObject {
+                        property bool gmail: true
                         property bool qt: true
                         property bool vesktop: true
                         property bool youtubeMusic: true

@@ -10,3 +10,5 @@ require (
 )
 
 require github.com/teambition/rrule-go v1.8.2
+
+require golang.org/x/net v0.62.0 // indirect

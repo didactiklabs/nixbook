@@ -152,6 +152,19 @@ let
           -> hm.programs.nixbook-shell.assistant.mcpServers ? youtube-music
         )
         (lib.attrNames hmUsers);
+    # Meru (Gmail's app): bridged where nixbook-shell runs, so the mail tools
+    # can open a conversation in it and read the one it shows.
+    "Meru is bridged as gmail wherever it is installed with nixbook-shell" = lib.all (
+      u:
+      let
+        hm = hmUsers.${u};
+      in
+      (
+        (hm.customHomeManagerModules.nixbookShellConfig.enable or false)
+        && lib.any (p: lib.hasPrefix "meru" (lib.getName p)) hm.home.packages
+      )
+      -> lib.any (a: a.app == "gmail") hm.programs.nixbook-shell.electronBridge.apps
+    ) (lib.attrNames hmUsers);
   };
   failed = lib.attrNames (lib.filterAttrs (_: ok: !ok) checks);
 
