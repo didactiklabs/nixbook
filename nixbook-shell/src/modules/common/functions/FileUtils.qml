@@ -39,20 +39,6 @@ Singleton {
     }
 
     /**
-     * Extracts the folder name from a directory path
-     * @param {string} str
-     * @returns {string}
-     */
-    function folderNameForPath(str) {
-        if (typeof str !== "string") return "";
-        const trimmed = trimFileProtocol(str);
-        // Remove trailing slash if present
-        const noTrailing = trimmed.endsWith("/") ? trimmed.slice(0, -1) : trimmed;
-        if (!noTrailing) return "";
-        return noTrailing.split(/[\\/]/).pop();
-    }
-
-    /**
      * Removes the file extension from a file path or name
      * @param {string} str
      * @returns {string}
