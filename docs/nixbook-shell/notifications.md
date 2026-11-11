@@ -15,13 +15,13 @@ While the right sidebar shows its **Notifications** page (and the screen is on a
 
 ## Keep on screen
 
-`notifications.persistent` keeps matching popups on screen longer than the others — useful for chat apps: `timeout` is how long in ms, whatever the app asked (60000 by default, 0 until you dismiss them; Settings → Bar → Notifications → Keep on screen). They stay in the notification centre after that, and the rule also gives those messages their Reply button. nixbook keeps Vesktop and notifications mentioning Discord, Slack, WhatsApp, Instagram, Facebook or Messenger in their app name or title.
+`notifications.persistent` keeps matching popups on screen longer than the others — useful for chat apps: `timeout` is how long in ms, whatever the app asked (60000 by default, 0 until you dismiss them; Settings → Notifications → Keep on screen). They stay in the notification centre after that, and the rule also gives those messages their Reply button. nixbook keeps Vesktop and notifications mentioning Discord, Slack, WhatsApp, Instagram, Facebook or Messenger in their app name or title.
 
 ## Cut-ins
 
 Important notifications get the theme's **full-screen cut-in**: the Persona dialogue box with the message typed out, the Chiikawa character popping up with a speech bubble, a Cyberpunk holocall glitching in, or a Ghibli card drifting in on a gust of wind. Click for the default action; Esc, Enter or Space dismiss; you can **reply** from the cut-in.
 
-Which notifications cut in is configured in **Settings → Bar → Notifications → Cut-ins** (`notifications.cutIn`): critical urgency, chosen apps, and **rules**:
+Which notifications cut in is configured in **Settings → Notifications → Cut-ins** (`notifications.cutIn`): critical urgency, chosen apps, and **rules**:
 
 | Rule syntax               | Matches                                                         |
 | ------------------------- | --------------------------------------------------------------- |
@@ -43,7 +43,7 @@ nixbook-shell ipc call personaCutIn explain                 # why the last one d
 
 ## Quiet rules
 
-`notifications.quiet` (Settings → Bar → Notifications → Quiet) keeps matching notifications out of popups, cut-ins and the chime — they still reach the centre and history. nixbook quiets the copies of calendar reminders that the phone (via KDE Connect) and the browser also send, so only the shell's own reminder pops up.
+`notifications.quiet` (Settings → Notifications → Quiet) keeps matching notifications out of popups, cut-ins and the chime — they still reach the centre and history. nixbook quiets the copies of calendar reminders that the phone (via KDE Connect) and the browser also send, so only the shell's own reminder pops up.
 
 ## Duplicates
 
@@ -51,7 +51,7 @@ nixbook-shell ipc call personaCutIn explain                 # why the last one d
 
 ## History
 
-Every notification is kept in a **history** (`notifications.history`, 30 days by default, 0 = forever), even after you dismiss it from the centre: the centre's history button shows it with search, day headers and per-entry delete, plus "older than 7 / 30 days" and "delete all". The same controls and the retention are in Settings → Bar → Notifications → History.
+Every notification is kept in a **history** (`notifications.history`, 30 days by default, 0 = forever), even after you dismiss it from the centre: the centre's history button shows it with search, day headers and per-entry delete, plus "older than 7 / 30 days" and "delete all". The same controls and the retention are in Settings → Notifications → History.
 
 ```bash
 nixbook-shell ipc call notificationHistory count

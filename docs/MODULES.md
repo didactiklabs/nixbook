@@ -754,14 +754,14 @@ Whether to enable nixbook-shell, nixbook's Quickshell (QML) desktop shell (`prog
 - **Type:** `boolean`
 - **Default:** `true`
 
-Whether to offer the nixbook-shell AI chat (DAI in the side panel and its speech bubble) the user's Jellyfin library through `customPkgs.jellyfin-mcp`: search, details, continue watching, next up, what plays where; play and control it in this computer's jellyfin-mpv-shim (`player.enable`, its only player), mark watched, favourites, playlists. Also the bubble's instant "play <title> season N episode M" (no model). Off in the chat until set up in Settings > Desktop agents > Apps it can use (the server, then a sign-in with your own Jellyfin account — no admin needed — or an admin's API key; or the `ai.jellyfin` settings).
+Whether to offer the nixbook-shell AI chat (DAI in the side panel and its speech bubble) the user's Jellyfin library through `customPkgs.jellyfin-mcp`: search, details, continue watching, next up, what plays where; play and control it in this computer's jellyfin-mpv-shim (`player.enable`, its only player), mark watched, favourites, playlists. Also the bubble's instant "play <title> season N episode M" (no model). Off in the chat until set up in Settings > Assistant > Apps it can use (the server, then a sign-in with your own Jellyfin account — no admin needed — or an admin's API key; or the `ai.jellyfin` settings).
 
 ### `customHomeManagerModules.nixbookShellConfig.jellyfinMcp.player.enable`
 
 - **Type:** `null or boolean`
 - **Default:** `null`
 
-Whether this computer is a Jellyfin player: jellyfin-mpv-shim as the `jellyfin-mpv-shim` user service, playing in your own mpv (fullscreen, your mpv config), castable from Jellyfin's apps, and the only place jellyfin-mcp plays. It saves progress, marks watched and plays the next episode itself. It starts once signed in, from Settings > Desktop agents > Apps it can use ("Connect the player").
+Whether this computer is a Jellyfin player: jellyfin-mpv-shim as the `jellyfin-mpv-shim` user service, playing in your own mpv (fullscreen, your mpv config), castable from Jellyfin's apps, and the only place jellyfin-mcp plays. It saves progress, marks watched and plays the next episode itself. It starts once signed in, from Settings > Assistant > Apps it can use ("Connect the player").
 
 ### `customHomeManagerModules.nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps`
 
@@ -775,21 +775,21 @@ The most the player streams from a server it doesn't see on the local network (i
 - **Type:** `boolean`
 - **Default:** `true`
 
-Whether to offer the nixbook-shell AI chat (DAI in the side panel, and nothing else: not your own Claude Code or other agents) LinkedIn, through [linkedin-mcp-server](https://github.com/stickerdaniel/linkedin-mcp-server) (`customPkgs.linkedin-mcp-server`): profiles, people and company search, messages, jobs, the feed, on your own account in a browser session of its own (`~/.linkedin-mcp`, signed in from Settings > Desktop agents or `mcp-server-linkedin --login`). Installed, but off in the chat until you turn it on in Settings > Desktop agents > Apps it can use. LinkedIn's terms forbid automated access and it may restrict accounts using it. Pulls in Chromium: `false` leaves it out entirely.
+Whether to offer the nixbook-shell AI chat (DAI in the side panel, and nothing else: not your own Claude Code or other agents) LinkedIn, through [linkedin-mcp-server](https://github.com/stickerdaniel/linkedin-mcp-server) (`customPkgs.linkedin-mcp-server`): profiles, people and company search, messages, jobs, the feed, on your own account in a browser session of its own (`~/.linkedin-mcp`, signed in from Settings > Assistant or `mcp-server-linkedin --login`). Installed, but off in the chat until you turn it on in Settings > Assistant > Apps it can use. LinkedIn's terms forbid automated access and it may restrict accounts using it. Pulls in Chromium: `false` leaves it out entirely.
 
 ### `customHomeManagerModules.nixbookShellConfig.seerrMcp.enable`
 
 - **Type:** `null or boolean`
 - **Default:** `null`
 
-Whether to offer the nixbook-shell AI chat (DAI in the side panel and its speech bubble) the user's Seerr (Overseerr / Jellyseerr) through `customPkgs.seerr-mcp`: search films and series and see what is available or on its way, request them (a film, a series' seasons), follow, cancel, approve or decline requests, trending and upcoming. Off in the chat until set up in Settings > Desktop agents > Apps it can use: the server, then your own login (sign in to Seerr in Zen, Firefox or Chrome as usual, OpenID Connect included, and Settings takes only Seerr's session cookie into the keyring: DAI acts as you, no admin key), or an admin's API key with who requests go out as (`ai.seerr`).
+Whether to offer the nixbook-shell AI chat (DAI in the side panel and its speech bubble) the user's Seerr (Overseerr / Jellyseerr) through `customPkgs.seerr-mcp`: search films and series and see what is available or on its way, request them (a film, a series' seasons), follow, cancel, approve or decline requests, trending and upcoming. Off in the chat until set up in Settings > Assistant > Apps it can use: the server, then your own login (sign in to Seerr in Zen, Firefox or Chrome as usual, OpenID Connect included, and Settings takes only Seerr's session cookie into the keyring: DAI acts as you, no admin key), or an admin's API key with who requests go out as (`ai.seerr`).
 
 ### `customHomeManagerModules.nixbookShellConfig.selfImprove.enable`
 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable the desktop agent fixing nixbook itself on this machine (programs.nixbook-shell.selfImprove.enable): fixes and polish, and apart the features asked for (never merged on their own), as pull requests made with a GitHub token set in Settings > Desktop agents. Only machines whose profile turns it on have it.
+Whether to enable the desktop agent fixing nixbook itself on this machine (programs.nixbook-shell.selfImprove.enable): fixes and polish, and apart the features asked for (never merged on their own), as pull requests made with a GitHub token set in Settings > Self-improvement. Only machines whose profile turns it on have it.
 
 ### `customHomeManagerModules.nixbookShellConfig.settings`
 

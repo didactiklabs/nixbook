@@ -88,7 +88,7 @@ USAGE = """usage: nixbook-desktop-mcp [COMMAND]
   habits now | report [DAYS] | day [YYYY-MM-DD]  what they say, as text
   habits music            the music taste learned from every player (MPRIS)
   habits music-clear      forget the music listened to (the rest stays)
-  habits on | off [--forget]  turn them on or off (Settings > Desktop agents;
+  habits on | off [--forget]  turn them on or off (Settings > Memory;
                           not off when on in Nix): starts / stops nixbook-habits
   habits pause | resume | toggle | clear | show (JSON)
   habits alias WORD DESKTOP_ID  the launcher: a word that led to an app
@@ -281,7 +281,7 @@ def notify(argv, env=None):
 
 
 def memory_command(cfg, argv):
-    """The desktop memory for the user (Settings > Desktop agents)."""
+    """The desktop memory for the user (Settings > Memory)."""
     sub = argv[0] if argv else "show"
     if sub == "show":
         print(json.dumps(read_memory(), ensure_ascii=False))
@@ -320,7 +320,7 @@ def memory_command(cfg, argv):
 
 
 def personal_command(cfg, argv):
-    """The personal memory for the user (Settings > Desktop agents > About
+    """The personal memory for the user (Settings > Memory > About
     you) and the shell's AI chat (`context`)."""
     sub = argv[0] if argv else "show"
     if sub == "show":

@@ -14,7 +14,7 @@ import QtQuick
  * its events come through DesktopHelper and land on the chat whose Claude
  * session asked (`approval`, `toldSteps`, `trustSuggestion` on
  * AiChatSession). Only the user's clicks set a level (`setTrust`: Always,
- * "Stop asking", Settings > Desktop agents > Trust), never an agent.
+ * "Stop asking", Settings > Privacy & trust > Trust), never an agent.
  */
 Singleton {
     id: root

@@ -72,15 +72,21 @@ Scope {
                 focus: true
 
                 Keys.onTabPressed: (event) => {
+                    // The next page shown in the sidebar (some are machine-only).
                     const count = settingsContent.pages.length;
-                    settingsContent.currentPage = (settingsContent.currentPage + 1) % count;
+                    let i = settingsContent.currentPage;
+                    do i = (i + 1) % count; while (i !== settingsContent.currentPage && !settingsContent.pageAvailable(settingsContent.pages[i]));
+                    settingsContent.currentPage = i;
                     settingsContent.showingProfile = false;
                     event.accepted = true;
                 }
 
                 Keys.onBacktabPressed: (event) => {
+                    // The next page shown in the sidebar (some are machine-only).
                     const count = settingsContent.pages.length;
-                    settingsContent.currentPage = (settingsContent.currentPage - 1 + count) % count;
+                    let i = settingsContent.currentPage;
+                    do i = (i - 1 + count) % count; while (i !== settingsContent.currentPage && !settingsContent.pageAvailable(settingsContent.pages[i]));
+                    settingsContent.currentPage = i;
                     settingsContent.showingProfile = false;
                     event.accepted = true;
                 }
@@ -124,7 +130,7 @@ Scope {
         function toggle(): void { GlobalStates.settingsOpen = !GlobalStates.settingsOpen; }
         function open(): void   { GlobalStates.settingsOpen = true; }
         function close(): void  { GlobalStates.settingsOpen = false; }
-        // A page, and a section or setting in it: "Desktop agents:Routines".
+        // A page, and a section or setting in it: "On its own:Routines".
         function openPage(page: string): void {
             GlobalStates.settingsOpen = true;
             GlobalStates.settingsPage = page;

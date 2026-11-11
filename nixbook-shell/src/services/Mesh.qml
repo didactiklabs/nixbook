@@ -16,7 +16,7 @@ import QtQuick
  * disturb, away), read receipts. Everything is end-to-end encrypted with the
  * mesh's key (every member holds it); the server only relays ciphertext.
  *
- * Set up in Settings > General > Mesh: the server (mesh.server), your
+ * Set up in Settings > Mesh: the server (mesh.server), your
  * access token (keyring), then create a mesh or enter a member's mesh code.
  * Members appear when they first say something or share their status.
  *
@@ -123,7 +123,7 @@ Singleton {
     property bool connected: false
     property string lastError: ""
     // This desktop's account on the server ({user, role}, from `test`): the
-    // admin invites and removes people (Settings > General > Mesh).
+    // admin invites and removes people (Settings > Mesh).
     property var account: ({})
     readonly property bool isAdmin: root.account.role === "admin"
     // The admin's view of who is in: [{ name, role }].
@@ -293,7 +293,7 @@ Singleton {
     }
     function openSettings() {
         GlobalStates.settingsOpen = true;
-        GlobalStates.settingsPage = "General:Mesh";
+        GlobalStates.settingsPage = "Mesh";
     }
 
     // What is shown is read; a private conversation tells its member so.
@@ -1058,7 +1058,7 @@ Singleton {
         NotificationHistory.forgetMeshMessage(mid);
     }
 
-    // -- Setting up (Settings > General > Mesh) ----------------------------------------
+    // -- Setting up (Settings > Mesh) ----------------------------------------
 
     property bool busy: false
     // run(args, secret, then(ok, answer)): the helper, a secret on stdin.

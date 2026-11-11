@@ -615,7 +615,7 @@ def habits_jobs(cfg, rec, data, now):
                     rec.theme = hint
                     if not ask:
                         habits_notify(f"Switched to {label}", "As you usually do around this time "
-                                      "(Settings > Desktop agents > Usage habits).", "preferences-desktop-theme")
+                                      "(Settings > Memory > Usage habits).", "preferences-desktop-theme")
         threading.Thread(target=switch, args=(mode == "suggest",), daemon=True).start()
 
     opened = dict(sent.get("open") or {})
@@ -648,7 +648,7 @@ def habits_watch(cfg):
     the notifications every HABIT_JOBS_EVERY, habits.json compacted daily.
     The players' tracks (music taste) come the same way, from playerctl."""
     if not habits_on(cfg):
-        log("usage habits are off (Settings > Desktop agents > Usage habits)")
+        log("usage habits are off (Settings > Memory > Usage habits)")
         return 0
     rec = HabitRecorder(cfg)
     music = MusicTracker(cfg)
@@ -754,7 +754,7 @@ def habits_watch(cfg):
 
 
 def habits_command(cfg, argv):
-    """Usage habits, for the user (Settings > Desktop agents > Usage habits)
+    """Usage habits, for the user (Settings > Memory > Usage habits)
     and the shell (the launcher's aliases)."""
     sub = argv[0] if argv else "status"
     now = time.time()
@@ -884,7 +884,7 @@ def habits_clear():
 # shell's AI chat sends them with the message, `personal context`; other
 # clients get them with the next reply). recall_about_user has the rest.
 # ~/.local/state/nixbook-shell/personal-memory.json, private, and apart from
-# the desktop memory: Settings > Desktop agents > About you, or
+# the desktop memory: Settings > Memory > About you, or
 # `nixbook-desktop-mcp personal`.
 
 PERSONAL_TOPIC_MAX = 40

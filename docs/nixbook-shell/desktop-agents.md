@@ -11,7 +11,7 @@ claude mcp add desktop -- nixbook-desktop-mcp     # Claude Code
 Desktop control **starts paused**. Allow it with the bar's Desktop Control widget, **Mod+Shift+Escape**, or `nixbook-desktop-mcp resume`. The choice survives reboots; a fresh install stays paused until you allow it.
 :::
 
-Settings → **Desktop agents** is split into tabs: **Basics** (AI features, DAI in the side panel, private details, desktop control, the equalizer agent), **Talk** (the smart clipboard), **On its own** (talks to you on its own, trust, routines), **Memory** (desktop memory, usage habits, about you) and **Improve** (fixes it makes itself, features it builds). A link or a search to one of these sections opens its tab; `nixbook-shell ipc call settings openPage "Desktop agents:Routines"` does it from a script.
+The Settings window's **AI assistant** group has five pages: **Assistant** (AI features, desktop control, DAI in the side panel, the AI chat, the equalizer agent), **Privacy & trust** (private details, the trust ladder), **On its own** (talks to you on its own, the smart clipboard, routines), **Memory** (desktop memory, usage habits, about you) and **Self-improvement** (fixes it makes itself, features it builds; only where it is enabled). A link or a search to one of these sections opens its page; `nixbook-shell ipc call settings openPage "On its own:Routines"` does it from a script (the former page name, `Desktop agents`, still works).
 
 ## What agents can do
 
@@ -227,7 +227,7 @@ thing only: sending (or reacting) in that Discord channel, that button on
 that site in Zen (its host) or in that bridged app. It sets that one thing
 to _Tell after_ on the [trust ladder](#trust-ladder) (its class is the
 thing itself, `discord:send:<channel>`, `page:zen:<host>:click:send`), so
-agents then do it without asking. **Settings → Desktop agents → Trust**
+agents then do it without asking. **Settings → Privacy & trust → Trust**
 lists it with its name; **Ask** takes it back (`nixbook-desktop-mcp trust
 list`). Only your click grants one: no tool or command can,
 and a yes given while an agent was typing or clicking is refused, since the
@@ -248,9 +248,9 @@ library and this computer's player through `jellyfin-mcp`
 ([its package](/packages/#jellyfin-mcp)), offered by default
 (`nixbookShellConfig.jellyfinMcp.enable`) and off until set up:
 
-1. **Settings → Desktop agents → Apps it can use**: turn **Jellyfin** on and
+1. **Settings → Assistant → Apps it can use**: turn **Jellyfin** on and
    enter your server (`ai.jellyfin.url`). The same account is also in
-   **Settings → Services → Jellyfin**, without AI: watching along in the
+   **Settings → Apps & accounts → Jellyfin**, without AI: watching along in the
    [Mesh](./mesh.md#listening-together) uses it whether DAI is on or not.
 2. **Sign in** with your own Jellyfin username and password: no admin and no
    API key needed. DAI then acts as you (your library, progress, favourites
@@ -333,7 +333,7 @@ Jellyseerr) through `seerr-mcp` ([its package](/packages/#seerr-mcp)),
 offered with Jellyfin (`nixbookShellConfig.seerrMcp.enable`) and off until
 set up:
 
-1. **Settings → Desktop agents → Apps it can use**: turn **Seerr** on and
+1. **Settings → Assistant → Apps it can use**: turn **Seerr** on and
    enter its server (`ai.seerr.url`).
 2. **Your own login, no admin key**: Seerr has no per-user API key, and a
    server with **OpenID Connect only** logs in through the browser. So
@@ -401,7 +401,7 @@ Whatever the transport:
 - **Your yes before it speaks in your name**: a Discord message or reaction, and a click, submit or Enter that sends, pays or deletes in a page, wait for a notification's **Allow** ([details](#apps-and-browser-through-the-page)).
 - **A notification** when an agent starts driving the desktop (again after 5 idle minutes; can be turned off).
 - **An audit log** of every call in `~/.local/state/nixbook-shell/desktop-mcp.log` (typed and copied text by length only).
-- **What it sent**: everything given to a small model (notifications, curiosity, news, memory passes…) and the context sent with a question asked in the bubble, as sent, the last 7 days: Settings → Desktop agents → **What it sent** (`nixbook-desktop-mcp sent`, `~/.local/state/nixbook-shell/sent.jsonl`, readable by you only; **Forget it** empties it). A local model's are marked: they never left the computer.
+- **What it sent**: everything given to a small model (notifications, curiosity, news, memory passes…) and the context sent with a question asked in the bubble, as sent, the last 7 days: Settings → On its own → **What it sent** (`nixbook-desktop-mcp sent`, `~/.local/state/nixbook-shell/sent.jsonl`, readable by you only; **Forget it** empties it). A local model's are marked: they never left the computer.
 
 ## The Desktop Control widget
 
@@ -410,11 +410,11 @@ The `desktopControl` bar widget has a button for each thing it does, each with i
 - **DAI** (a robot): ask DAI anything in its bubble, again to put it away (Mod+C). It hops when DAI has something new to say.
 - **Something for you** (a speech bubble with how many are unread, only then): click to read it in DAI's bubble, right-click for not now.
 - **Desktop control**: a **pause** button while agents may act (faint when idle, pulsing while one acts; its tooltip names the last agent and tool), a **red play** button while paused. Click pauses or allows every agent.
-- **Fixing nixbook** (a wrench, only while it works): click to see it in Settings. Settings → Desktop agents has the same switches, the memory, and the DAI panel setup.
+- **Fixing nixbook** (a wrench, only while it works): click to see it in Settings. Settings → Self-improvement has the same switches; the AI assistant group has the memory and the DAI panel setup.
 
 ## Turning AI off
 
-**Settings → Desktop agents → AI features** (also Settings → Panels → AI: _No_, _Yes_, _Local_; `policies.ai`: 0, 1, 2) switches all of it at once:
+**Settings → Assistant → AI features** (also Settings → Panels → AI: _No_, _Yes_, _Local_; `policies.ai`: 0, 1, 2) switches all of it at once:
 
 - **Off** (`0`): nothing calls a model, and no agent acts:
   - no chat in the side panel, and DAI never speaks on its own (Mod+C included);
@@ -427,7 +427,7 @@ The `desktopControl` bar widget has a button for each thing it does, each with i
 
 ## Talks to you on its own
 
-Turn on **Settings → Desktop agents → Talk to me on its own** (off by default) and DAI speaks first when it can help. There is no schedule: it reacts to what happens.
+Turn on **Settings → On its own → Talk to me on its own** (off by default) and DAI speaks first when it can help. There is no schedule: it reacts to what happens.
 
 - **When you come back** (the screens come on, you unlock, the first start of the day): a word on your day. It covers today's events and tasks due, a plan from [what it remembers about you](#personal-memory) coming up ("Kyoto trip: in 2 days. Want help getting ready?") or just past ("how did it go?"), and your [usual start](#usage-habits) when it isn't set up, with a **Set it up** button that restores the layout and opens the apps at once (no DAI run). The same goes for every offer whose follow-up needs no thinking: a recipe it learned (**Show it**, **Forget it**), a watched unit that failed (**Show the log**).
 - **When an app is in front** that has a recipe it knows is broken: it offers to fix it.
@@ -444,8 +444,8 @@ Turn on **Settings → Desktop agents → Talk to me on its own** (off by defaul
 
 How it reaches you:
 
-- **Its own speech bubble**, for what is time-critical: not a notification but DAI itself, on the left under the bar (your notifications stay where they are), in the theme's look: a Material card, a slanted Persona frame, a round pastel Chiikawa bubble, a notched neon Cyberpunk panel or a paper Ghibli card. It is a small chat: type your answer in it (Enter sends, Shift+Enter for a new line, Escape puts it away; the new-chat button, or typing `/new` or `/clear`, starts a new conversation, the one before staying in the side panel's history; paste an image with Ctrl+V, drop a file on the reply box or click its clip to pick an image: it shows above the box, × removes it, and it goes with your answer as in the side panel, or to the side panel with the expand button) or pick a quick answer (**Yes, please** / **No thanks** under a question, **Not now**, **Don't tell me this**), and DAI answers right there, saying what it is doing meanwhile (thinking, the tool it used). Left alone (25 seconds before you answer, 90 seconds after its answer; it waits while you hover it or type), it fades away to the bar with the conversation; DAI's next answer brings it back, unless the side panel is open on that conversation. Its other words pile up as small bubbles under it (3 at most, the oldest going to the bar), like notifications: what it says while the bubble is taken, a word pushed aside, and its quiet words (what it learned, a routine's report), which slide in only once you pause. Click one to open it in the bubble (a conversation there goes to the bar, and comes back from it or with Mod+C: only the conversation does), or use its button right there (Yes, a link, Reply). They fade away to the bar like notifications, after the same time (Settings → Bar → Notifications; hovering one holds it), and you can still answer them there; only an offer that needs your yes (a routine, a fix or feature it proposes) stays until it expires. Its × is **Not now**. At most 8 a day, 20 minutes apart, and none at night (22:00–8:00), in a meeting, fullscreen or on Do Not Disturb.
-- **The expand button** moves the conversation to the side panel, on its own **From DAI** tab, always the same one (made when missing, even with every tab in use). DAI knows what it said, even when that tab already has a conversation going. Left alone for 30 minutes (`ai.claudeThreadIdleMinutes`, Settings > Services; 0 keeps it), the tab closes and its thread stays in the conversation history, marked **From DAI**, when it has more than 5 messages (shorter ones aren't kept).
+- **Its own speech bubble**, for what is time-critical: not a notification but DAI itself, on the left under the bar (your notifications stay where they are), in the theme's look: a Material card, a slanted Persona frame, a round pastel Chiikawa bubble, a notched neon Cyberpunk panel or a paper Ghibli card. It is a small chat: type your answer in it (Enter sends, Shift+Enter for a new line, Escape puts it away; the new-chat button, or typing `/new` or `/clear`, starts a new conversation, the one before staying in the side panel's history; paste an image with Ctrl+V, drop a file on the reply box or click its clip to pick an image: it shows above the box, × removes it, and it goes with your answer as in the side panel, or to the side panel with the expand button) or pick a quick answer (**Yes, please** / **No thanks** under a question, **Not now**, **Don't tell me this**), and DAI answers right there, saying what it is doing meanwhile (thinking, the tool it used). Left alone (25 seconds before you answer, 90 seconds after its answer; it waits while you hover it or type), it fades away to the bar with the conversation; DAI's next answer brings it back, unless the side panel is open on that conversation. Its other words pile up as small bubbles under it (3 at most, the oldest going to the bar), like notifications: what it says while the bubble is taken, a word pushed aside, and its quiet words (what it learned, a routine's report), which slide in only once you pause. Click one to open it in the bubble (a conversation there goes to the bar, and comes back from it or with Mod+C: only the conversation does), or use its button right there (Yes, a link, Reply). They fade away to the bar like notifications, after the same time (Settings → Notifications; hovering one holds it), and you can still answer them there; only an offer that needs your yes (a routine, a fix or feature it proposes) stays until it expires. Its × is **Not now**. At most 8 a day, 20 minutes apart, and none at night (22:00–8:00), in a meeting, fullscreen or on Do Not Disturb.
+- **The expand button** moves the conversation to the side panel, on its own **From DAI** tab, always the same one (made when missing, even with every tab in use). DAI knows what it said, even when that tab already has a conversation going. Left alone for 30 minutes (`ai.claudeThreadIdleMinutes`, Settings > Assistant > AI chat; 0 keeps it), the tab closes and its thread stays in the conversation history, marked **From DAI**, when it has more than 5 messages (shorter ones aren't kept).
 - **Ask it anything**: **Mod+C**, or a click on the robot in the bar, opens the bubble to type in; pressing it again puts the bubble away. A plain command is done at once, without DAI (which can think for a while), and the bubble says what it did: **open** an app (when its name is certain), **play**, **pause**, **next**, **previous**, **volume 40** / **volume up** / **mute**, **brightness up**, **dark mode** / **light mode**, **do not disturb on**, **lock**, **timer 10 min**, **pomodoro**, **work layout** (a saved layout), **task: buy milk**, **settings**, and with [Jellyfin](#jellyfin) set up a film or an episode (**play Edgerunners season 1 episode 2**, **watch Dune**). Anything else, or anything unsure, goes to DAI as before. A new conversation started there is a normal one, in the side panel's tabs and history like any other, not a **From DAI** thread. A chat of the side panel that answers while the panel is closed also says so in the bubble, its answer there to reply to.
 - **Reactions**, with **React to what I do** on (off by default): when you download a file, take a screenshot or plug in a drive, the bubble offers one-click help: **Open**, **Show in folder**, and by the file's kind **Summarize it**, **What's in it?** or **How do I install it?** (those ask DAI, the file attached), or **Extract it** (done at once, into a folder next to it, then shown). Plain code, no model call until you click; not for what an agent did, never while you are busy, once per file, gone after 15 seconds (30 minutes in the bar); **Don't tell me this** silences that kind only.
 - **Nothing goes straight to the bar**: what DAI doesn't say out loud comes as a small bubble under its bubble at your next pause (not while you are busy or deep in something: at the next break), also what was waiting when the shell started; it then fades away to the bar like a notification.
@@ -483,7 +483,7 @@ Ask DAI for something to happen on its own whenever something happens on the com
 
 **Learned on their own.** With **Learn routines from my habits** (Settings, `ai.routines.learn`: off by default), it reads your [usage habits](#usage-habits) once a day (they need to be on). It looks for what you do by hand after the same cue, or at the same time of day: opening an app, restoring a layout, switching theme, putting music back on. Cues include headphones or another audio output, Wi-Fi, a monitor, the power cable, unlocking, or opening another app. A pattern needs at least 3 days, and 3 times out of 5. _Suggest_ asks first ("I noticed you open Firefox when your headphones connect (5 of 5 days). Want me to do it for you?", with **Yes, do it**). _On its own_ turns a strong pattern on at once (5 days, 4 times out of 5, or 7 days for a time of day) and tells you each time it acts, until it has done it 3 times without you undoing it. A learned routine is always a fixed action, so it never costs a token. One new pattern a day at most, and one you decline is never offered again. To learn from them, the habits also count the cues the shell sees (device and network names only).
 
-**Settings → Desktop agents → Routines** lists them (on/off, delete, last result) and has the **Run my routines** switch (`ai.routines.enable`). `nixbook-desktop-mcp routine list|run ID|on ID|off ID|remove ID`.
+**Settings → On its own → Routines** lists them (on/off, delete, last result) and has the **Run my routines** switch (`ai.routines.enable`). `nixbook-desktop-mcp routine list|run ID|on ID|off ID|remove ID`.
 
 ## Fixes it makes itself
 
@@ -521,7 +521,7 @@ It learns the way a person does, mostly in plain code, without spending a token:
 
 `memoryLearn = false` turns the model passes off; the rest needs none.
 
-- **Settings → Desktop agents** shows the notes (what each helped and failed, where it came from, recipes and macros; delete any), reminders, aliases, usage and learned controls, and clears them.
+- **Settings → Memory** shows the notes (what each helped and failed, where it came from, recipes and macros; delete any), reminders, aliases, usage and learned controls, and clears them.
 - `nixbook-desktop-mcp memory show|prompt|forget ID|fire ID|learn|tidy|clear`.
 - Stored in `~/.local/state/nixbook-shell/desktop-memory.json` (private).
 
@@ -533,7 +533,7 @@ Each kind of action DAI takes in the side panel or the bubble (a tool, its actio
 - **Tell after**: done, then a **Did: …** line. The default for the other steps that change something.
 - **Silent**: just done. Reading never asks.
 
-**Always** allows the step and sets its kind to _Tell after_ in one click: never asked again, each still told after. It works for any kind, sending a message included. After you allow the same kind 3 times in a row within 30 days, DAI offers **Stop asking before …?** (**Yes** moves it to _Tell after_). A **No** brings that kind a step down and starts the count over. What sends, messages, replies, pays, buys, deletes, merges, purges or touches credentials is never offered to stop asking and goes no further than _Tell after_ (never silent). Only you change a kind: Always, that offer, or **Settings → Desktop agents → Trust** (the _On its own_ tab: Ask, Tell after or Silent for each kind it has done, with its yeses in a row); no agent can (`trust set` refuses from Claude Code's commands).
+**Always** allows the step and sets its kind to _Tell after_ in one click: never asked again, each still told after. It works for any kind, sending a message included. After you allow the same kind 3 times in a row within 30 days, DAI offers **Stop asking before …?** (**Yes** moves it to _Tell after_). A **No** brings that kind a step down and starts the count over. What sends, messages, replies, pays, buys, deletes, merges, purges or touches credentials is never offered to stop asking and goes no further than _Tell after_ (never silent). Only you change a kind: Always, that offer, or **Settings → Privacy & trust → Trust** (the _On its own_ tab: Ask, Tell after or Silent for each kind it has done, with its yeses in a row); no agent can (`trust set` refuses from Claude Code's commands).
 
 The desktop tools still ask by notification before what speaks, pays or deletes in your name (with _Always allow_ for that one channel or button, which sets that one thing to _Tell after_ on this ladder), whichever MCP client calls them; the ladder doesn't ask about those a second time, and a kind you set to _Tell after_ skips that notification too. How it works: the shell gives its Claude sessions a `PreToolUse` hook for the MCP tools, served by `nixbook-desktop-mcp helper` (`/trust`), which waits for the shell's Allow / No. `nixbook-desktop-mcp trust list` shows the kinds (`~/.local/state/nixbook-shell/trust.json`); `ai.trust.enable` turns it off.
 
@@ -564,13 +564,13 @@ It remembers the way a person does:
 
 All of it runs in the background after the chat, with a small model (about 4 s and a fraction of a cent a pass): your conversation is no slower and carries no more tokens — tentative memories even keep it smaller. **About you** shows each entry's importance and whether it is tentative.
 
-- **Settings → Desktop agents → About you** shows the entries (delete any, or all).
+- **Settings → Memory → About you** shows the entries (delete any, or all).
 - `nixbook-desktop-mcp personal show|prompt|learn|forget ID|clear`.
 - Stored in `~/.local/state/nixbook-shell/personal-memory.json` (private), apart from the desktop memory. Its tools work while desktop control is paused (they don't touch the desktop), and the audit log never has their text.
 
 ## Usage habits
 
-Off unless you turn it on: **Settings → Desktop agents → Usage habits → Learn from my usage** (or `nixbook-desktop-mcp habits on`; `programs.nixbook-shell.desktopMcp.habits.enable = true;` turns it on for good and locks the switch). The `nixbook-habits` user service then learns from **your own** use of the computer, counted on this machine in plain code: no model, no network.
+Off unless you turn it on: **Settings → Memory → Usage habits → Learn from my usage** (or `nixbook-desktop-mcp habits on`; `programs.nixbook-shell.desktopMcp.habits.enable = true;` turns it on for good and locks the switch). The `nixbook-habits` user service then learns from **your own** use of the computer, counted on this machine in plain code: no model, no network.
 
 - It counts which app has the focus and for how long, the windows you open, the [layouts](./window-layouts) you restore and the themes you choose.
 - **App names and times only**: never window titles, files, sites, or anything you type (titles are read only to skip private windows, never stored). Two exceptions: the cues of [routines](#routines) learned from habits record device and network names (your headphones, your Wi-Fi), and your music taste (`habitsMusic`, on with habits) records each track's artist, title and album, kept a year (`habitsMusicKeepDays`).
@@ -591,7 +591,7 @@ What it does with it:
 
 What agents receive is set by `habitsAgents`: `digest` (the default: the line above and your favourite artists, and the `habits` tool's `now`, `week` and `music`), `timeline` (also a day hour by hour, when asked) or `off`. What agents receive goes to their model provider; the rest never leaves the machine.
 
-- **Settings → Desktop agents → Usage habits** turns it on or off, pauses recording, shows what it learned and this week's report, and forgets everything.
+- **Settings → Memory → Usage habits** turns it on or off, pauses recording, shows what it learned and this week's report, and forgets everything.
 - `nixbook-desktop-mcp habits on|off [--forget]|status|now|report [DAYS]|day [DATE]|music|music-clear|pause|resume|clear|show`.
 
 ```nix

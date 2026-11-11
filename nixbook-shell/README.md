@@ -328,7 +328,7 @@ holds the account and the sync:
   in one place (or trashed in Keep) stays in the other, and is not brought
   back;
 - **the directions**: `keep.push` (the shell's new notes go to Keep) and
-  `keep.pull` (Keep's new notes come in) in Settings → General → Google
+  `keep.pull` (Keep's new notes come in) in Settings → Apps & accounts → Google
   Keep.
 
 `nixbook-shell ipc call keep status|sync` does the same from the command
@@ -386,7 +386,7 @@ too); the audio equalizer (`equalizer`: what's playing
 with its Last.fm genre tags, then a preset or a 10-band curve and the
 preamp, or Auto, which follows each song's genre; the `equalizer` IPC
 target; its agent mode, `equalizer.agent` (the equalizer window's Agent
-chip, Settings > Desktop agents), has a short Claude Code task with only
+chip, Settings > Assistant), has a short Claude Code task with only
 this tool tune the curve for each new song, `equalizer.agentModel`, Haiku
 by default); the user's calendars (`calendar`: the next event, the coming
 days, a given day through the `calendar` IPC target; the calendars, and
@@ -547,14 +547,14 @@ the task could be cut off) to about 165, with those notes in full. It is
 labelled as hints written by agents, never the user's instructions; the
 instructions ask agents to save what they learned.
 It lives in `~/.local/state/nixbook-shell/desktop-memory.json` (private);
-**Settings → Desktop agents** shows the notes (delete any), the aliases and
+**Settings → Memory** shows the notes (delete any), the aliases and
 usage, clears them, and pauses desktop control. `nixbook-desktop-mcp memory`
 shows, clears or prints the digest; the `memory` tool group
 (`desktopMcp.settings.tools`) turns it off; `memoryPromptChars` and
 `memoryMaxNotes` size it.
 
 **Turning AI off**: `policies.ai` (0 no, 1 yes, 2 local; Settings >
-Desktop agents > AI features, or Panels) gates everything: 0 hides the
+Assistant > AI features, or Panels) gates everything: 0 hides the
 chat, `Initiative.enabled`/`summon()`, `Routines.enabled`,
 `SelfImprove.enabled` and the equalizer agent go off; desktop-mcp's
 `ai_policy()` makes `claude_path()` None (every model pass skips) unless
@@ -868,7 +868,7 @@ small model (`ai.claudeCode.memoryModel`, `haiku`) through Claude Code with
 no tools, MCP servers or settings, and applies its answer under the same
 rules (an existing subject only by id, at most 6 saves and 3 forgets, and
 only of entries it was shown); its entries are "by memory pass".
-`ai.claudeCode.autoMemory` (on; **Settings → Desktop agents → About you**)
+`ai.claudeCode.autoMemory` (on; **Settings → Memory → About you**)
 turns it off, and so does the `personal` tool group.
 
 It keeps memories the way a person does, without a token spent in the
@@ -897,13 +897,13 @@ conversation (the pass is detached, ~4 s and ~2k tokens of Haiku):
 The personal memory isn't the desktop: its tools work while desktop control
 is paused, and the audit log has their ids and kinds only. It lives in
 `~/.local/state/nixbook-shell/personal-memory.json` (private), apart from the
-desktop memory; **Settings → Desktop agents → About you** shows the entries,
+desktop memory; **Settings → Memory → About you** shows the entries,
 deletes any or all; `nixbook-desktop-mcp personal` shows, forgets, clears or
 prints the digest; the `personal` tool group turns it off;
 `personalMaxEntries` (200) caps it (the least used go first, never the
 profile).
 
-**Usage habits** (off by default; on from **Settings → Desktop agents**,
+**Usage habits** (off by default; on from **Settings → Memory**,
 `nixbook-desktop-mcp habits on|off`: the `habits-enabled` flag the unit's
 `ConditionPathExists` checks, and the unit started or stopped; or for good,
 the switch locked, with `desktopMcp.habits.enable`): the
@@ -929,7 +929,7 @@ pattern counts once seen on 3 days. The launcher hands the typed word and
 the app opened to `habits alias` (an alias in the desktop memory after two
 times, unless the word is in the app's name). Agents get a line in the
 memory digest and the `habits` tool (`habitsAgents`: `digest`, `timeline`
-for a day hour by hour, `off`). **Settings → Desktop agents → Usage
+for a day hour by hour, `off`). **Settings → Memory → Usage
 habits** pauses, shows and clears it.
 
 **Music taste** (part of the usage habits, `habitsMusic`, on with them):
@@ -1007,7 +1007,7 @@ Measured: 54.5k → 44.5k tokens of context per step, the same answers.
 PATH, in `~/.local/bin` or a Nix profile), the AI chat offers **DAI**,
 the desktop assistant (`/model dai`; `/model claude` too), Claude through
 Claude Code on your own Claude login, no API key. It is
-set up in **Settings → Desktop agents → DAI in the side panel**: whether
+set up in **Settings → Assistant → DAI in the side panel**: whether
 Claude Code was found (and its command, if elsewhere), the model (Sonnet by
 default, or Opus, Haiku, Claude Code's own) and its thinking effort (low by
 default: driving the desktop is many short steps, each waiting on the
@@ -1127,7 +1127,7 @@ Guardrails, whatever the transport:
   (100000 per note: notes go to the shell through a private file, not its
   IPC, which large messages can wedge), a notification
   when an agent starts driving the desktop (again after 5 idle minutes;
-  `nixbook-desktop-mcp notify off|on|toggle`, the Settings > Desktop agents
+  `nixbook-desktop-mcp notify off|on|toggle`, the Settings > Assistant
   switch or the `desktopControl toggleNotify` IPC call turn it off and on,
   kept across reboots);
 - every call is logged to `~/.local/state/nixbook-shell/desktop-mcp.log`
@@ -1199,7 +1199,7 @@ the user's yes in a notification (`ask_user_yes`: `notify-send -A allow -A
 deny`, two minutes, else no), whatever the client allowed; its `-A always`
 (Always allow) sets that one thing (`key_class`: `discord:send:<channel>`,
 `page:<app>:<action>:<element>`) to `tell` on the trust ladder, with its
-label, so Settings > Desktop agents > Trust lists it and Ask takes it back; both tools are
+label, so Settings > Privacy & trust > Trust lists it and Ask takes it back; both tools are
 `destructiveHint`, and `askBeforeSending = false` is for clients that ask
 themselves. The `browser_*` names (the nixbook-meta fork's) are aliases
 (`TOOL_ALIASES`), callable, not listed.
@@ -1246,7 +1246,7 @@ whole store.
 
 ### Private details
 
-With Settings > Desktop agents > Private details (`ai.privacy.mask`, on by
+With Settings > Privacy & trust > Private details (`ai.privacy.mask`, on by
 default), models read placeholders instead of private details:
 `⟦Person 2⟧`, `⟦Person 2 first⟧`, `⟦Email 1⟧`, `⟦Phone 1⟧`, `⟦Address 1⟧`,
 `⟦Card 1⟧`, `⟦IBAN 1⟧`, `⟦Private 1⟧`, `⟦Handle 1⟧`, and `⟦User⟧` for you. The real values
@@ -1372,7 +1372,7 @@ state of its own; a hover-only one keeps the arrow.
 
 ## Themes
 
-The theme is `appearance.theme` — Settings → Appearance → Theme, the
+The theme is `appearance.theme` — Settings → Themes, the
 desktop menu's Theme submenu, or the launcher's theme mode (the
 `search.prefix.themes` prefix, `@`, or `nixbook-shell ipc call search
 themeToggle`: every theme and variant, type to filter, Enter applies) — and each theme with variants keeps its own
@@ -1400,7 +1400,7 @@ wallpapers (`appearance.wallpaperPerTheme`, on by default;
 switching puts back what the variant had (for the desktop, its bundled one
 the first time: the Chiikawa, Cyberpunk and Ghibli ones; for the lock and login screens, nothing:
 they follow the desktop, then the lock screen), and a wallpaper picked while
-in a variant becomes that variant's. Settings → Appearance → Theme sets or
+in a variant becomes that variant's. Settings → Themes sets or
 unsets all of them at once, in a table of every variant. Each theme has its own sounds too (`sounds` in `themes.json`: the
 notification chime and the critical sound — Persona 5's by default, the
 Velvet Room's chime and the Evoker in Persona 3 Reload, the Midnight
@@ -1408,7 +1408,7 @@ Channel's TV and the shattering card in Persona 4, the characters' chimes
 and little voices in Chiikawa, a message ping and an alert
 in Cyberpunk 2077, the films' sounds recreated in Studio Ghibli); a file set in the settings wins. Important
 notifications (critical ones, and those the cut-in rules pick:
-Settings → Bar → Notifications → Cut-ins) get the theme's cut-in: the
+Settings → Notifications → Cut-ins) get the theme's cut-in: the
 full-screen Persona one, the Chiikawa character popping up with a speech
 bubble (`ChiikawaAlert.qml`), or an incoming holocall glitching in — a
 chamfered HUD panel with an RGB split, scanlines and the message typed out

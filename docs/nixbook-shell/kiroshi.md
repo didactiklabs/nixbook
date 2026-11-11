@@ -17,7 +17,7 @@ The brief shows in about 2 seconds, the framed items in about 5, and every item'
 
 ## What it needs
 
-Claude Code, logged in once (the same as [DAI in the side panel](./ai-assistant#dai-in-the-side-panel)), and AI switched on (**Settings → Desktop agents → AI features**). It runs on Claude with vision through Claude Code, Sonnet by default (`kiroshiModel` in `~/.config/nixbook-shell/desktop-mcp.json`). The screenshot and the context go to Claude; the text goes through the [privacy mask](./desktop-agents) like every other AI pass, and is listed in the sent log.
+Claude Code, logged in once (the same as [DAI in the side panel](./ai-assistant#dai-in-the-side-panel)), and AI switched on (**Settings → Assistant → AI features**). It runs on Claude with vision through Claude Code, Sonnet by default (`kiroshiModel` in `~/.config/nixbook-shell/desktop-mcp.json`). The screenshot and the context go to Claude; the text goes through the [privacy mask](./desktop-agents) like every other AI pass, and is listed in the sent log.
 
 From a script: `nixbook-shell ipc call kiroshi scan` (again: close), `status` (the brief and the items as JSON), `expand N`, `option N M`, `tellMore N`, `handleRoutine`, `close`. An offer that sends something still waits for the Send click in the card: it is never sent from IPC.
 

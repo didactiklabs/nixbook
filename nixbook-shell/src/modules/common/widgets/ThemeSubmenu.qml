@@ -8,7 +8,7 @@ import QtQuick
 import QtQuick.Layouts
 
 // Desktop right-click menu → Theme: every theme, then the current theme's
-// variants (Themes.qml, themes.json). Same choices as Settings → Appearance →
+// variants (Themes.qml, themes.json). Same choices as Settings → Themes →
 // Theme.
 Item {
     id: root

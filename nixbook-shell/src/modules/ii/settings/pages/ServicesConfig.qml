@@ -42,108 +42,6 @@ ContentPage {
         spacing: 20
 
         ContentSection {
-            icon: "neurology"
-            shape: MaterialShape.Shape.Ghostish
-            title: Translation.tr("AI")
-
-            MaterialTextArea {
-                Layout.fillWidth: true
-                placeholderText: Translation.tr("System prompt")
-                text: Config.options.ai.systemPrompt
-                wrapMode: TextEdit.Wrap
-                onTextChanged: {
-                    Qt.callLater(() => {
-                        Config.options.ai.systemPrompt = text;
-                    });
-                }
-            }
-            ConfigSwitch {
-                configKey: "ai.includeSystemContext"
-                buttonIcon: "developer_board"
-                text: Translation.tr("Include this machine's configuration (Nix modules, keybinds, shell settings, packages)")
-                checked: Config.options.ai.includeSystemContext
-                onCheckedChanged: Config.options.ai.includeSystemContext = checked
-                StyledToolTip {
-                    text: Translation.tr("Appended to the system prompt, so the assistant knows how this system is set up.\nIt is sent to the selected AI provider with each request.")
-                }
-            }
-            ConfigSwitch {
-                configKey: "ai.notifyWhenDone"
-                buttonIcon: "notifications_active"
-                text: Translation.tr("Notify me when the assistant is done or waiting for me")
-                checked: Config.options.ai.notifyWhenDone
-                onCheckedChanged: Config.options.ai.notifyWhenDone = checked
-                StyledToolTip {
-                    text: Translation.tr("Only while the side panel is closed, and not in Do Not Disturb.")
-                }
-            }
-            ConfigSpinBox {
-                configKey: "ai.history.keepDays"
-                enabled: !nixManaged
-                icon: "auto_delete"
-                text: Translation.tr("Keep conversations for (days, 0: until deleted)")
-                value: Config.options.ai.history.keepDays
-                from: 0
-                to: 3650
-                stepSize: 1
-                onValueChanged: Config.options.ai.history.keepDays = value
-                StyledToolTip {
-                    text: Translation.tr("Counted from a conversation's last message. Pinned conversations are kept.")
-                }
-            }
-            ConfigSpinBox {
-                configKey: "ai.claudeThreadIdleMinutes"
-                enabled: !nixManaged
-                icon: "timer_off"
-                text: Translation.tr("Close the \"From V\" tab after (minutes idle, 0: never)")
-                value: Config.options.ai.claudeThreadIdleMinutes
-                from: 0
-                to: 1440
-                stepSize: 5
-                onValueChanged: Config.options.ai.claudeThreadIdleMinutes = value
-                StyledToolTip {
-                    text: Translation.tr("Its thread stays in the conversation history when it has more than 5 messages.")
-                }
-            }
-            RowLayout {
-                id: chatHistoryRow
-                Layout.fillWidth: true
-                property bool confirm: false
-                readonly property int unpinned: Ai.history.filter(c => !c.pinned).length
-                StyledText {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: 8
-                    wrapMode: Text.Wrap
-                    text: Translation.tr("%1 saved conversations, %2 pinned (open them with Ctrl+H in the side panel)")
-                        .arg(Ai.history.length).arg(Ai.history.length - chatHistoryRow.unpinned)
-                    color: Appearance.colors.colSubtext
-                    font.pixelSize: Appearance.font.pixelSize.small
-                }
-                Timer {
-                    id: chatHistoryConfirmReset
-                    interval: 4000
-                    onTriggered: chatHistoryRow.confirm = false
-                }
-                RippleButtonWithIcon {
-                    enabled: chatHistoryRow.unpinned > 0
-                    buttonRadius: Appearance.rounding.normal
-                    materialIcon: "delete_sweep"
-                    mainText: chatHistoryRow.confirm ? Translation.tr("Delete %1?").arg(chatHistoryRow.unpinned)
-                        : Translation.tr("Delete all but pinned")
-                    onClicked: {
-                        if (!chatHistoryRow.confirm) {
-                            chatHistoryRow.confirm = true;
-                            chatHistoryConfirmReset.restart();
-                            return;
-                        }
-                        chatHistoryRow.confirm = false;
-                        Ai.deleteUnpinnedChats();
-                    }
-                }
-            }
-        }
-
-        ContentSection {
             icon: "cell_tower"
             shape: MaterialShape.Shape.PixelCircle
             title: Translation.tr("Networking")
@@ -156,66 +54,6 @@ ContentPage {
                 onTextChanged: {
                     Config.options.networking.userAgent = text;
                 }
-            }
-        }
-
-        // Echo cancellation (services/EchoCancel.qml): the microphone, for
-        // every app (also the quick toggle, the audio input dialog and the
-        // Mesh's listening-together bar).
-        ContentSection {
-            icon: "noise_aware"
-            shape: MaterialShape.Shape.Oval
-            title: Translation.tr("Echo cancellation")
-            shown: EchoCancel.available
-
-            ConfigSwitch {
-                id: echoSwitch
-                buttonIcon: EchoCancel.active ? "noise_aware" : "noise_control_off"
-                text: Translation.tr("Keep the computer's sound out of the microphone")
-                checked: EchoCancel.active
-                enabled: !EchoCancel.busy
-                onCheckedChanged: if (checked !== EchoCancel.active) EchoCancel.set(checked)
-                Connections {
-                    target: EchoCancel
-                    function onActiveChanged() {
-                        echoSwitch.checked = EchoCancel.active
-                    }
-                    function onBusyChanged() {
-                        if (!EchoCancel.busy) echoSwitch.checked = EchoCancel.active
-                    }
-                }
-            }
-            StyledText {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                color: Appearance.colors.colSubtext
-                text: EchoCancel.error !== "" ? EchoCancel.error
-                    : Translation.tr("For calls in any app: what plays on this computer (music, a film, the other side of the call) isn't heard through your microphone, and background noise is reduced. While on, the \"Echo-cancelled microphone\" is your default input; off, your microphone comes back. It stays on across logins.")
-            }
-        }
-
-        // Jellyfin on this computer (services/Jellyfin.qml): a plain service,
-        // used by watching along in the Mesh and by DAI when it is on.
-        ContentSection {
-            icon: "movie"
-            shape: MaterialShape.Shape.Oval
-            title: Translation.tr("Jellyfin")
-            shown: Jellyfin.available
-
-            JellyfinAccount {
-                Layout.fillWidth: true
-            }
-        }
-
-        // YouTube Music in the background (services/YouTubeMusic.qml): no AI,
-        // signed in with a browser's YouTube session; Last.fm scrobbling.
-        ContentSection {
-            icon: "queue_music"
-            shape: MaterialShape.Shape.Cookie4Sided
-            title: Translation.tr("YouTube Music")
-
-            YouTubeMusicAccount {
-                Layout.fillWidth: true
             }
         }
 
@@ -660,6 +498,7 @@ ContentPage {
                 }
             }
         }
+
         WorldMap {
             Layout.fillWidth: true
             Layout.preferredHeight: 300

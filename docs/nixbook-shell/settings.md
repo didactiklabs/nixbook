@@ -10,15 +10,19 @@ Open it with **Mod+Escape**, the sidebar's settings button, the _Shell settings_
 
 Pages are grouped as:
 
-| Group           | Pages                                                                   |
-| --------------- | ----------------------------------------------------------------------- |
-| **Personalize** | Quick, Appearance, Desktop, Bar                                         |
-| **Shell**       | Panels, Lock screen, Desktop agents, Window layouts                     |
-| **System**      | General, Services, Niri                                                 |
-| —               | Profile (the card at the top), About, and a shortcut to the config file |
+| Group            | Pages                                                                   |
+| ---------------- | ----------------------------------------------------------------------- |
+| **Look & feel**  | Quick, Appearance, Themes, Wallpaper, Desktop widgets                   |
+| **Shell**        | Bar, Notifications, Panels, Lock screen, Window layouts                 |
+| **AI assistant** | Assistant, Privacy & trust, On its own, Memory, Self-improvement        |
+| **Connected**    | Mesh, Apps & accounts                                                   |
+| **System**       | General, Sound, Services, Niri                                          |
+| —                | Profile (the card at the top), About, and a shortcut to the config file |
 
 - **Ctrl+F** searches every setting and section on every page and scrolls to it.
-- Notification rules live on the **Bar** page (_Notifications_ section); AI and update settings on **Services**.
+- Click a group's name to fold it away (going to one of its pages unfolds it again).
+- Where things are: colours and fonts on **Appearance**, the theme and each theme's style on **Themes**; notification rules on **Notifications**; ringtones, the notification sound and echo cancellation on **Sound**; Google Keep, Jellyfin and YouTube Music on **Apps & accounts**; the AI chat, DAI in the side panel and desktop control on **Assistant**; private details and the trust ladder on **Privacy & trust**; updates, launcher search and save paths on **Services**. **Self-improvement** shows only on machines where it is enabled.
+- `nixbook-shell ipc call settings openPage "Page:section"` opens a page (by its name, or its former one: _Desktop agents_, _Desktop_) and scrolls to a section; a section that moved is found on its new page.
 - Settings pinned in Nix show a **red lock** and are disabled. A header toggle, _Editable only_, hides them.
 - **Niri → Blur** blurs behind the shell's own sidebars, bar and dock too, not only windows, while they are see-through (**Appearance → Transparency**). Like windows, they show the blurred wallpaper. Not with Persona's slanted frames.
 

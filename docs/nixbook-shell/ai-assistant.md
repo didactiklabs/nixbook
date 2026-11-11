@@ -37,7 +37,7 @@ On NixOS, add the shell's `nixosModules.default` so "is X enabled?" also covers 
 
 ## DAI in the side panel
 
-When Claude Code is installed (`claude` on the PATH, in `~/.local/bin` or a Nix profile), the chat offers **DAI**. Set it up in **Settings → Desktop agents → DAI in the side panel**:
+When Claude Code is installed (`claude` on the PATH, in `~/.local/bin` or a Nix profile), the chat offers **DAI**. Set it up in **Settings → Assistant → DAI in the side panel**:
 
 - whether Claude Code was found (and its command if elsewhere);
 - the model — **Sonnet** by default, or Opus, Haiku, or Claude Code's own — and thinking effort (low by default: desktop tasks are many short steps);
@@ -60,11 +60,11 @@ Replies stream in, each tool call shows with its result in a collapsible block, 
 - **Speak as this computer** (`ai.claudeCode.asComputer`, on by default): DAI answers as the machine itself — "my CPU is an AMD Ryzen 7 6800U", "my battery is at 80%, though its health is down to 46%" — reading its hardware, OS and kernel live through the desktop tools' `system_info` rather than guessing.
 - **Use your claude.ai connectors** (`ai.claudeCode.connectors`, off by default) gives it the connectors of your Claude account (Gmail, Calendar, Drive…) and your Claude Code plugins: those installed and enabled for you (`claude plugin install`, e.g. Hunter) and those enabled on claude.ai (Claude Code's synced copy in `~/.claude/plugins/synced`), found each time it starts, since the panel leaves your own Claude Code settings out. Installing, enabling or disabling one reaches the panel when its DAI starts again (**Reload connectors**); for the claude.ai ones, your own Claude Code sessions keep the synced copy up to date (about every 10 minutes while one is in use): a plugin added or removed on claude.ai reaches the panel once one of them has synced and the panel's DAI starts again (**Reload connectors**). They are listed again each time the panel opens, and a connector Claude Code finds that the chat didn't know of yet (added on claude.ai with the panel open) is allowed on the spot: DAI starts again on the same message. **Reload connectors** (or `nixbook-shell ipc call ai reloadConnectors`) restarts it by hand, keeping the conversation; use it after signing in to a connector on claude.ai (Claude Code would otherwise skip a connector that needed signing in for 4 hours).
 
-With a model selected, the configuration facts become reference for the model: it answers with its own knowledge too, and says when it isn't sure. `ai.includeSystemContext` (on by default; Settings → Services → AI) controls whether the machine context is sent.
+With a model selected, the configuration facts become reference for the model: it answers with its own knowledge too, and says when it isn't sure. `ai.includeSystemContext` (on by default; Settings → Assistant → AI chat) controls whether the machine context is sent.
 
 ## Private details
 
-With Settings > Desktop agents > **Hide private details from AI models** on (the
+With Settings > Privacy & trust > **Hide private details from AI models** on (the
 default), names, emails, phones, addresses and the words you list are hidden
 before DAI reads them, and come back on this computer: in what you see, and
 in what its tools get. **People become stand-in names**: each hidden person is
@@ -98,7 +98,7 @@ Every conversation is saved as you chat, after each answer. The **history** butt
 - **rename** one (its pencil, or right-click), **pin** it to keep it for good, or **delete** it; **Delete all** deletes every conversation but the pinned ones (click twice);
 - **New conversation** (the button beside the token count, or `/clear`) starts a fresh one; the current one stays in the history.
 
-Conversations are deleted **30 days after their last message**, unless pinned. Change that in **Settings → Services → AI** (_Keep conversations for_, `ai.history.keepDays`; `0` keeps them until you delete them), which also deletes them all but the pinned ones. They're stored in `~/.local/state/quickshell/user/ai/history/`.
+Conversations are deleted **30 days after their last message**, unless pinned. Change that in **Settings → Assistant → AI chat** (_Keep conversations for_, `ai.history.keepDays`; `0` keeps them until you delete them), which also deletes them all but the pinned ones. They're stored in `~/.local/state/quickshell/user/ai/history/`.
 
 ## Translator
 

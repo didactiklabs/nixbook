@@ -359,7 +359,7 @@ Singleton {
         root.save();
     }
 
-    // Notification chime (Settings → General → Sounds; the theme's on themes
+    // Notification chime (Settings → Sound → Sounds; the theme's on themes
     // with their own sounds: Audio.soundFor). Skipped in Do Not
     // Disturb, for senders asking for silence (`suppress-sound` hint) and
     // within 300 ms of the last one so a burst doesn't stack up.

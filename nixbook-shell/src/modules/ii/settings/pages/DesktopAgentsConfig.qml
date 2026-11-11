@@ -7,7 +7,9 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 
-// Settings > Desktop agents (services/DesktopControl.qml): whether AI agents
+// Settings > the AI group: Assistant, Privacy & trust, On its own, Memory and
+// Self-improvement, one page each in the sidebar, all from this file (the
+// former Desktop agents page; services/DesktopControl.qml): whether AI agents
 // may drive the desktop (nixbook-desktop-mcp), Claude in the AI chat
 // (ai.claudeCode, services/Ai.qml), the fixes it makes to nixbook itself
 // (ai.improve, services/SelfImprove.qml), and the memory agents keep of the
@@ -27,15 +29,19 @@ ContentPage {
     }
 
     // The page's tabs: each top-level section says which it is in
-    // (`tab`), and only the open tab's are shown.
+    // (`tab`), and only the open tab's are shown. The settings window lists
+    // each tab as a page of its own in the sidebar (SettingsContent.qml's
+    // `pages`, same ids): it sets `tab` and `tabsInSidebar`, which hides the
+    // tab bar here.
     readonly property var tabs: [
-        { id: "basics", name: Translation.tr("Basics"), icon: "tune" },
-        { id: "talk", name: Translation.tr("Talk"), icon: "record_voice_over" },
+        { id: "basics", name: Translation.tr("Assistant"), icon: "smart_toy" },
+        { id: "trust", name: Translation.tr("Privacy & trust"), icon: "verified_user" },
         { id: "own", name: Translation.tr("On its own"), icon: "auto_awesome" },
         { id: "memory", name: Translation.tr("Memory"), icon: "psychology" },
-        { id: "improve", name: Translation.tr("Improve"), icon: "build" }
+        { id: "improve", name: Translation.tr("Self-improvement"), icon: "build" }
     ]
     property string tab: "basics"
+    property bool tabsInSidebar: false
     onTabChanged: page.contentY = 0
 
     function goTo(term) {
@@ -110,6 +116,7 @@ ContentPage {
         // The tabs (a switch resets the page to the top).
         Flow {
             id: tabBar
+            visible: !page.tabsInSidebar
             Layout.fillWidth: true
             spacing: 6
             Repeater {
@@ -160,7 +167,7 @@ ContentPage {
         // The privacy mask (desktop-mcp.py, "Privacy mask"): what models read
         // has placeholders, swapped back on this computer.
         ContentSection {
-            readonly property string tab: "basics"
+            readonly property string tab: "trust"
             shown: page.tab === tab
             icon: "visibility_off"
             title: Translation.tr("Private details")
@@ -570,7 +577,7 @@ ContentPage {
         // The smart clipboard (services/SmartClipboard.qml): what was copied
         // read in plain code, its action offered beside DAI's bubble.
         ContentSection {
-            readonly property string tab: "talk"
+            readonly property string tab: "own"
             shown: page.tab === tab
             icon: "content_paste_go"
             title: Translation.tr("Smart clipboard")
@@ -701,7 +708,7 @@ ContentPage {
         // the only place a kind is raised or lowered besides Always and the
         // "Stop asking" offer (`trust set`, the user's clicks only).
         ContentSection {
-            readonly property string tab: "own"
+            readonly property string tab: "trust"
             shown: page.tab === tab
             icon: "verified_user"
             title: Translation.tr("Trust")
@@ -1089,7 +1096,6 @@ ContentPage {
                 }
             }
 
-
             // The fixes waiting for the user: a PR each (features' below).
             Component {
                 id: prItem
@@ -1456,7 +1462,6 @@ ContentPage {
                     onClicked: DesktopControl.toggleNotify()
                 }
             }
-
 
         }
 
@@ -2101,7 +2106,6 @@ ContentPage {
                 }
             }
 
-
             // The folders AI agents may read (Claude here): none unless listed. Saved when editing ends,
             // so typing a comma isn't undone.
             ConfigTextArea {
@@ -2167,6 +2171,110 @@ ContentPage {
                 placeholderText: Translation.tr("found automatically")
                 value: Config.options.ai.claudeCode.command
                 onValueChanged: Config.options.ai.claudeCode.command = value.trim()
+            }
+        }
+
+        ContentSection {
+            readonly property string tab: "basics"
+            shown: page.tab === tab
+            icon: "neurology"
+            shape: MaterialShape.Shape.Ghostish
+            title: Translation.tr("AI chat")
+
+            MaterialTextArea {
+                Layout.fillWidth: true
+                placeholderText: Translation.tr("System prompt")
+                text: Config.options.ai.systemPrompt
+                wrapMode: TextEdit.Wrap
+                onTextChanged: {
+                    Qt.callLater(() => {
+                        Config.options.ai.systemPrompt = text;
+                    });
+                }
+            }
+            ConfigSwitch {
+                configKey: "ai.includeSystemContext"
+                buttonIcon: "developer_board"
+                text: Translation.tr("Include this machine's configuration (Nix modules, keybinds, shell settings, packages)")
+                checked: Config.options.ai.includeSystemContext
+                onCheckedChanged: Config.options.ai.includeSystemContext = checked
+                StyledToolTip {
+                    text: Translation.tr("Appended to the system prompt, so the assistant knows how this system is set up.\nIt is sent to the selected AI provider with each request.")
+                }
+            }
+            ConfigSwitch {
+                configKey: "ai.notifyWhenDone"
+                buttonIcon: "notifications_active"
+                text: Translation.tr("Notify me when the assistant is done or waiting for me")
+                checked: Config.options.ai.notifyWhenDone
+                onCheckedChanged: Config.options.ai.notifyWhenDone = checked
+                StyledToolTip {
+                    text: Translation.tr("Only while the side panel is closed, and not in Do Not Disturb.")
+                }
+            }
+            ConfigSpinBox {
+                configKey: "ai.history.keepDays"
+                enabled: !nixManaged
+                icon: "auto_delete"
+                text: Translation.tr("Keep conversations for (days, 0: until deleted)")
+                value: Config.options.ai.history.keepDays
+                from: 0
+                to: 3650
+                stepSize: 1
+                onValueChanged: Config.options.ai.history.keepDays = value
+                StyledToolTip {
+                    text: Translation.tr("Counted from a conversation's last message. Pinned conversations are kept.")
+                }
+            }
+            ConfigSpinBox {
+                configKey: "ai.claudeThreadIdleMinutes"
+                enabled: !nixManaged
+                icon: "timer_off"
+                text: Translation.tr("Close the \"From V\" tab after (minutes idle, 0: never)")
+                value: Config.options.ai.claudeThreadIdleMinutes
+                from: 0
+                to: 1440
+                stepSize: 5
+                onValueChanged: Config.options.ai.claudeThreadIdleMinutes = value
+                StyledToolTip {
+                    text: Translation.tr("Its thread stays in the conversation history when it has more than 5 messages.")
+                }
+            }
+            RowLayout {
+                id: chatHistoryRow
+                Layout.fillWidth: true
+                property bool confirm: false
+                readonly property int unpinned: Ai.history.filter(c => !c.pinned).length
+                StyledText {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 8
+                    wrapMode: Text.Wrap
+                    text: Translation.tr("%1 saved conversations, %2 pinned (open them with Ctrl+H in the side panel)")
+                        .arg(Ai.history.length).arg(Ai.history.length - chatHistoryRow.unpinned)
+                    color: Appearance.colors.colSubtext
+                    font.pixelSize: Appearance.font.pixelSize.small
+                }
+                Timer {
+                    id: chatHistoryConfirmReset
+                    interval: 4000
+                    onTriggered: chatHistoryRow.confirm = false
+                }
+                RippleButtonWithIcon {
+                    enabled: chatHistoryRow.unpinned > 0
+                    buttonRadius: Appearance.rounding.normal
+                    materialIcon: "delete_sweep"
+                    mainText: chatHistoryRow.confirm ? Translation.tr("Delete %1?").arg(chatHistoryRow.unpinned)
+                        : Translation.tr("Delete all but pinned")
+                    onClicked: {
+                        if (!chatHistoryRow.confirm) {
+                            chatHistoryRow.confirm = true;
+                            chatHistoryConfirmReset.restart();
+                            return;
+                        }
+                        chatHistoryRow.confirm = false;
+                        Ai.deleteUnpinnedChats();
+                    }
+                }
             }
         }
 

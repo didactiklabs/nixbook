@@ -45,7 +45,7 @@ Each note remembers its Keep note and when the two were last in sync, so the she
 
 ## The settings
 
-**Settings → General → Google Keep**:
+**Settings → Apps & accounts → Google Keep**:
 
 - `keep.enable` — the sync on its own (on demand it always works);
 - `keep.refreshMinutes` — how often it runs (15 minutes);

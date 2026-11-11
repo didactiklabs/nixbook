@@ -501,7 +501,7 @@ Singleton {
     // Config ai.claudeCode.allowedTools and, with ai.claudeCode.connectors,
     // the user's claude.ai connectors; nothing else.
     property string claudeCodePath: ""
-    // Settings > Desktop agents can change where Claude Code is: look again.
+    // Settings > Assistant can change where Claude Code is: look again.
     readonly property string claudeCodeCommandSetting: Config.options?.ai?.claudeCode?.command ?? ""
     onClaudeCodeCommandSettingChanged: claudeCodeRelocate.restart()
     Timer {
@@ -557,7 +557,7 @@ Singleton {
     property string claudeConnectorsState: "" // "name status" lines
     property bool claudeConnectorsNeedAuth: false
     property double claudeConnectorsCheckedAt: 0
-    // Settings > Desktop agents' Reload connectors (and `nixbook-shell ipc
+    // Settings > Assistant's Reload connectors (and `nixbook-shell ipc
     // call ai reloadConnectors`): listed again, and every chat's Claude Code
     // started again even if the list looks the same (a connector added or
     // signed in to on claude.ai since it started) — an idle one now, resuming
@@ -687,7 +687,7 @@ Singleton {
     // never the user's own Claude Code or other agents.
     property var assistantMcpServers: ({})
     // The environment immich-photo-manager gets from the ai.immich settings
-    // (also used by Settings > Desktop agents for its helper).
+    // (also used by Settings > Assistant for its helper).
     readonly property var immichEnv: {
         const env = {};
         const url = Config.options.ai.immich.url ?? "";
@@ -697,7 +697,7 @@ Singleton {
         return env;
     }
     // The environment jellyfin-mcp gets from the ai.jellyfin settings (also
-    // used by Settings > Desktop agents and the bubble's instant "play …",
+    // used by Settings > Assistant and the bubble's instant "play …",
     // QuickIntent.qml); its key it reads from the keyring itself.
     readonly property var jellyfinEnv: {
         const env = {};
@@ -708,7 +708,7 @@ Singleton {
         return env;
     }
     // The environment seerr-mcp gets from the ai.seerr settings (also used by
-    // Settings > Desktop agents); its key it reads from the keyring itself.
+    // Settings > Assistant); its key it reads from the keyring itself.
     readonly property var seerrEnv: {
         const env = {};
         const sr = Config.options.ai.seerr;
@@ -887,7 +887,7 @@ Singleton {
                 : "")
             + (shellTools.length > 0 && !confined ? ""
                 : folders.length > 0 ? ` You may read files in these folders only: ${folders.join(", ")}.`
-                : " You have no access to the user's files (they can allow folders in Settings > Desktop agents).")
+                : " You have no access to the user's files (they can allow folders in Settings > Assistant).")
             + (writable.length > 0
                 ? ` You may create and edit files in these folders only, with Write and Edit: ${writable.join(", ")}; anywhere else is refused.`
                 : "");

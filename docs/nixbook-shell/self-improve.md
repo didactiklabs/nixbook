@@ -9,7 +9,7 @@ customHomeManagerModules.nixbookShellConfig.selfImprove.enable = true;
 # outside nixbook: programs.nixbook-shell.selfImprove.enable = true;
 ```
 
-Elsewhere there are no Settings sections, agents don't get the `report_problem`, `request_feature` and `list_requests` tools, and `nixbook-improve` refuses to run. Where it is enabled, it stays off until you turn it on: **Settings → Desktop agents → Fixes it makes itself → Make fixes on its own** (`ai.improve.enable`). It uses your Claude Code login for the fixing session, and its own GitHub token (below) for GitHub.
+Elsewhere there are no Settings sections, agents don't get the `report_problem`, `request_feature` and `list_requests` tools, and `nixbook-improve` refuses to run. Where it is enabled, it stays off until you turn it on: **Settings → Self-improvement → Fixes it makes itself → Make fixes on its own** (`ai.improve.enable`). It uses your Claude Code login for the fixing session, and its own GitHub token (below) for GitHub.
 
 ## Its GitHub token
 
@@ -100,7 +100,7 @@ CI's **agent-guard** job (`checks.yaml`) runs `nixbook-improve guard` on every `
 
 ## Features it builds
 
-**Settings → Desktop agents → Features it builds → Build the features I ask for** (`ai.improve.features.enable`, off by default) has the same fixer build what you ask nixbook to do: a new widget, setting, shortcut or behaviour. It has its own list, status line and activity in Settings, its own daily limit, and other rules; the token, model and repository are the fixes'.
+**Settings → Self-improvement → Features it builds → Build the features I ask for** (`ai.improve.features.enable`, off by default) has the same fixer build what you ask nixbook to do: a new widget, setting, shortcut or behaviour. It has its own list, status line and activity in Settings, its own daily limit, and other rules; the token, model and repository are the fixes'.
 
 - **What it builds.** Ask an agent ("I wish the bar showed the week number", "add a way to…"): its `request_feature` tool files it (`report_problem` tells agents to use it for anything bigger than a fix). You can also type it in the section. A fix the session finds too big comes here on its own, with what the session found ("Too big for a fix: …"); one found too big before that has an **As a feature** button.
 - **How it goes.** Ask an agent ("did you file it?", "how's my feature going?"): its read-only `list_requests` tool reads `nixbook-improve status` and gives each fix and feature request, newest first, with when it was filed, by whom (you, through an agent or Settings, or the fixer from what it found), its status (queued, building, pull request with its link and checks, merged, skipped, too big, failed, dropped) and why. It is there while fixes or features are on.
@@ -115,7 +115,7 @@ CI's **agent-guard** job (`checks.yaml`) runs `nixbook-improve guard` on every `
 
 One fix or feature is made at a time. **Fix now**, **Build now** or **Retry** pressed while another is being made (the button says **Queue** then), or an agent's `fix_now`, `build_now` or `start_improvement`, puts it in a queue shared by fixes and features instead of refusing:
 
-- The item shows **Queued, #N** in Settings > Desktop agents, with **Earlier**, **Later** and **Unqueue**; the status line says how many wait. `list_improvements` gives each one's place (`queued`), `list_requests` says "queued, #N in line to start".
+- The item shows **Queued, #N** in Settings > Self-improvement, with **Earlier**, **Later** and **Unqueue**; the status line says how many wait. `list_improvements` gives each one's place (`queued`), `list_requests` says "queued, #N in line to start".
 - When the one being made lets go (its pull request is open, or it ended: skipped, failed, dropped, stopped), the next one starts on its own, in the order asked. **Stop** stops only the current one.
 - Queued items were asked by you, so they start as **Fix now** does: past the day's limit, each still capped by its budget. A queued item whose kind you switch off waits until it is on again; one dropped, merged or moved to the features leaves the queue.
 - After a reboot, the shell's next run takes the queue first.
@@ -124,7 +124,7 @@ From a terminal: `nixbook-improve queue ID`, `unqueue ID`, `queue-move ID up|dow
 
 ## Proposed by the agent
 
-With **Talk to me on its own** and **Propose fixes and features of nixbook** on (Settings → Desktop agents, `ai.initiative.improveIdeas`, on by default but idle while both fixes and features are off), every two days at most the small model looks at what the agent saw go wrong or get in your way and may propose one fix or feature, among the kinds you have on:
+With **Talk to me on its own** and **Propose fixes and features of nixbook** on (Settings → On its own, `ai.initiative.improveIdeas`, on by default but idle while both fixes and features are off), every two days at most the small model looks at what the agent saw go wrong or get in your way and may propose one fix or feature, among the kinds you have on:
 
 - what failed in its memory (notes with failures, a failed step of a recipe), an app it couldn't find for you;
 - routines you undid;

@@ -30,7 +30,7 @@
   };
   background = {
     centeredWallpaperShape = "Heart";
-    # wallpaperAnimation: chosen in the menu (Settings > Desktop).
+    # wallpaperAnimation: chosen in the menu (Settings > Wallpaper).
   };
   # bar and dock: the shell's built-in defaults (Config.qml) are nixbook's
   # bar and dock, so they stay editable from the menu. Set one in a
@@ -105,8 +105,8 @@
   };
   # The mesh between our desktops (services/Mesh.qml): the ntfy server on
   # the RPCU production cluster (../atlas, clusters/production/ntfy). Each
-  # person's access token and the mesh key are set in Settings > General >
-  # Mesh (keyring), never here.
+  # person's access token and the mesh key are set in Settings > Mesh
+  # (keyring), never here.
   mesh = {
     server = "https://ntfy.rpcu.io";
   };

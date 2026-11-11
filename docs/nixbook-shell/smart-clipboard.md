@@ -1,7 +1,7 @@
 # Smart clipboard
 
 Copy something and the right action shows at once (`ai.clipboard`, on by
-default; **Settings → Desktop agents → Talk → Smart clipboard**): a small card
+default; **Settings → On its own → Smart clipboard**): a small card
 at the top left, beside DAI's speech bubble, for about 8 seconds, "Copied a
 tracking number — **Track it** · Not now". It never takes the keyboard; click a
 chip, or press `Mod+Alt+V` for the first one. Hovering it holds it.

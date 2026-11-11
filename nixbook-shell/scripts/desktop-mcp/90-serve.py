@@ -28,7 +28,7 @@ def call_tool_now(ctx, name, args, session=None):
     # AI off: no agent acts on the desktop, whoever it is (local only: they may).
     if ai_policy() == 0:
         audit(ctx.client, name, args, "AI off")
-        return [text("refused: the user turned AI features off (Settings > Desktop agents > AI features)")], True
+        return [text("refused: the user turned AI features off (Settings > Assistant > AI features)")], True
     # The guide behind a short description: nothing runs, paused or not.
     if args.get("help") is True:
         return [text(guide_text(name))], False

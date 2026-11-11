@@ -129,7 +129,7 @@ Item {
         shown: !Mesh.configured
         icon: "hub"
         title: Translation.tr("Mesh")
-        description: Translation.tr("Talk with the people you choose, desktop to desktop: set it up in Settings > General > Mesh.")
+        description: Translation.tr("Talk with the people you choose, desktop to desktop: set it up in Settings > Mesh.")
         shape: MaterialShape.Shape.Clover4Leaf
         descriptionHorizontalAlignment: Text.AlignHCenter
     }

@@ -336,7 +336,7 @@ Singleton {
                     property bool commandLineFolders: true
                     // The MCP servers of assistant-mcp.json (assistant.mcpServers:
                     // mcp-nixos, the music apps, LinkedIn, Immich…) turned off
-                    // in Settings > Desktop agents. LinkedIn starts off: it acts
+                    // in Settings > Assistant. LinkedIn starts off: it acts
                     // on the user's account, and LinkedIn may restrict
                     // accounts using automation. Immich and Jellyfin, until
                     // they are set up (ai.immich, ai.jellyfin).
@@ -353,7 +353,7 @@ Singleton {
                 // The Immich photo library the side panel's Claude can use
                 // (immich-photo-manager, in assistant.mcpServers): its server,
                 // and optionally a file holding the API key. Otherwise the key
-                // is the one saved in Settings > Desktop agents, kept in the
+                // is the one saved in Settings > Assistant, kept in the
                 // keyring (secret-tool, service=immich-photo-manager), never
                 // in this file.
                 property JsonObject immich: JsonObject {
@@ -364,7 +364,7 @@ Singleton {
                 // from (jellyfin-mcp, in assistant.mcpServers): its server, the
                 // user it acts for (empty: the first administrator), and
                 // optionally a file holding the API key. Otherwise the key is
-                // the one saved in Settings > Desktop agents, kept in the
+                // the one saved in Settings > Assistant, kept in the
                 // keyring (secret-tool, service=jellyfin-mcp), never in this
                 // file; the player's (jellyfin-mpv-shim's) login is its own
                 // (~/.config/jellyfin-mpv-shim/users.json).
@@ -378,7 +378,7 @@ Singleton {
                 // server, who requests go out as (a user id, name or email;
                 // empty: the key's own, the first administrator) and
                 // optionally a file holding the API key. Otherwise the key is
-                // the one saved in Settings > Desktop agents, kept in the
+                // the one saved in Settings > Assistant, kept in the
                 // keyring (secret-tool, service=seerr-mcp), never in this
                 // file. It works whatever the login methods (OIDC included).
                 property JsonObject seerr: JsonObject {
@@ -1058,7 +1058,7 @@ Singleton {
 
             property JsonObject mesh: JsonObject {
                 // The mesh between people's desktops (services/Mesh.qml,
-                // Settings > General > Mesh). The access token and the mesh
+                // Settings > Mesh). The access token and the mesh
                 // key are in the keyring, never here.
                 property bool enable: true
                 property string server: "" // The ntfy server, e.g. https://ntfy.example.org

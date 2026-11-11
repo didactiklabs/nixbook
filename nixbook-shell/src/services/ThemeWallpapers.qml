@@ -25,7 +25,7 @@ import Quickshell.Io
  *   current one stays; its lock and login wallpapers, else none: the lock
  *   screen then uses the desktop wallpaper and the login screen the lock
  *   screen's, so both follow the variant;
- * - unset (Settings → Appearance → Theme): the desktop back to the variant's
+ * - unset (Settings → Themes): the desktop back to the variant's
  *   default, the lock screen to the desktop's, the login screen to the lock
  *   screen's.
  *

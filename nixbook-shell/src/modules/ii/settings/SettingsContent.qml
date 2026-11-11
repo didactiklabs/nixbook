@@ -21,7 +21,7 @@ Item {
     // The sidebar's search box: every page's sections and settings
     // (SettingsSearchIndex); a result opens its page and scrolls to it.
     property string searchQuery: ""
-    readonly property var searchResults: root.searchQuery.trim() === "" ? [] : searchIndex.search(root.searchQuery, 40)
+    readonly property var searchResults: root.searchQuery.trim() === "" ? [] : searchIndex.search(root.searchQuery, 60).filter(e => root.pageAvailable(root.pages[e.page])).slice(0, 40)
     function focusSearch() {
         searchField.forceActiveFocus();
         searchField.selectAll();
@@ -51,7 +51,7 @@ Item {
         interval: 120
         onTriggered: {
             const entry = root.revealing;
-            const page = pagesRepeater.itemAt(entry?.page ?? -1)?.item;
+            const page = root.pageItem(entry?.page ?? -1);
             const target = page ? root.findSettingItem(page, entry) : null;
             if (!target) {
                 if (++tries < 12) restart();
@@ -114,18 +114,18 @@ Item {
         function onSettingsPageChanged() {
             if (GlobalStates.settingsPage === "") return
 
-            let parts = GlobalStates.settingsPage.split(":");
-            let pageName = parts[0];
-            let searchTerm = parts.length > 1 ? parts[1] : "";
+            const parts = GlobalStates.settingsPage.split(":");
+            const pageName = parts[0];
+            const searchTerm = parts.slice(1).join(":");
 
-            const idx = root.pages.findIndex(p => p.name.toLowerCase() === pageName.toLowerCase());
+            const idx = root.resolvePage(pageName, searchTerm);
 
             if (idx >= 0) {
                 root.currentPage = idx;
                 root.showingProfile = false;
 
                 if (searchTerm !== "") {
-                    let loader = pagesRepeater.itemAt(idx);
+                    const loader = pagesRepeater.itemAt(root.fileIndexOf(idx));
                     if (loader && loader.item && typeof loader.item.goTo === "function") {
                         loader.item.goTo(searchTerm);
                     } else if (loader) {
@@ -142,6 +142,12 @@ Item {
     }
 
     onCurrentPageChanged: {
+        const group = root.pages[currentPage]?.group ?? "";
+        if (root.collapsedGroups[group]) {
+            const next = Object.assign({}, root.collapsedGroups);
+            delete next[group];
+            root.collapsedGroups = next;
+        }
         const pageName = root.pages[currentPage]?.name ?? ""
         if (pageName === Translation.tr("About")) {
             if (SystemInfo.cpu === "") SystemInfo.refresh()
@@ -152,26 +158,119 @@ Item {
     // Sidebar groups, in display order. Pages without a group (About) sit at
     // the bottom of the sidebar. The order of `pages` is also the Tab order,
     // and the names are what LauncherSearch's settingsIndex refers to.
+    // `GlobalStates.settingsPage` ("Page" or "Page:section") also takes a
+    // page's `aliases` (its former names), and a section that moved to
+    // another page is found there.
     readonly property var groups: [
-        { id: "personalize", name: Translation.tr("Personalize") },
+        { id: "personalize", name: Translation.tr("Look & feel") },
         { id: "shell",       name: Translation.tr("Shell") },
+        { id: "ai",          name: Translation.tr("AI assistant") },
+        { id: "connected",   name: Translation.tr("Connected") },
         { id: "system",      name: Translation.tr("System") },
     ]
 
+    // A page with a `tab` is that tab of a page file with several (the AI
+    // pages, all in DesktopAgentsConfig.qml): one instance shows them all.
     readonly property var pages: [
-        { group: "personalize", name: Translation.tr("Quick"),       icon: "instant_mix",    description: Translation.tr("Wallpaper, colors and the most used toggles"), component: Qt.resolvedUrl("pages/QuickConfig.qml") },
-        { group: "personalize", name: Translation.tr("Appearance"),  icon: "palette",        description: Translation.tr("Color generation, transparency, fonts and style"), component: Qt.resolvedUrl("pages/AppearanceConfig.qml") },
-        { group: "personalize", name: Translation.tr("Desktop"),     icon: "texture",        description: Translation.tr("Wallpaper, clock and desktop widgets"), component: Qt.resolvedUrl("pages/BackgroundConfig.qml") },
-        { group: "personalize", name: Translation.tr("Bar"),         icon: "toast",          iconRotation: 180, description: Translation.tr("Layout, bar widgets and notifications"), component: Qt.resolvedUrl("pages/BarConfig.qml") },
-        { group: "shell",       name: Translation.tr("Panels"),      icon: "bottom_app_bar", description: Translation.tr("Overview, sidebars, dock, on-screen display and overlays"), component: Qt.resolvedUrl("pages/PanelsConfig.qml") },
-        { group: "shell",       name: Translation.tr("Lock screen"), icon: "lock",           description: Translation.tr("Locking, security and lock screen style"), component: Qt.resolvedUrl("pages/LockScreenConfig.qml") },
-        { group: "shell",       name: Translation.tr("Desktop agents"), icon: "smart_toy",   description: Translation.tr("AI desktop control and what agents remember"), component: Qt.resolvedUrl("pages/DesktopAgentsConfig.qml") },
-        { group: "shell",       name: Translation.tr("Window layouts"), icon: "view_quilt",  description: Translation.tr("Save, restore and switch window arrangements"), component: Qt.resolvedUrl("pages/WindowLayoutsConfig.qml") },
-        { group: "system",      name: Translation.tr("General"),     icon: "tune",           description: Translation.tr("Time, battery, audio, sounds and language"), component: Qt.resolvedUrl("pages/GeneralConfig.qml") },
-        { group: "system",      name: Translation.tr("Services"),    icon: "hub",            description: Translation.tr("AI, networking, search, updates and weather"), component: Qt.resolvedUrl("pages/ServicesConfig.qml") },
-        { group: "system",      name: Translation.tr("Niri"),        icon: "select_window_2", description: Translation.tr("Displays, input, layout and animations"), component: Qt.resolvedUrl("pages/NiriConfig.qml") },
-        { group: "",            name: Translation.tr("About"),       icon: "info",           description: Translation.tr("System information and updates"), component: Qt.resolvedUrl("pages/About.qml") },
+        { group: "personalize", name: Translation.tr("Quick"),          icon: "instant_mix",    description: Translation.tr("Wallpaper, colors and the most used toggles"), component: Qt.resolvedUrl("pages/QuickConfig.qml") },
+        { group: "personalize", name: Translation.tr("Appearance"),     icon: "palette",        description: Translation.tr("Color generation, transparency, fonts and this window"), component: Qt.resolvedUrl("pages/AppearanceConfig.qml") },
+        { group: "personalize", name: Translation.tr("Themes"),         icon: "style",          description: Translation.tr("Shell theme, variants and each theme's style"), component: Qt.resolvedUrl("pages/ThemesConfig.qml") },
+        { group: "personalize", name: Translation.tr("Wallpaper"),      icon: "wallpaper",      aliases: ["Desktop", "Background"], description: Translation.tr("Desktop, lock and login wallpapers, and the wallpaper selector"), component: Qt.resolvedUrl("pages/BackgroundConfig.qml") },
+        { group: "personalize", name: Translation.tr("Desktop widgets"), icon: "widgets",       description: Translation.tr("Clock, visualizer, image, text and the other widgets on the desktop"), component: Qt.resolvedUrl("pages/DesktopWidgetsConfig.qml") },
+        { group: "shell",       name: Translation.tr("Bar"),            icon: "toast",          iconRotation: 180, description: Translation.tr("Layout, style and the bar's widgets"), component: Qt.resolvedUrl("pages/BarConfig.qml") },
+        { group: "shell",       name: Translation.tr("Notifications"),  icon: "notifications",  description: Translation.tr("Popups, cut-ins, quiet and keep-on-screen rules, history"), component: Qt.resolvedUrl("pages/NotificationsConfig.qml") },
+        { group: "shell",       name: Translation.tr("Panels"),         icon: "bottom_app_bar", description: Translation.tr("Overview, sidebars, dock, on-screen display and overlays"), component: Qt.resolvedUrl("pages/PanelsConfig.qml") },
+        { group: "shell",       name: Translation.tr("Lock screen"),    icon: "lock",           description: Translation.tr("Locking, security and lock screen style"), component: Qt.resolvedUrl("pages/LockScreenConfig.qml") },
+        { group: "shell",       name: Translation.tr("Window layouts"), icon: "view_quilt",     description: Translation.tr("Save, restore and switch window arrangements and projects"), component: Qt.resolvedUrl("pages/WindowLayoutsConfig.qml") },
+        { group: "ai",          name: Translation.tr("Assistant"),      icon: "smart_toy",      tab: "basics",  aliases: ["Desktop agents", "AI"], description: Translation.tr("AI features, DAI in the side panel, the chat and desktop control"), component: Qt.resolvedUrl("pages/DesktopAgentsConfig.qml") },
+        { group: "ai",          name: Translation.tr("Privacy & trust"), icon: "verified_user", tab: "trust",   description: Translation.tr("What is masked before it is sent, and what it may do without asking"), component: Qt.resolvedUrl("pages/DesktopAgentsConfig.qml") },
+        { group: "ai",          name: Translation.tr("On its own"),     icon: "auto_awesome",   tab: "own",     description: Translation.tr("Talking to you first, the smart clipboard and routines"), component: Qt.resolvedUrl("pages/DesktopAgentsConfig.qml") },
+        { group: "ai",          name: Translation.tr("Memory"),         icon: "psychology",     tab: "memory",  description: Translation.tr("What agents remember: notes, habits and about you"), component: Qt.resolvedUrl("pages/DesktopAgentsConfig.qml") },
+        { group: "ai",          name: Translation.tr("Self-improvement"), icon: "build",        tab: "improve", needs: "selfImprove", description: Translation.tr("The fixes and features it makes to nixbook itself"), component: Qt.resolvedUrl("pages/DesktopAgentsConfig.qml") },
+        { group: "connected",   name: Translation.tr("Mesh"),           icon: "hub",            description: Translation.tr("Messages, status and listening along with other desktops"), component: Qt.resolvedUrl("pages/MeshConfig.qml") },
+        { group: "connected",   name: Translation.tr("Apps & accounts"), icon: "account_tree",  description: Translation.tr("Google Keep, Jellyfin and YouTube Music"), component: Qt.resolvedUrl("pages/AccountsConfig.qml") },
+        { group: "system",      name: Translation.tr("General"),        icon: "tune",           description: Translation.tr("Time, battery, language and work safety"), component: Qt.resolvedUrl("pages/GeneralConfig.qml") },
+        { group: "system",      name: Translation.tr("Sound"),          icon: "volume_up",      description: Translation.tr("Volume protection, sounds, ringtones and echo cancellation"), component: Qt.resolvedUrl("pages/SoundConfig.qml") },
+        { group: "system",      name: Translation.tr("Services"),       icon: "dns",            description: Translation.tr("Networking, launcher search, save paths, updates and weather"), component: Qt.resolvedUrl("pages/ServicesConfig.qml") },
+        { group: "system",      name: Translation.tr("Niri"),           icon: "select_window_2", description: Translation.tr("Displays, input, layout and animations"), component: Qt.resolvedUrl("pages/NiriConfig.qml") },
+        { group: "",            name: Translation.tr("About"),          icon: "info",           description: Translation.tr("System information and updates"), component: Qt.resolvedUrl("pages/About.qml") },
     ]
+
+    // A page that only has something to show on some machines (`needs`):
+    // left out of the sidebar elsewhere.
+    function pageAvailable(p) {
+        return p.needs !== "selfImprove" || SelfImprove.available;
+    }
+
+    // The page files, each loaded once (a file can back several pages).
+    readonly property var pageFiles: root.pages.reduce((acc, p) => {
+        const url = String(p.component);
+        if (!acc.includes(url)) acc.push(url);
+        return acc;
+    }, [])
+    function fileIndexOf(pageIndex) {
+        return root.pageFiles.indexOf(String(root.pages[pageIndex]?.component ?? ""));
+    }
+    // The page's loaded instance (null until first shown).
+    function pageItem(pageIndex) {
+        return pagesRepeater.itemAt(root.fileIndexOf(pageIndex))?.item ?? null;
+    }
+    // A page file with tabs switched its own tab (a search or a link to a
+    // section in another tab): follow it in the sidebar.
+    function followTab(fileIndex, tab) {
+        const current = root.pages[root.currentPage];
+        if (!current || root.fileIndexOf(root.currentPage) !== fileIndex || current.tab === undefined || current.tab === tab) return;
+        const idx = root.pages.findIndex(p => String(p.component) === root.pageFiles[fileIndex] && p.tab === tab);
+        if (idx >= 0) root.currentPage = idx;
+    }
+    // "Page" or "Page:section" (GlobalStates.settingsPage): the page by its
+    // name or one of its aliases; with a section, the page holding a
+    // section of that name, that page first (sections moved between pages).
+    function resolvePage(pageName, term) {
+        const n = pageName.toLowerCase();
+        const nt = Translation.tr(pageName).toLowerCase();
+        const named = [];
+        root.pages.forEach((p, i) => {
+            if (p.name.toLowerCase() === n || p.name.toLowerCase() === nt || (p.aliases ?? []).some(a => a.toLowerCase() === n || Translation.tr(a).toLowerCase() === n))
+                named.push(i);
+        });
+        if (term === "") return named.length > 0 ? named[0] : -1;
+        // The pages holding a section of that name: exact, then starting
+        // with it, then containing it.
+        const t = term.toLowerCase();
+        const rank = e => Math.min(...[e.label, Translation.tr(e.label)].map(l => {
+            const s = l.toLowerCase();
+            return s === t ? 0 : s.startsWith(t) ? 1 : s.includes(t) ? 2 : 3;
+        }));
+        const holding = searchIndex.entries.filter(e => e.kind === "section" && rank(e) < 3)
+            .sort((a, b) => rank(a) - rank(b)).map(e => e.page);
+        return named.find(i => holding.includes(i)) ?? holding[0] ?? named[0] ?? -1;
+    }
+
+    // Keeps the open page's sidebar entry in view (Tab, a search, a link,
+    // or a group just unfolded), once the sidebar is laid out again.
+    Timer {
+        id: navRevealTimer
+        property Item target: null
+        interval: 60
+        onTriggered: {
+            const it = target;
+            if (!it || !it.visible) return;
+            const y = it.mapToItem(navColumn, 0, 0).y;
+            const maxY = Math.max(0, navFlick.contentHeight - navFlick.height);
+            if (y < navFlick.contentY)
+                navFlick.contentY = Math.max(0, y - 8);
+            else if (y + it.height > navFlick.contentY + navFlick.height)
+                navFlick.contentY = Math.min(maxY, y + it.height - navFlick.height + 8);
+        }
+    }
+
+    // Collapsed sidebar groups (a click on the heading); going to a page
+    // (Tab, a search, a link) unfolds its group.
+    property var collapsedGroups: ({})
+    function groupShown(groupId) {
+        return !root.railExpanded || !root.collapsedGroups[groupId];
+    }
 
     readonly property var currentEntry: root.showingProfile
         ? { name: Translation.tr("Profile"), icon: "account_circle", description: Translation.tr("Avatar, identity and presets") }
@@ -190,6 +289,8 @@ Item {
                 if (item.nixManaged) pinned++;
                 return;
             }
+            // Not on this page (another tab of the same file).
+            if (item.shown === false) return;
             const kids = item.children;
             if (kids) for (let i = 0; i < kids.length; i++) walk(kids[i]);
         };
@@ -208,7 +309,7 @@ Item {
         property real navIconRotation: 0
         property string navLabel
         Layout.fillWidth: true
-        implicitHeight: root.isMinimal ? 42 : 46
+        implicitHeight: root.isMinimal ? 38 : 40
         buttonRadius: Appearance.rounding.full
         colBackground: "transparent"
         colBackgroundHover: Appearance.colors.colLayer1Hover
@@ -493,8 +594,11 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: 2
 
-                                // Group heading (a thin divider when collapsed)
+                                // Group heading (a thin divider when the rail is
+                                // collapsed): a click folds the group away.
                                 Item {
+                                    id: groupHeading
+                                    readonly property bool folded: !root.groupShown(groupColumn.modelData.id)
                                     Layout.fillWidth: true
                                     implicitHeight: root.railExpanded ? groupLabel.implicitHeight + (groupColumn.index === 0 ? 6 : 16) : 13
                                     StyledText {
@@ -509,7 +613,31 @@ Item {
                                         text: groupColumn.modelData.name
                                         font.pixelSize: Appearance.font.pixelSize.smaller
                                         font.weight: Font.DemiBold
+                                        color: headingMouse.containsMouse ? Appearance.colors.colOnLayer1 : Appearance.colors.colSubtext
+                                    }
+                                    MaterialSymbol {
+                                        visible: root.railExpanded && (headingMouse.containsMouse || groupHeading.folded)
+                                        anchors {
+                                            right: parent.right
+                                            rightMargin: 10
+                                            verticalCenter: groupLabel.verticalCenter
+                                        }
+                                        text: groupHeading.folded ? "expand_more" : "expand_less"
+                                        iconSize: Appearance.font.pixelSize.normal
                                         color: Appearance.colors.colSubtext
+                                    }
+                                    MouseArea {
+                                        id: headingMouse
+                                        anchors.fill: parent
+                                        enabled: root.railExpanded
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            const id = groupColumn.modelData.id;
+                                            const next = Object.assign({}, root.collapsedGroups);
+                                            next[id] = !groupHeading.folded;
+                                            root.collapsedGroups = next;
+                                        }
                                     }
                                     Rectangle {
                                         visible: !root.railExpanded && groupColumn.index > 0
@@ -521,13 +649,18 @@ Item {
                                 }
 
                                 Repeater {
-                                    model: root.pages.map((p, i) => ({ page: p, index: i })).filter(e => e.page.group === groupColumn.modelData.id)
+                                    model: root.pages.map((p, i) => ({ page: p, index: i })).filter(e => e.page.group === groupColumn.modelData.id && root.pageAvailable(e.page))
                                     NavItem {
                                         required property var modelData
+                                        visible: !groupHeading.folded
                                         navIcon: modelData.page.icon
                                         navIconRotation: modelData.page.iconRotation ?? 0
                                         navLabel: modelData.page.name
                                         toggled: root.currentPage === modelData.index && !root.showingProfile
+                                        onToggledChanged: if (toggled) {
+                                            navRevealTimer.target = this;
+                                            navRevealTimer.restart();
+                                        }
                                         onClicked: {
                                             root.currentPage = modelData.index
                                             root.showingProfile = false
@@ -694,25 +827,45 @@ Item {
 
                 Repeater {
                     id: pagesRepeater
-                    model: root.pages
+                    model: root.pageFiles
                     Loader {
                         id: pageLoader
                         required property var modelData
                         required property var index
-                        source: modelData.component
+                        source: modelData
 
-                        active: Config.ready && (root.currentPage === index || item !== null)
+                        readonly property bool isCurrent: root.fileIndexOf(root.currentPage) === index
+                        active: Config.ready && (isCurrent || item !== null)
 
                         anchors.fill: parent
 
-                        property bool isActive: root.currentPage === index && !root.showingProfile
+                        property bool isActive: isCurrent && !root.showingProfile
                         opacity: isActive ? 1 : 0
                         enabled: isActive
                         visible: isActive
                         anchors.topMargin: isActive ? 0 : 12
 
+                        // A file shown as several pages (tabs): the open
+                        // page's tab, and no tab bar of its own.
+                        function applyTab() {
+                            const entry = root.pages[root.currentPage];
+                            if (!item || !isCurrent || entry?.tab === undefined) return;
+                            item.tabsInSidebar = true;
+                            if (item.tab !== entry.tab) item.tab = entry.tab;
+                        }
+                        Connections {
+                            target: root
+                            function onCurrentPageChanged() { pageLoader.applyTab(); }
+                        }
+                        Connections {
+                            target: pageLoader.item
+                            ignoreUnknownSignals: true
+                            function onTabChanged() { root.followTab(pageLoader.index, pageLoader.item.tab); }
+                        }
+
                         onLoaded: {
-                            if (root.currentPage === index) {
+                            applyTab();
+                            if (isCurrent) {
                                 GlobalStates.currentPageInstance = item;
                             }
                         }

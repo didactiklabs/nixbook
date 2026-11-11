@@ -889,7 +889,7 @@ def privacy_hook_answer(event):
 # What was sent to a model: each small-model pass (what for, which model,
 # the prompt as sent) and the context sent with a question asked in the
 # bubble, newest last; SENT_KEEP entries over SENT_DAYS days at most, 0600.
-# Settings > Desktop agents > What it sent shows it; `sent clear` empties it.
+# Settings > On its own > What it sent shows it; `sent clear` empties it.
 # Not the side panel's chats: the user wrote those.
 SENT_KEEP = 200
 SENT_DAYS = 7
