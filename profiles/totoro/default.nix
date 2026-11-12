@@ -47,7 +47,12 @@ in
     # Panel Self Refresh back on for the OLED (idle battery), minus Selective
     # Update. If the amdgpu freezes return, set "off" (see core.amdgpuPsr).
     core.amdgpuPsr = "no-su";
-    laptopProfile.enable = true;
+    laptopProfile = {
+      enable = true;
+      # 2.7 GHz instead of 4.77: cooler (86 °C at 11 W with boost), and the
+      # Radeon 680M gets more of the shared power budget in games.
+      cpuBoost = false;
+    };
     # greetd with nixbook-shell's own login screen: the greeter's default
     # when a user runs nixbook-shell (tuigreet stays the fallback).
     greetd.enable = true;

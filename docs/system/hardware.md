@@ -7,6 +7,7 @@
 - **lid switch**: suspend when closed, lock when on external power, ignore when docked;
 - **power-profiles-daemon**: performance / balanced / power-saver profiles, switchable from the desktop shell;
 - **power profile on boot** (`laptopProfile.powerProfileOnBoot`, default `balanced`): power-profiles-daemon otherwise keeps the last profile chosen, so one click on the bar's power button kept the laptop in _performance_ (hotter, louder, ~2–3× the power at light load) across reboots; `null` keeps the saved profile;
+- **CPU boost** (`laptopProfile.cpuBoost`, default `true`): `false` caps every core at its nominal frequency (on totoro 2.7 GHz instead of 4.77 GHz) — cooler, and more of the power budget for an integrated GPU in games, for slower single-thread work. Power profiles keep working: the cap is each core's `scaling_max_freq`, not the kernel's global boost switch, which makes power-profiles-daemon fail to change profile;
 - **thermald** thermal management (Intel CPUs only; it exits on AMD);
 - **scx_lavd**, a sched_ext CPU scheduler built for interactivity and battery life (latency-critical tasks first, fewer cores awake);
 - SATA link power management, deep sleep, and `powertop` for analysis.
