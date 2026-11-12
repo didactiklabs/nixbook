@@ -25,6 +25,10 @@ import QtQuick
  * stops following; one who pauses is held (paused, caught up when they play
  * again). What is shared or followed outlives a shell restart (a deploy, a
  * crash): kept in the runtime dir, gone at logout. Nothing else is kept.
+ *
+ * Videos too (Watch together): Jellyfin's mpv, and a YouTube video in mpv
+ * (the YouTube tab's, `nixbook-ytmusic watch`): the listener's mpv opens
+ * the same video at the host's position and follows it the same way.
  */
 Singleton {
     id: root
@@ -38,6 +42,9 @@ Singleton {
     }
 
     function serviceOf(p) {
+        // A YouTube video in mpv (the YouTube tab's): its link, on youtube.com
+        // itself (music.youtube.com is the background player's).
+        if (!root.isBackground(p) && root.youtubeVideoId(String(p?.metadata?.["xesam:url"] ?? "")) !== "") return "youtube";
         const names = `${p?.dbusName ?? ""} ${p?.identity ?? ""} ${p?.desktopEntry ?? ""}`;
         if (/jellyfin.?mpv.?shim|iwalton3/i.test(names)) return "jellyfin";
         if (/youtube.?music|pear.?desktop|th.ch/i.test(names)) return "youtube-music";
@@ -46,7 +53,11 @@ Singleton {
     }
     function serviceName(service) {
         return service === "spotify" ? "Spotify" : service === "youtube-music" ? "YouTube Music"
-            : service === "jellyfin" ? "Jellyfin" : "";
+            : service === "jellyfin" ? "Jellyfin" : service === "youtube" ? "YouTube" : "";
+    }
+    // A YouTube video's id from its link (youtube.com/watch?v=, youtu.be/), "".
+    function youtubeVideoId(url) {
+        return (String(url ?? "").match(/^https:\/\/(?:(?:www\.|m\.)?youtube\.com\/watch\?(?:.*&)?v=|youtu\.be\/)([\w-]{11})/) ?? [])[1] ?? "";
     }
     // The player of `service` that plays, else one on a song, else any: the
     // YouTube Music app and the background player (nixbook-ytmusic) can
@@ -85,7 +96,16 @@ Singleton {
         const md = p.metadata ?? {};
         const path = root.trackPath(md);
         let id = "";
-        if (root.serviceOf(p) === "jellyfin") {
+        const service = root.serviceOf(p);
+        if (service === "youtube") {
+            // A YouTube video in mpv: its id from its link; its picture is
+            // YouTube's (mpv tells none).
+            id = root.youtubeVideoId(md["xesam:url"]);
+            if (id === "") return null;
+            return { id: id, title: p.trackTitle ?? "", artist: p.trackArtist ?? "", album: "",
+                length: p.length > 0 ? p.length : 0, art: `https://i.ytimg.com/vi/${id}/mqdefault.jpg` };
+        }
+        if (service === "jellyfin") {
             // jellyfin-mpv-shim: the Jellyfin item's id, in the track path.
             id = (path.match(/\/jellyfin_mpv_shim\/track\/([\w-]+)$/) ?? [])[1] ?? "";
         } else if (root.serviceOf(p) === "youtube-music") {
@@ -126,6 +146,8 @@ Singleton {
     function localService(service) {
         // Jellyfin: this computer's mpv, once Jellyfin is set up here.
         if (service === "jellyfin") return root.jellyfinReady() ? "jellyfin" : "";
+        // A YouTube video: this computer's mpv (nixbook-ytmusic watch).
+        if (service === "youtube") return "youtube";
         if (service === "youtube-music" && root.backgroundYt()) return service;
         const other = service === "spotify" ? "youtube-music" : "spotify";
         if (root.playerFor(service)) return service;
@@ -154,9 +176,10 @@ Singleton {
     property var _jfInfo: ({})
 
     // Music (YouTube Music, Spotify: Listen together) or video (Jellyfin's
-    // mpv: Watch together): two buttons, each sharing its own players only.
+    // mpv, a YouTube video in mpv: Watch together): two buttons, each
+    // sharing its own players only.
     function kindOf(service) {
-        return service === "jellyfin" ? "video" : service === "" ? "" : "music";
+        return service === "jellyfin" || service === "youtube" ? "video" : service === "" ? "" : "music";
     }
     // What can be shared now, of a kind: a player with something on
     // (playing first, the one in front first among equals), else an empty one.
@@ -177,8 +200,10 @@ Singleton {
     }
     readonly property bool canShareMusic: root.shareablePlayer("music") !== null
     readonly property bool canShareVideo: root.shareablePlayer("video") !== null
-    // Watch together is offered where Jellyfin is installed.
-    readonly property bool videoOffered: root.canShareVideo || (root.testJellyfin === null && Jellyfin.available)
+    // Watch together is offered where Jellyfin is installed or the YouTube
+    // tab is on.
+    readonly property bool videoOffered: root.canShareVideo || (root.testJellyfin === null
+        && (Jellyfin.available || (Config.options?.sidebar?.youtubeTab ?? false)))
 
     // -- Sessions --------------------------------------------------------------------
 
@@ -227,7 +252,7 @@ Singleton {
         const p = root.shareablePlayer(kind);
         if (!p) {
             if (kind === "video")
-                return Translation.tr("Jellyfin's player isn't running: play something on this computer from Jellyfin first");
+                return Translation.tr("Nothing to share: play a video from the YouTube tab, or something from Jellyfin on this computer, first");
             // Music in a browser tab (YouTube Music's website): it tells no
             // song id over MPRIS, so it can't be shared.
             if (root.players().some(x => x.isPlaying && MprisController.playerSource(x) === "browser"))
@@ -386,8 +411,8 @@ Singleton {
         root.following = sid;
         root.notice = note;
         root.followStatus = "";
-        root._f = Object.assign(TrackMatch.fresh(), { jfFor: "", jfLocal: "", jfBusy: false, jfError: "", stateRecv: 0, seekAt: 0,
-            launchedAt: 0, searched: "" });
+        root._f = Object.assign(TrackMatch.fresh(), { jfFor: "", jfLocal: "", jfBusy: false, jfError: "", ytFor: "", stateRecv: 0,
+            seekAt: 0, launchedAt: 0, searched: "" });
         root._send({ to: s.to === "" ? "" : s.host, op: "join", sid: sid });
         root._followTick();
     }
@@ -440,6 +465,10 @@ Singleton {
         const target = root.positionOf(s, now);
         if (s.service === "jellyfin") {
             root._followJellyfin(s, f, now, target);
+            return;
+        }
+        if (s.service === "youtube") {
+            root._followYoutube(s, f, now, target);
             return;
         }
         // The host's states come every 20 s: none for a minute is a host gone
@@ -739,6 +768,48 @@ Singleton {
         root._keepInSync(p, s, f, now, target, f.jfLocal);
     }
     property string followError: ""
+    // A YouTube video: opened in this computer's mpv at the host's position
+    // (the YouTube tab's `watch`: the user's mpv, its remembered volume);
+    // the next video loaded in the same mpv (MPRIS OpenUri) rather than a
+    // second window; then mpv's MPRIS follows like music. Tests open through
+    // testYoutube(id, at, player).
+    property var testYoutube: null
+    function _followYoutube(s, f, now, target) {
+        const host = s.hostName || Mesh.nameOf(s.host);
+        const id = s.track.id;
+        const mine = root.players().filter(x => root.serviceOf(x) === "youtube");
+        const p = mine.find(x => root.trackOf(x)?.id === id) ?? null;
+        const nearEnd = f.lastLen > 0 && f.lastPos > f.lastLen - 15;
+        if (f.ytFor !== id) {
+            // The one followed so far (the host's previous video): loaded
+            // with this one, else a new mpv.
+            const prev = mine.find(x => root.trackOf(x)?.id === f.ytFor) ?? null;
+            f.ytFor = id;
+            f.openedFor = `youtube:${id}`;
+            f.openedAt = now;
+            f.syncedTo = "";
+            f.sawPlaying = false;
+            const url = `https://www.youtube.com/watch?v=${id}`;
+            if (root.testYoutube !== null) root.testYoutube(id, target + 5, prev);
+            else if (prev && (prev.supportedUriSchemes ?? []).map(x => String(x).toLowerCase()).includes("https")) prev.openUri(url);
+            else YouTubeMusic.watch(id, target + 5);
+            root.followStatus = "opening";
+            return;
+        }
+        if (!p) {
+            // Watching it here, and it went (mpv closed, or another video)
+            // not at its end: the listener did something else.
+            if (f.syncedTo === id && !nearEnd) {
+                root.leave(Translation.tr("You closed the video, so you stopped watching along with %1").arg(host));
+                return;
+            }
+            // Not open after 40 s (yt-dlp failed, mpv closed at once): once more.
+            if (now - f.openedAt > 40000) f.ytFor = "";
+            root.followStatus = "opening";
+            return;
+        }
+        root._keepInSync(p, s, f, now, target, id);
+    }
     function _match(key, track) {
         if (root._matching[key]) return;
         root._matching = Object.assign({}, root._matching, { [key]: true });
@@ -757,7 +828,8 @@ Singleton {
     function youtubeIdOf(s, then) {
         const t = s?.track;
         if (!t || s.service === "jellyfin") { then(""); return; }
-        if (s.service === "youtube-music") { then(`${t.id ?? ""}`); return; }
+        // A YouTube video's id is YouTube Music's too (a video can go in a playlist).
+        if (s.service === "youtube-music" || s.service === "youtube") { then(`${t.id ?? ""}`); return; }
         const key = `${s.service}:${t.id}`;
         if (key in root._matches) { then(root._matches[key] ?? ""); return; }
         Mesh.run(["match"], JSON.stringify({ title: t.title, artist: t.artist, album: t.album, length: t.length }),
@@ -868,7 +940,7 @@ Singleton {
         if (!(Config.options?.mesh?.notify ?? true)) return;
         const who = s.hostName || Mesh.nameOf(s.host);
         const what = [s.track.title, s.track.artist].filter(x => x).join(" — ");
-        const video = s.service === "jellyfin";
+        const video = root.kindOf(s.service) === "video";
         notifier.createObject(root, {
             sid: s.sid,
             command: ["notify-send", `--app-name=${who}`, "--icon=audio-headphones",
