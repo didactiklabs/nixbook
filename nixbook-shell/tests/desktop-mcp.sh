@@ -319,6 +319,8 @@ case "$1" in
   videos)
     case "$2" in
       channels) echo '{"feed":"channels","channels":[{"id":"UCbbbbbbbbbbbbbbbbbbbbbb","name":"Chan B","url":"https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb","followers":4200,"avatar":"https://yt3.example/b"}]}' ;;
+      subscribe | unsubscribe) echo "{\"ok\":true,\"channel\":\"$3\",\"subscribed\":$([ "$2" = subscribe ] && echo true || echo false)}" ;;
+      channel) echo '{"feed":"channel","channel":{"name":"Chan B","url":"https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb","followers":4200},"items":[]}' ;;
       *) echo '{"feed":"'"$2"'","items":[{"id":"vid11111111","title":"A video","channel":"Chan B","channelUrl":"https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb","duration":300,"views":12,"live":false,"thumb":"https://i.ytimg.com/vi/vid11111111/mqdefault.jpg"}]}' ;;
     esac ;;
   add) [ "$2" = PLtheirs ] && { echo '{"error":"YouTube Music didn'"'"'t add it (is the playlist yours?)"}'; exit 1; }
@@ -3523,6 +3525,11 @@ expect_contains "youtube_videos control: volume checked" "$(call youtube_videos 
 touch "$STUB_CALLS.novideo"
 expect_contains "youtube_videos control: the shell's refusal said" "$(call youtube_videos '{"action":"control","what":"pause"}')" "no YouTube video is playing"
 rm -f "$STUB_CALLS.novideo"
+expect_eq "youtube_videos subscribe: by its id" "true nixbook-ytmusic videos subscribe UCbbbbbbbbbbbbbbbbbbbbbb" \
+  "$(call youtube_videos '{"action":"subscribe","channel":"UCbbbbbbbbbbbbbbbbbbbbbb"}' | jq -r .subscribed) $(last_call)"
+expect_eq "youtube_videos unsubscribe: an @name resolved to its id first" "false nixbook-ytmusic videos unsubscribe UCbbbbbbbbbbbbbbbbbbbbbb" \
+  "$(call youtube_videos '{"action":"unsubscribe","channel":"https://www.youtube.com/@chan"}' | jq -r .subscribed) $(last_call)"
+expect_contains "youtube_videos subscribe: only a channel" "$(call youtube_videos '{"action":"subscribe","channel":"https://evil.example/x"}')" "channel's link"
 
 expect_eq "listen_along status: the sessions shared" "bob" "$(call listen_along '{"action":"status"}' | jq -r '.sessions[0].host')"
 expect_contains "listen_along join" "$(call listen_along '{"action":"join","member":"bob"}')" "listening along with bob"

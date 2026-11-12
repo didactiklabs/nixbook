@@ -146,7 +146,7 @@ def t_youtube_music_player(ctx, args):
     return [text(ytmusic_call("offline", op, as_str(args, "playlist", max_len=64, pattern=YT_PLAYLIST)))]
 
 
-YTV_ACTIONS = ("home", "subscriptions", "channel", "search", "watch", "status", "control")
+YTV_ACTIONS = ("home", "subscriptions", "channel", "search", "watch", "status", "control", "subscribe", "unsubscribe")
 YTV_CONTROLS = ("play", "pause", "toggle", "stop", "seek", "volume")
 YT_CHANNEL = r"https://(www\.|m\.)?youtube\.com/(channel/UC[A-Za-z0-9_-]{22}|@[^/?#\s]{1,100}|c/[^/?#\s]{1,100}|user/[^/?#\s]{1,100})/?"
 
@@ -178,19 +178,21 @@ def ytv_videos(out):
     "for videos; the background music pauses. status: the video playing (title, videoId, Playing/"
     "Paused, position, length, volume 0-100) or null. control {what: play|pause|toggle|stop|seek|"
     "volume, value}: seek seconds from the start, volume 0-100 (that video's own, remembered for the "
-    "next one; not the system's).",
+    "next one; not the system's). subscribe|unsubscribe {channel}: the user's subscription to a channel "
+    "(its link or id: UC…).",
     obj({
         "action": {"type": "string", "enum": list(YTV_ACTIONS)},
         "query": {"type": "string", "description": "search: the words"},
-        "channel": {"type": "string", "description": "channel: its youtube.com link, or a video id"},
+        "channel": {"type": "string", "description": "channel: its youtube.com link, or a video id; subscribe, unsubscribe: its link or id (UC…)"},
         "video": {"type": "string", "description": "watch: the video's id"},
         "count": {"type": "integer", "description": "home, channel, search: how many videos (1-150, 20 by default)"},
         "what": {"type": "string", "enum": list(YTV_CONTROLS), "description": "control: what to do"},
         "value": {"type": "number", "description": "control: seek seconds, volume 0-100"},
     }, ["action"]),
-    props={"action": "home|subscriptions|channel|search|watch|status|control"},
+    props={"action": "home|subscriptions|channel|search|watch|status|control|subscribe|unsubscribe"},
     brief="YouTube videos played in the user's mpv (the right panel's YouTube tab): their home page, "
-          "subscribed channels, a channel's latest videos, search; watch, pause, seek, its own volume.",
+          "subscribed channels, a channel's latest videos, search; watch, pause, seek, its own volume; "
+          "subscribe to a channel.",
 )
 def t_youtube_videos(ctx, args):
     action = as_str(args, "action", max_len=16)
@@ -220,6 +222,18 @@ def t_youtube_videos(ctx, args):
         except ValueError:
             raise ToolError("the desktop shell didn't answer about the video")
     ctx.guard.check_rate()
+    if action in ("subscribe", "unsubscribe"):
+        ref = as_str(args, "channel", max_len=200)
+        cid = ref if re.fullmatch(r"UC[A-Za-z0-9_-]{22}", ref) else ""
+        if not cid:
+            if not re.fullmatch(YT_CHANNEL, ref):
+                raise ToolError("`channel`: a YouTube channel's link (youtube.com/channel/UC…, /@name) or its id (UC…)")
+            # An @name: its id from its page.
+            page = ytmusic_call("videos", "channel", ref.rstrip("/"), "--count", "1", timeout=120)
+            cid = (re.search(r"/channel/(UC[A-Za-z0-9_-]{22})", str((page.get("channel") or {}).get("url") or "")) or [None, ""])[1]
+            if not cid:
+                raise ToolError("YouTube didn't say which channel that is")
+        return [text(ytmusic_call("videos", action, cid, timeout=60))]
     if action == "watch":
         widget_call("youtubeMusic", "watch", as_str(args, "video", pattern=YT_VIDEO))
         return [text("Opening the video in mpv (it shows in a few seconds); status says when it plays.")]

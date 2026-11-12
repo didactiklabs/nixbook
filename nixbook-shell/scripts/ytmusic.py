@@ -60,6 +60,10 @@ friend's song with it.
   nixbook-ytmusic videos channels [--cached]
   nixbook-ytmusic videos video ID      one video (a pasted link): its title
                                        and channel, through YouTube's oEmbed
+  nixbook-ytmusic videos subscribe|unsubscribe CHANNEL_ID
+                                       subscribe to a channel (UC…), or no
+                                       longer (the same subscriptions as
+                                       YouTube's own)
                                        YouTube's videos (www.youtube.com, the
                                        same session): your home page, your
                                        subscriptions' latest, a search; JSON
@@ -1313,6 +1317,33 @@ def cmd_videos(args):
             out({"error": usage}, 1)
         args = args[:i] + args[i + 2:]
     feed = args[0]
+    if feed in ("subscribe", "unsubscribe"):
+        # The account's subscriptions (YouTube Music's artists are YouTube's
+        # channels: one list), with the session; the kept list follows.
+        cid = args[1] if len(args) > 1 else ""
+        if not re.fullmatch(r"UC[A-Za-z0-9_-]{22}", cid):
+            out({"error": f"videos {feed}: a channel id (UC…)"}, 1)
+        if not session():
+            out({"error": "not signed in: Settings > Apps & accounts > YouTube Music > Use my browser's session",
+                 "signedOut": True}, 1)
+        try:
+            if feed == "subscribe":
+                signed_in(lambda yt: yt.subscribe_artist(cid))
+            else:
+                signed_in(lambda yt: yt.unsubscribe_artists([cid]))
+        except Error:
+            raise
+        except Exception as exc:  # noqa: BLE001 — ytmusicapi raises many kinds
+            out({"error": f"YouTube didn't {feed}: {exc}"}, 1)
+        copy = read_json(videos_copy_path("channels"), None)
+        if isinstance(copy, dict) and isinstance(copy.get("channels"), list):
+            chans = [c for c in copy["channels"] if c.get("id") != cid]
+            if feed == "subscribe":
+                # Its name and picture come with the next refresh.
+                chans.insert(0, {"id": cid, "name": "", "url": f"https://www.youtube.com/channel/{cid}",
+                                 "followers": 0, "avatar": ""})
+            write_private(videos_copy_path("channels"), dict(copy, channels=chans))
+        out({"ok": True, "channel": cid, "subscribed": feed == "subscribe"})
     if feed == "video":
         # One video by its id (a link pasted in the tab's search field).
         vid = args[1] if len(args) > 1 else ""
