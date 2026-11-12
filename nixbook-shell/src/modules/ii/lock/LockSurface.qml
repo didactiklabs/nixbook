@@ -119,7 +119,7 @@ MouseArea {
                 // radius-0 FastBlur it went through drew nothing different.
                 // (0 = the original size: wait for the surface's size.)
                 sourceSize: width > 0 && height > 0
-                    ? Qt.size(Math.ceil(width * Screen.devicePixelRatio), Math.ceil(height * Screen.devicePixelRatio))
+                    ? Wallpapers.pixelSize(Screen.name, width, height, Screen.devicePixelRatio)
                     : Qt.size(1, 1)
             }
         }

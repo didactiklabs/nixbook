@@ -64,6 +64,20 @@ Singleton {
         root.syncPlayback();
     }
 
+    // The size, in real pixels, a screen's wallpaper is decoded at. Every
+    // surface showing it (desktop, niri's backdrop layers, lock screen) asks
+    // for this same size, so they share one decode. Not Qt's own figure for
+    // the screen: it rounds a fractional scale up (1.6 → 2), which made a
+    // 2880×1800 panel "3600×2250" — the picture was decoded larger than the
+    // screen (36 MB instead of 23, in memory and again as a texture in each
+    // surface) and scaled down again while drawing. niri's scale once known
+    // (asked for when the shell starts, before these surfaces exist), Qt's
+    // until then.
+    function pixelSize(screenName, width, height, qtScale) {
+        const scale = WM.scaleFor(screenName) || qtScale || 1;
+        return Qt.size(Math.round(width * scale), Math.round(height * scale));
+    }
+
     // Live (video) wallpapers. A video is shown like an image — its still
     // frame (its first frame, `live-wallpaper.sh poster`) in the transition,
     // the preview, the blur and the colours — and played over it once the

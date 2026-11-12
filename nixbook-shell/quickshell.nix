@@ -1,7 +1,7 @@
 { pkgs, quickshellSrc }:
 # Quickshell for nixbook-shell: `quickshellSrc` (a quickshell checkout: the npins
-# pin, see default.nix) plus two crash fixes and one for how animations are
-# paced.
+# pin, see default.nix) plus two crash fixes, one for how animations are
+# paced and two for memory.
 #
 # patches/quickshell-screencopy-raw-wl-output.patch: the wlr-screencopy
 # output-transform query bound a Qt-wrapped wl_output, which niri's
@@ -36,6 +36,22 @@
 # the next frame (its first changed frame is synchronized 1-2 ms after the
 # start instead of 17-22 ms). QS_FRAME_SYNCED_ANIMATIONS=0 in the shell's
 # environment gives Qt's driver back.
+#
+# patches/quickshell-surface-no-depth-stencil.patch: `surfaceFormat.depthStencil:
+# false` on a window leaves out its depth and stencil buffers, which every
+# window otherwise gets at its own size (5 bytes per pixel: 28 MB for a
+# 2880x1800 surface, read from the driver's buffer list). Only for a surface
+# that draws a single picture or effect (the two wallpaper layers of
+# NiriBackdrop.qml: 56 MB per screen): Qt Quick still draws opaque items front
+# to back, so without a depth buffer two that overlap come out in the wrong
+# order, and an item clipped under a rotation isn't clipped without a stencil.
+#
+# patches/quickshell-malloc-conf.patch: jemalloc's settings, compiled in
+# (`malloc_conf`): 4 arenas instead of 4 per CPU core, freed memory returned by
+# a background thread (by default only when a thread of the same arena
+# allocates again, and most of the shell's ~140 threads rarely do), thread
+# caches up to 4 KiB instead of 32. About 45 MB less after start. Not
+# MALLOC_CONF in the launcher: every program the shell starts would get it.
 let
   quickshellOverlay = (import "${quickshellSrc}/overlay.nix") {
     rev = quickshellSrc.revision;
@@ -46,6 +62,8 @@ let
       ./patches/quickshell-screencopy-raw-wl-output.patch
       ./patches/quickshell-icon-loader-mutex.patch
       ./patches/quickshell-frame-synced-animations.patch
+      ./patches/quickshell-surface-no-depth-stencil.patch
+      ./patches/quickshell-malloc-conf.patch
     ];
   });
 in

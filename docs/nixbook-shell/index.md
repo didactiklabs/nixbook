@@ -73,6 +73,24 @@ Set `QS_FRAME_SYNCED_ANIMATIONS=0` in the shell's environment to get Qt's own pa
 systemctl --user edit nixbook-shell   # [Service] Environment=QS_FRAME_SYNCED_ANIMATIONS=0
 ```
 
+### Memory
+
+A shell that keeps its panels ready holds a lot of surfaces: about 27 on one screen. Each costs memory twice: in the shell's process, and in graphics memory, which on an integrated GPU is ordinary RAM that no process's own figure shows (`drm-resident-gtt` in `/proc/<pid>/fdinfo/*`). What nixbook-shell does about it, none of which changes what is drawn or how fast a panel opens:
+
+- **One OpenGL context per surface, not two.** Qt's Wayland plugin keeps a second context for every window, to draw a title bar of its own. The launcher sets `QT_WAYLAND_DISABLE_WINDOWDECORATION=1` (niri draws no client-side title bars): 75 fewer driver threads.
+- **An allocator set for a desktop.** Quickshell's allocator (jemalloc) defaults to four arenas per CPU core and only hands freed memory back when the thread that freed it allocates again. nixbook-shell's Quickshell is built with 4 arenas, a background thread that returns freed memory, and smaller per-thread caches (`patches/quickshell-malloc-conf.patch`; the `MALLOC_CONF` environment variable still overrides them).
+- **Wallpapers decoded at the screen's real size.** Qt rounds a fractional scale up (1.6 becomes 2), so a 2880×1800 panel was treated as 3600×2250 and every wallpaper was decoded 56% larger than the screen, then scaled down while drawing. The shell asks niri for the real scale; the picture is resized once, to the pixels of the screen.
+- **No depth and stencil buffers behind a picture.** Every window gets both, at its own size (28 MB for a 2880×1800 surface). The two wallpaper layers niri blurs and shows in the overview draw a single picture: they do without (`surfaceFormat.depthStencil: false`, added by `patches/quickshell-surface-no-depth-stencil.patch`).
+- **Smaller icon atlases.** Qt Quick keeps one texture per window for its small images, sized from the window: 32 MB for a full-screen surface holding a dozen icons. They are 1024×512 (2 MB) here (`QSG_ATLAS_WIDTH`, `QSG_ATLAS_HEIGHT` in `shell.qml`).
+
+Measured on a 2880×1800 screen at scale 1.6, two minutes after start: 552 → 429 MB in the shell's process and 717 → 578 MB of graphics memory. Panels open in the same time (first frame after 55–60 ms before and after).
+
+To see where the graphics memory of a process goes on an AMD GPU, buffer by buffer:
+
+```bash
+sudo cat /sys/kernel/debug/dri/*/amdgpu_gem_info | less   # one block per process
+```
+
 ## Using it outside nixbook
 
 The `nixbook-shell/` directory is **self-contained** — nothing in it refers to the rest of the repository, and CI checks that by evaluating a copy of it alone. Use it in any Home Manager configuration:

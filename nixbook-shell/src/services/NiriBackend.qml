@@ -10,6 +10,13 @@ Scope {
     property var workspaceById: ({})
     property var activeWorkspace: null
     property var monitors: []
+    // niri has been asked for its outputs once (or couldn't be): what is built
+    // per screen when the shell starts waits for this (shell.qml), so it knows
+    // each output's real scale from its first line on.
+    property bool outputsKnown: false
+    // The scales seen since the shell started, by output name: an output that
+    // comes back (plugged in again) has its own before niri is asked again.
+    property var _scales: ({})
     property var focusedMonitor: null
     // Keyboard layouts (NiriXkb reads them: one event stream for the shell)
     property var keyboardLayoutNames: []
@@ -94,6 +101,13 @@ Scope {
         return root.windowList.some(w => w.workspaceId === ws.id
             && w.width === mon.logical.width
             && w.height === mon.logical.height);
+    }
+
+    // An output's scale as niri applies it (fractional ones as they are), 0
+    // while it isn't known.
+    function scaleFor(name) {
+        const m = root.monitors.find(mm => mm.name === name);
+        return m?.logical?.scale ?? root._scales[name] ?? 0;
     }
 
     function monitorGeometry(screen) {
@@ -333,11 +347,21 @@ Scope {
                             logical: o.logical
                         };
                     });
+                    for (const m of root.monitors)
+                        if (m.logical?.scale) root._scales[m.name] = m.logical.scale;
                     root.focusedMonitor = null;
                     root.updateFocusedMonitor();
                 } catch (e) { console.log("[NiriBackend] outputs parse error: " + e) }
+                root.outputsKnown = true;
             }
         }
+        // niri couldn't be asked: nothing waits for an answer that won't come.
+        onExited: (exitCode, exitStatus) => { if (exitCode !== 0) root.outputsKnown = true; }
+    }
+    Timer {
+        interval: 500
+        running: !root.outputsKnown
+        onTriggered: root.outputsKnown = true
     }
 
     Process {

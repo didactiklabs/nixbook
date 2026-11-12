@@ -1,0 +1,29 @@
+jemalloc set for a desktop shell rather than a server.
+
+Its defaults: four arenas per CPU core, a thread's freed memory only handed
+back to the system when a thread of the same arena allocates again (most of a
+shell's ~140 threads rarely do), and blocks up to 32 KiB kept by each thread.
+With 4 arenas, a background thread that returns freed memory and 4 KiB thread
+caches, the shell's own memory is about 45 MB smaller right after start. In
+the executable (jemalloc's `malloc_conf` symbol) rather than MALLOC_CONF in
+the launcher: the programs the shell starts would inherit the variable.
+
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -1,3 +1,16 @@
+ #include "launch/main.hpp"
+ 
++// jemalloc's settings, read when it starts (the MALLOC_CONF environment
++// variable, read after, still overrides them). Its defaults suit a server:
++// four arenas per CPU core, memory a thread freed only handed back to the
++// system when a thread of the same arena allocates again, and up to 32 KiB
++// blocks kept by each thread. A shell has one busy thread and over a hundred
++// that mostly sleep: 4 arenas, a background thread that returns freed memory,
++// and only blocks up to 4 KiB kept per thread.
++extern "C" {
++// NOLINTNEXTLINE
++const char* malloc_conf =
++    "background_thread:true,max_background_threads:1,narenas:4,tcache_max:4096";
++}
++
+ int main(int argc, char** argv) { return qs::launch::main(argc, argv); }

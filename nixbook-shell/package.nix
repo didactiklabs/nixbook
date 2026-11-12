@@ -351,6 +351,12 @@ let
     # it in the environment for another theme. Set here rather than in home.sessionVariables
     # so it also applies to the systemd unit without needing a re-login.
     export QS_ICON_THEME="''${QS_ICON_THEME:-Papirus-Dark}"
+    # Without it Qt's Wayland plugin gives every window a second OpenGL
+    # context, kept to draw a title bar of its own. niri draws none
+    # (prefer-no-csd) and sets this for the apps it starts, but the shell is a
+    # systemd service: its ~27 surfaces each had one, with three driver threads
+    # (about 30 MB and 75 threads for nothing).
+    export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
     # Sounds (Audio.playSystemSound: the timers' ringtones, battery) are
     # looked up in XDG_DATA_DIRS; NixOS has no /usr/share/sounds, so the
     # freedesktop theme is always there as the fallback.

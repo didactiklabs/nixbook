@@ -1,0 +1,55 @@
+A window can do without its depth and stencil buffers
+(`surfaceFormat.depthStencil: false`).
+
+Every window gets both from its EGL config (Qt Quick's default format), as
+large as the window: 5 bytes per pixel, 28 MB for a 2880x1800 surface. They
+serve opaque items that overlap (drawn front to back against the depth
+buffer) and items clipped under a rotation (stencil). A surface that draws one
+picture or one effect, such as a wallpaper layer, needs neither.
+
+--- a/src/window/proxywindow.cpp
++++ b/src/window/proxywindow.cpp
+@@ -123,6 +123,11 @@
+ 		if (useStencil && format.stencilBufferSize() == -1) format.setStencilBufferSize(8);
+ 		else if (!useStencil) format.setStencilBufferSize(0);
+ 
++		if (!this->qsSurfaceFormat.depthStencil) {
++			format.setDepthBufferSize(0);
++			format.setStencilBufferSize(0);
++		}
++
+ 		auto opaque = this->qsSurfaceFormat.opaqueModified ? this->qsSurfaceFormat.opaque
+ 		                                                   : this->mColor.alpha() >= 255;
+ 
+--- a/src/window/windowinterface.hpp
++++ b/src/window/windowinterface.hpp
+@@ -20,10 +20,19 @@
+ 	QML_VALUE_TYPE(surfaceFormat);
+ 	QML_STRUCTURED_VALUE;
+ 	Q_PROPERTY(bool opaque MEMBER opaque WRITE setOpaque);
++	/// If the window gets a depth and a stencil buffer. Defaults to true.
++	///
++	/// They are as large as the window (5 bytes per pixel, 28 MB for a
++	/// 2880x1800 one) and only serve content that overlaps or is clipped
++	/// under a rotation. Only turn this off for a window that draws a single
++	/// picture or effect: without them, opaque items that overlap are drawn in
++	/// the wrong order and items clipped under a rotation aren't clipped.
++	Q_PROPERTY(bool depthStencil MEMBER depthStencil);
+ 
+ public:
+ 	bool opaque = false;
+ 	bool opaqueModified = false;
++	bool depthStencil = true;
+ 
+ 	void setOpaque(bool opaque) {
+ 		this->opaque = opaque;
+@@ -31,7 +40,8 @@
+ 	}
+ 
+ 	[[nodiscard]] bool operator==(const QsSurfaceFormat& other) const {
+-		return other.opaqueModified == this->opaqueModified && other.opaque == this->opaque;
++		return other.opaqueModified == this->opaqueModified && other.opaque == this->opaque
++		    && other.depthStencil == this->depthStencil;
+ 	}
+ };
+ 
