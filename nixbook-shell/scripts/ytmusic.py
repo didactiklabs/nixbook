@@ -25,6 +25,9 @@ friend's song with it.
                                        Music, JSON
   nixbook-ytmusic add PLAYLIST VIDEO   a song into one of your playlists
                                        (LM, Liked Music: the song liked)
+  nixbook-ytmusic remove PLAYLIST VIDEO [SET_VIDEO]
+                                       a song out of one of your playlists
+                                       (LM: the like taken back)
   nixbook-ytmusic create TITLE... [VIDEO]
                                        a new private playlist (with a song)
   nixbook-ytmusic play ID [--index N] [--shuffle]
@@ -542,8 +545,12 @@ def track_of(t):
         return None
     artists = ", ".join(a.get("name", "") for a in (t.get("artists") or []) if a.get("name"))
     album = (t.get("album") or {}).get("name", "") if isinstance(t.get("album"), dict) else ""
-    return {"videoId": vid, "title": t.get("title") or "", "artist": artists, "album": album,
-            "duration": int(t.get("duration_seconds") or 0), "art": best(t.get("thumbnails"))}
+    track = {"videoId": vid, "title": t.get("title") or "", "artist": artists, "album": album,
+             "duration": int(t.get("duration_seconds") or 0), "art": best(t.get("thumbnails"))}
+    # A playlist item's own id (in your playlists): what removing it takes.
+    if PLAYLIST_ID.match(t.get("setVideoId") or ""):
+        track["setVideoId"] = t["setVideoId"]
+    return track
 
 
 def offline_card(index=None):
@@ -686,6 +693,49 @@ def cmd_add(args):
         out({"error": f"YouTube Music didn't add it: {exc}"[:300]}, 1)
     if not status:
         out({"error": "YouTube Music didn't add it (is the playlist yours?)"}, 1)
+    out({"ok": True, "playlist": pid, "videoId": vid, "status": status})
+
+
+def cmd_remove(args):
+    """A song out of one of your playlists (Liked Music: the like taken
+    back). SET_VIDEO is the playlist item's own id (a song can be in a
+    playlist twice); without it, the song's first item is looked up."""
+    if len(args) not in (2, 3) or not PLAYLIST_ID.match(args[0]) or not VIDEO_ID.match(args[1]) \
+            or (len(args) == 3 and not PLAYLIST_ID.match(args[2])):
+        out({"error": "usage: nixbook-ytmusic remove PLAYLIST VIDEO [SET_VIDEO]"}, 1)
+    pid, vid = args[0], args[1]
+    set_vid = args[2] if len(args) == 3 else ""
+
+    def remove(yt):
+        if pid == "LM":
+            yt.rate_song(vid, "INDIFFERENT")
+            return "removed"
+        item = set_vid
+        if not item:
+            raw = yt.get_playlist(pid, limit=MAX_TRACKS) or {}
+            item = next((t.get("setVideoId") for t in raw.get("tracks") or []
+                         if t.get("videoId") == vid and t.get("setVideoId")), "")
+            if not item:
+                return "absent"
+        answer = yt.remove_playlist_items(pid, [{"videoId": vid, "setVideoId": item}])
+        return "removed" if "SUCCEEDED" in str(answer.get("status") if isinstance(answer, dict) else answer) else None
+
+    try:
+        status = signed_in(remove)
+    except Error:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        out({"error": f"YouTube Music didn't remove it: {exc}"[:300]}, 1)
+    if not status:
+        out({"error": "YouTube Music didn't remove it (is the playlist yours?)"}, 1)
+    # The playlist's last copy (offline) without it.
+    copy = read_json(playlist_copy_path(pid), {}) or {}
+    if status == "removed" and copy.get("tracks"):
+        tracks = copy["tracks"]
+        at = next((i for i, t in enumerate(tracks) if t.get("videoId") == vid
+                   and (not set_vid or t.get("setVideoId") in (None, set_vid))), None)
+        if at is not None:
+            save_playlist_copy(pid, copy.get("title") or "", tracks[:at] + tracks[at + 1:])
     out({"ok": True, "playlist": pid, "videoId": vid, "status": status})
 
 
@@ -2036,7 +2086,7 @@ def serve(_args):
 
 
 COMMANDS = {"browsers": cmd_browsers, "login-from-browser": cmd_login, "forget": cmd_forget, "status": cmd_status,
-            "playlists": cmd_playlists, "playlist": cmd_playlist, "search": cmd_search, "add": cmd_add, "create": cmd_create, "play": cmd_play,
+            "playlists": cmd_playlists, "playlist": cmd_playlist, "search": cmd_search, "add": cmd_add, "remove": cmd_remove, "create": cmd_create, "play": cmd_play,
             "play-tracks": cmd_play_tracks, "play-id": cmd_play_id, "control": cmd_control,
             "lastfm": cmd_lastfm, "offline": cmd_offline, "serve": serve}
 
