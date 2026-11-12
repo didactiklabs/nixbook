@@ -28,14 +28,18 @@ neither the code nor the element references it keeps. Typing and keys go
 through DevTools' Input domain to the page (Input.insertText, which rich
 editors such as Discord's accept), never through the compositor: the app
 may be in the background, on another workspace, the user keeps working.
-An app with an adapter (adapters/APP.js: discord, actual) also has its own
-operations, run in the page's main world through the app's own client
+An app with an adapter (adapters/APP.js: discord, slack, youtube-music,
+actual, youtube) also has its own operations, run in the page's main world
+through the app's own client
 code (Discord: Vencord's webpack modules; Actual Budget: the $send/$query
 client its page exposes: its public API's handlers), which never return a token,
 a cookie or a header (and the answers are scrubbed for tokens anyway).
 `style` puts the shell's colours in an app it colours (STYLED_APPS:
-YouTube Music), from the CSS file apply-app-colors.sh renders, and the bridge
-puts them back after each load of the page; a client never sends CSS.
+YouTube Music, Gmail, YouTube), from the CSS file apply-app-colors.sh renders,
+and the bridge puts them back after each load of the page; a client never
+sends CSS. An app whose page draws with variables no template can name
+(YouTube's hashed design tokens) also has a styling script
+(adapters/APP.style.js, run in the isolated world after the CSS).
 Password fields are refused; password managers are never bridged (the app
 starts without the bridge); sends are rate-limited and written to the audit
 log ($XDG_STATE_HOME/nixbook-shell/electron-bridge.log, lengths only), and
@@ -131,10 +135,19 @@ def runtime_base():
 # generation > Apps): the CSS apply-app-colors.sh renders for them, put in the
 # main page by the `style` operation and again after the page reloads. The
 # file only: a client never sends CSS.
-STYLED_APPS = ("youtube-music", "gmail")
+STYLED_APPS = ("youtube-music", "gmail", "youtube")
 # Styled in each of its web pages, not only the main one: Meru shows one
 # Gmail page per account.
 STYLE_EVERY_PAGE = ("gmail",)
+# Styled in its own local pages (file:) too: ZenPlay is a window of its own
+# (a toolbar, a splash screen) around a <webview> that shows YouTube.
+STYLE_LOCAL = ("youtube",)
+# Its own light or dark look follows the palette's: its adapter's `look`
+# (YouTube's Appearance setting, set as its menu does), after the style.
+# YouTube reloads its page for it: at most once per LOOK_GAP seconds, so a
+# setting that doesn't take can't reload it in a loop.
+STYLE_LOOK = ("youtube",)
+LOOK_GAP = 60.0
 
 
 def style_path(app):
@@ -149,9 +162,13 @@ STYLE_JS = """((css) => {
   if (!css) { if (s) s.remove(); return {styled: false}; }
   if (!s) { s = document.createElement("style"); s.id = "nixbook-app-style"; }
   if (s.textContent !== css) s.textContent = css;
-  (document.head || document.documentElement).appendChild(s);
+  const parent = document.head || document.documentElement;
+  if (s.parentNode !== parent || s.nextElementSibling) parent.appendChild(s);
   return {styled: true};
 })(%s)"""
+# Loaded enough to be styled (the <style> goes in while the page still loads
+# its pictures and scripts, and is put last again once it has).
+EARLY = ("interactive", "complete")
 
 
 def socket_path(app):
@@ -311,11 +328,14 @@ def link_on(hosts, arg):
 
 
 class Bridge:
-    def __init__(self, app, cdp, page_js, adapter_js=None, open_hosts=()):
+    def __init__(self, app, cdp, page_js, adapter_js=None, open_hosts=(), style_js=None):
         self.app, self.cdp = app, cdp
         self.open_hosts = tuple(h.lower() for h in open_hosts)
-        self.page_js, self.adapter_js = page_js, adapter_js
+        self.page_js, self.adapter_js, self.style_js = page_js, adapter_js, style_js
         self.short = {}  # targetId → its short id ("1", "2"…), stable while it lives
+        # The main web page's (targetId, short id): a <webview>'s page is a
+        # new target each time it loads another document, and keeps its id.
+        self.web_main = None
         self.counter = itertools.count(1)
         self.sessions = {}  # targetId → sessionId
         self.worlds = {}  # sessionId → isolated world's executionContextId
@@ -324,6 +344,7 @@ class Bridge:
         # The styled pages' sessions; the next load of one sets restyle
         # (keep_styled puts the style back).
         self.styled_sessions, self.restyle = set(), threading.Event()
+        self.looked = None  # when the app's own look was last changed (monotonic)
         cdp.on_event = self.event
 
     def event(self, msg):
@@ -331,19 +352,39 @@ class Bridge:
         if method == "Target.detachedFromTarget":
             sid = params.get("sessionId")
             self.worlds.pop(sid, None)
-            self.styled_sessions.discard(sid)
+            if sid in self.styled_sessions:
+                # A styled page went (a <webview> loading another document
+                # is a new target): the one taking its place gets the style.
+                self.styled_sessions.discard(sid)
+                self.restyle.set()
             for t, s in list(self.sessions.items()):
                 if s == sid:
                     self.sessions.pop(t, None)
+        elif method in ("Target.targetCreated", "Target.targetInfoChanged"):
+            if self.wants_style(params.get("targetInfo") or {}):
+                self.restyle.set()
         elif method in ("Runtime.executionContextsCleared", "Page.frameNavigated"):
             self.worlds.pop(msg.get("sessionId"), None)
             if (method == "Page.frameNavigated" and not (params.get("frame") or {}).get("parentId")
                     and msg.get("sessionId") in self.styled_sessions):
                 self.restyle.set()
 
+    def wants_style(self, info):
+        """A page to style that has none of the style yet: a new one, or one
+        that only now has its address (a <webview> starts blank). Not the
+        other web pages of an app styled in its main one only (a popup)."""
+        tid, url = info.get("targetId"), str(info.get("url") or "")
+        if info.get("type") not in ("page", "webview") or self.sessions.get(tid) in self.styled_sessions:
+            return False
+        if url.startswith("file:"):
+            return self.app in STYLE_LOCAL
+        if not url.startswith(("http:", "https:")):
+            return False
+        return self.app in STYLE_EVERY_PAGE or not self.web_main or self.web_main[0] == tid
+
     def pages(self):
         infos = self.cdp.call("Target.getTargets").get("targetInfos") or []
-        out = []
+        out, known = [], set(self.short)
         for t in infos:
             if t.get("type") not in ("page", "webview"):
                 continue
@@ -356,13 +397,20 @@ class Bridge:
             out.append({"id": self.short[tid], "targetId": tid, "title": str(t.get("title") or ""), "url": url,
                         "type": t["type"]})
         live = {p["targetId"] for p in out}
+        # The main page: the first one on the web (the splash or a settings
+        # window comes after it).
+        main = next((p for p in out if p["url"].startswith(("http:", "https:"))), out[0] if out else None)
+        if main and main["url"].startswith(("http:", "https:")):
+            if self.web_main and self.web_main[0] not in live and main["targetId"] not in known:
+                # The page that was the main one is gone and this one came:
+                # the same page with another document (a <webview> is a new
+                # target after a reload or a link to another site).
+                self.short[main["targetId"]] = main["id"] = self.web_main[1]
+            self.web_main = (main["targetId"], main["id"])
         for tid in list(self.short):
             if tid not in live:
                 self.short.pop(tid, None)
                 self.sessions.pop(tid, None)
-        # The main page: the first one on the web (the splash or a settings
-        # window comes after it).
-        main = next((p for p in out if p["url"].startswith(("http:", "https:"))), out[0] if out else None)
         for p in out:
             p["main"] = p is main
         return out
@@ -384,7 +432,18 @@ class Bridge:
         sid = self.sessions.get(tid)
         if sid:
             return sid
-        sid = self.cdp.call("Target.attachToTarget", {"targetId": tid, "flatten": True})["sessionId"]
+        try:
+            sid = self.cdp.call("Target.attachToTarget", {"targetId": tid, "flatten": True})["sessionId"]
+        except CdpError:
+            # Its target is gone: the page loaded another document as a new
+            # target (a <webview>), found again by its short id (pages()).
+            fresh = self.page(page["id"])
+            if fresh["targetId"] == tid:
+                raise
+            page.update(fresh)
+            tid = fresh["targetId"]
+            sid = self.sessions.get(tid) or \
+                self.cdp.call("Target.attachToTarget", {"targetId": tid, "flatten": True})["sessionId"]
         self.sessions[tid] = sid
         return sid
 
@@ -410,10 +469,10 @@ class Bridge:
 
     def in_page(self, page, op, o):
         """nixbook's page code (zen/page.js), in the page's isolated world."""
-        sid = self.session(page)
         expr = f"{self.page_js}\n;nixbookPage({json.dumps(op)}, {json.dumps(o)})"
         for attempt in (0, 1):
             try:
+                sid = self.session(page)
                 r = self.evaluate(sid, expr, self.world(sid, fresh=attempt == 1))
                 break
             except CdpError as e:
@@ -443,9 +502,12 @@ class Bridge:
 
     def styled_pages(self):
         """The pages the shell's colours go in: the main one, or every web
-        page for STYLE_EVERY_PAGE."""
-        web = [p for p in self.pages() if p["url"].startswith(("http:", "https:"))]
-        return web if self.app in STYLE_EVERY_PAGE else [p for p in web if p["main"]]
+        page for STYLE_EVERY_PAGE; the app's own local pages too for
+        STYLE_LOCAL."""
+        pages = self.pages()
+        web = [p for p in pages if p["url"].startswith(("http:", "https:"))]
+        local = [p for p in pages if p["url"].startswith("file:")] if self.app in STYLE_LOCAL else []
+        return (web if self.app in STYLE_EVERY_PAGE else [p for p in web if p["main"]]) + local
 
     def unstyled(self):
         """Whether a page to style has none of the style yet (a new one:
@@ -467,6 +529,8 @@ class Bridge:
         if not pages:
             raise Refused(f"{self.app} has no page to colour yet")
         expr = STYLE_JS % json.dumps(css)
+        # The app's styling script, after the CSS (what it writes refers to it).
+        script = f"{self.style_js}\n;nixbookStyle({json.dumps(bool(css))})" if self.style_js else None
         result = {}
         for page in pages:
             sid = self.session(page)
@@ -474,14 +538,39 @@ class Bridge:
             self.styled_sessions.add(sid)
             for attempt in (0, 1):
                 try:
-                    result = self.evaluate(sid, expr, self.world(sid, fresh=attempt == 1))
+                    world = self.world(sid, fresh=attempt == 1)
+                    styled = self.evaluate(sid, expr, world)
+                    if script:
+                        extra = self.evaluate(sid, script, world)
+                        styled = {**styled, **(extra if isinstance(extra, dict) else {})}
+                    # The main page's answer is the app's.
+                    if page["main"] or not result:
+                        result = styled
+                    if page["main"] and page["url"].startswith(("http:", "https:")):
+                        self.look(sid, styled.get("mode") if css else "device")
                     break
                 except CdpError as e:
                     if attempt or "context" not in str(e).lower():
                         raise Refused(f"the page can't be styled ({e})")
-        if self.app in STYLE_EVERY_PAGE:
+        if self.app in STYLE_EVERY_PAGE or self.app in STYLE_LOCAL:
             return {**result, "pages": len(pages)}
         return result
+
+    def look(self, sid, mode):
+        """The app's own light/dark setting as the palette's look (STYLE_LOOK;
+        "device": the style is off, the app decides again)."""
+        if self.app not in STYLE_LOOK or not self.adapter_js or mode not in ("light", "dark", "device"):
+            return
+        if self.looked is not None and time.monotonic() - self.looked < LOOK_GAP:
+            return
+        expr = f"{self.adapter_js}\n;nixbookApp(\"look\", {json.dumps({'mode': mode})})"
+        try:
+            r = self.evaluate(sid, expr, timeout=10)
+        except (Refused, CdpError):
+            return  # the page reloads for it, or isn't the app's (a sign-in page)
+        if isinstance(r, dict) and r.get("changed"):
+            self.looked = time.monotonic()
+            log(f"{self.app}: its own look set to {mode}, as the palette's")
 
     def op_status(self, req):
         version = self.cdp.call("Browser.getVersion")
@@ -576,11 +665,13 @@ class Bridge:
                                                  "windowsVirtualKeyCode": vk, "nativeVirtualKeyCode": vk},
                       session=sid)
 
-    def wait_loaded(self, page, seconds):
+    def wait_loaded(self, page, seconds, states=("complete",), unless=None):
+        """Until the page is loaded (one of `states`), `seconds` at most;
+        given up when `unless` (an event) is set."""
         end = time.monotonic() + seconds
-        while time.monotonic() < end:
+        while time.monotonic() < end and not (unless is not None and unless.is_set()):
             try:
-                if self.in_page(page, "ready", {}).get("state") == "complete":
+                if self.in_page(page, "ready", {}).get("state") in states:
                     return True
             except Refused:
                 pass
@@ -710,21 +801,29 @@ SLACK_WRITES = ("send", "schedule", "edit", "delete", "react", "unreact", "mark_
                 "archive", "topic", "remind", "api")
 YTM_WRITES = ("playlist_create", "playlist_add", "playlist_remove", "playlist_rename", "playlist_delete", "like",
               "dislike", "unlike", "subscribe", "unsubscribe", "innertube")
+# YouTube in ZenPlay (electron/youtube.js): what changes the account; playing,
+# pausing, the volume and where the app is aren't writes.
+YOUTUBE_WRITES = ("like", "dislike", "unlike", "subscribe", "unsubscribe", "watch_later_add", "watch_later_remove",
+                  "playlist_create", "playlist_add", "playlist_remove", "playlist_delete", "innertube")
+YOUTUBE_PLAYER = ("play", "open", "pause", "resume", "toggle", "seek", "volume", "mute", "unmute", "speed", "next",
+                  "previous", "captions")
 ADAPTER_OPS = {"discord": ("status", "current", "guilds", "channels", "dms", "find", "read", "pins", "search",
                            "threads", "members", "friends") + DISCORD_WRITES,
                "slack": ("status", "teams", "channels", "users", "find", "read", "thread", "search", "pins")
                + SLACK_WRITES,
                "youtube-music": ("status", "playlists", "playlist", "liked", "history", "library") + YTM_WRITES,
+               "youtube": ("status", "search", "video", "home", "subscriptions", "history", "watch_later", "liked",
+                           "playlists", "playlist", "channel") + YOUTUBE_PLAYER + YOUTUBE_WRITES,
                # Actual Budget: its reads, and its writes through Actual's
                # public API (electron/actual.js; never the budget file itself).
                "actual": ("status", "accounts", "month", "categories", "transactions", "schedules", "rules",
                           "payees") + ACTUAL_WRITES}
 # The operations that change something: rate-limited and audited.
 ADAPTER_WRITES = {"actual": ACTUAL_WRITES, "discord": DISCORD_WRITES, "slack": SLACK_WRITES,
-                  "youtube-music": YTM_WRITES}
+                  "youtube-music": YTM_WRITES, "youtube": YOUTUBE_WRITES}
 # A message's length, and how many items a read may ask for, per app.
 CONTENT_MAX_BY_APP = {"discord": 2000, "slack": 12000}
-LIMIT_MAX_BY_APP = {"discord": 50, "slack": 200, "youtube-music": 500}
+LIMIT_MAX_BY_APP = {"discord": 50, "slack": 200, "youtube-music": 500, "youtube": 500}
 OPS = {"status": "op_status", "pages": "op_pages", "read": "op_read", "act": "op_act", "wait": "op_wait",
        "screenshot": "op_screenshot", "go": "op_go", "app": "op_app", "style": "op_style"}
 
@@ -848,7 +947,8 @@ POLL = 10.0
 # Never taken for the app: shells, the tools that name it in their arguments.
 NOT_THE_APP = {"bash", "sh", "dash", "zsh", "fish", "grep", "rg", "pgrep", "pkill", "ps", "cat", "less", "tail",
                "head", "nix", "nix-store", "strace", "gdb", "systemd-run", "notify-send"}
-LABELS = {"discord": "Vesktop", "slack": "Slack", "youtube-music": "YouTube Music", "actual": "Actual Budget"}
+LABELS = {"discord": "Vesktop", "slack": "Slack", "youtube-music": "YouTube Music", "actual": "Actual Budget",
+          "gmail": "Meru", "youtube": "ZenPlay"}
 
 
 def electron_dir():
@@ -1042,24 +1142,47 @@ def keep_styled(bridge):
     load of one (a reload drops the <style>) or when a new one shows up (an
     account added in Meru)."""
     first = True
+    several = bridge.app in STYLE_EVERY_PAGE or bridge.app in STYLE_LOCAL
+    # New pages are told (Target.targetCreated sets restyle); an app that
+    # may have several is also asked now and then (often when it doesn't
+    # tell).
+    told = False
+    with contextlib.suppress(Refused, CdpError):
+        bridge.cdp.call("Target.setDiscoverTargets", {"discover": True})
+        told = True
+    failed = 0
     while not bridge.cdp.closed.is_set():
-        if not first:
-            if not bridge.restyle.wait(5):
-                if bridge.app not in STYLE_EVERY_PAGE or not bridge.unstyled():
-                    continue
-            bridge.restyle.clear()
+        if not first and not bridge.restyle.wait(30 if told else 5):
+            if not several or not bridge.unstyled():
+                continue
+        bridge.restyle.clear()
         try:
             with bridge.lock:
                 pages = bridge.styled_pages()
             if not pages:
                 time.sleep(0.5)
                 continue
-            for page in pages:
-                bridge.wait_loaded(page, 30)
-            r = handle(bridge, {"cmd": "style"})
-            if not r.get("ok"):
-                log(f"{bridge.app}: not styled: {r.get('error')}")
+            # As soon as the page has its document (no flash of its own
+            # colours while it loads), then last in the page once loaded.
+            # A page coming or going meanwhile (ZenPlay's splash closing,
+            # its <webview> appearing): started over with the pages there.
+            ok = None
+            for states in (EARLY, ("complete",)):
+                for page in pages:
+                    bridge.wait_loaded(page, 30, states, bridge.restyle)
+                if bridge.restyle.is_set():
+                    break
+                r = handle(bridge, {"cmd": "style"})
+                ok = bool(r.get("ok"))
+                if not ok:
+                    log(f"{bridge.app}: not styled: {r.get('error')}")
             first = False
+            # A page that went while it was styled (replaced, closed): again
+            # in a moment, a few times.
+            failed = failed + 1 if ok is False else 0
+            if 0 < failed <= 5:
+                time.sleep(1)
+                bridge.restyle.set()
         except (Refused, CdpError):
             time.sleep(0.5)
 
@@ -1072,7 +1195,9 @@ def run_bridged(opts, app, command, markers, link=None):
     page_js = read_file(opts["page_js"])
     adapter = os.path.join(opts["adapters"], f"{app}.js")
     adapter_js = read_file(adapter) if os.path.exists(adapter) else None
-    state = {"child": None, "stopping": False, "open": link}
+    style = os.path.join(opts["adapters"], f"{app}.style.js")
+    style_js = read_file(style) if app in STYLED_APPS and os.path.exists(style) else None
+    state = {"child": None, "stopping": False, "open": link, "style_js": style_js}
 
     def forward(s, _f):
         state["stopping"] = True
@@ -1147,7 +1272,7 @@ def run_once(opts, app, command, path, page_js, adapter_js, state):
     os.close(child_r)
     os.close(child_w)
     cdp = Cdp(r4, w3)
-    bridge = Bridge(app, cdp, page_js, adapter_js, opts.get("open_hosts", ()))
+    bridge = Bridge(app, cdp, page_js, adapter_js, opts.get("open_hosts", ()), state.get("style_js"))
     server, ino = None, None
     try:
         # Serve once the app answers on its pipe (one handing over to an

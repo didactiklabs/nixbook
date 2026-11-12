@@ -481,6 +481,11 @@ in
             matches = [ { app-id = "^org\\.moonfin\\.linux$"; } ];
             opacity = 1.0;
           }
+          # ZenPlay (YouTube): videos behind a translucent window look washed out.
+          {
+            matches = [ { app-id = "^zenplay$"; } ];
+            opacity = 1.0;
+          }
           {
             matches = [ { app-id = "^firefox$"; } ];
             opacity = 1.0;

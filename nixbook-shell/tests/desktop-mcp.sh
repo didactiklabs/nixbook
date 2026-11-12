@@ -457,7 +457,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 75 tools" 75 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 76 tools" 76 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -2170,10 +2170,13 @@ expect_eq "tools/list: budget_edit marked destructive, budget read-only" "true t
 kill "$electron_pid" 2>/dev/null
 wait "$electron_pid" 2>/dev/null || true
 
-# Slack and YouTube Music through their bridges (their adapters:
-# app-adapters.sh).
+# Slack, YouTube Music and YouTube (ZenPlay) through their bridges (their
+# adapters: app-adapters.sh).
+expect_contains "youtube: ZenPlay not running, said so" "$(call youtube '{"action":"status"}')" "YouTube (ZenPlay) isn't reachable"
+expect_contains "youtube play: ZenPlay not installed, nothing started" \
+  "$(call youtube '{"action":"play","query":"big buck bunny"}')" "YouTube (ZenPlay) isn't reachable"
 app_pids=()
-for app in slack youtube-music; do
+for app in slack youtube-music youtube; do
   FAKE_CDP_APP=$app FAKE_CDP_LOG="$tmp/cdp-$app.log" python3 "$root/scripts/electron-bridge.py" --page-js "$root/zen/page.js" \
     --adapters "$root/electron" $app -- python3 "$root/tests/fake-cdp.py" --dmcp-test-$app &
   app_pids+=("$!")
@@ -2191,6 +2194,13 @@ expect_contains "slack api: a reading method isn't asked" "$(call slack '{"actio
 expect_contains "youtube_music playlist_add: passed on" \
   "$(call youtube_music '{"action":"playlist_add","playlist":"Road trip","videos":["aaaaaaaaaaa"]}')" '"op": "playlist_add"'
 expect_contains "youtube_music playlist_delete: asked first" "$(call youtube_music '{"action":"playlist_delete","playlist":"Road trip"}')" "the user said no"
+expect_contains "youtube play: passed on to the page" \
+  "$(call youtube '{"action":"play","query":"big buck bunny","at":30}')" '{"op": "play", "args": {"query": "big buck bunny", "at": 30}}'
+expect_contains "youtube seek: passed on" "$(call youtube '{"action":"seek","by":-10}')" '"op": "seek"'
+expect_contains "youtube playlist_delete: asked first" "$(call youtube '{"action":"playlist_delete","playlist":"PLmovies1234"}')" "the user said no"
+expect_eq "youtube playlist_delete: nothing deleted on a no" "" "$(grep '"eval"' "$tmp/cdp-youtube.log" | jq -r 'select(.op=="playlist_delete") | .op')"
+expect_contains "youtube: only its own actions" "$(call youtube '{"action":"look"}')" "action: status, search"
+expect_contains "page_list: ZenPlay's YouTube page is a target" "$(call page_list '{}')" "· YouTube (ZenPlay)"
 kill "${app_pids[@]}" 2>/dev/null
 wait "${app_pids[@]}" 2>/dev/null || true
 

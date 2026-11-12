@@ -165,6 +165,32 @@ let
       )
       -> lib.any (a: a.app == "gmail") hm.programs.nixbook-shell.electronBridge.apps
     ) (lib.attrNames hmUsers);
+
+    # ZenPlay (YouTube's app): bridged where nixbook-shell runs (the youtube
+    # tool, the shell's colours in it), and its window opaque under niri.
+    "ZenPlay is bridged as youtube wherever it is installed with nixbook-shell" = lib.all (
+      u:
+      let
+        hm = hmUsers.${u};
+      in
+      (
+        (hm.customHomeManagerModules.nixbookShellConfig.enable or false)
+        && lib.any (p: lib.hasPrefix "zenplay" (lib.getName p)) hm.home.packages
+      )
+      -> lib.any (
+        a: a.app == "youtube" && lib.elem "www.youtube.com" a.openHosts
+      ) hm.programs.nixbook-shell.electronBridge.apps
+    ) (lib.attrNames hmUsers);
+    "ZenPlay's window is opaque under niri" = lib.all (
+      u:
+      let
+        hm = hmUsers.${u};
+      in
+      (hm.customHomeManagerModules.niriConfig.enable or false)
+      -> lib.any (
+        r: (r.opacity or null) == 1.0 && lib.any (m: (m.app-id or null) == "^zenplay$") (r.matches or [ ])
+      ) hm.programs.niri.settings.window-rules
+    ) (lib.attrNames hmUsers);
   };
   failed = lib.attrNames (lib.filterAttrs (_: ok: !ok) checks);
 

@@ -384,6 +384,103 @@ def t_youtube_music(ctx, args):
     return app_reply(electron(ctx, "youtube-music", "app", op=action, args=sent))
 
 
+# YouTube in ZenPlay (through its bridge, electron/youtube.js): finding and
+# playing videos, the player (pause, seek, volume, speed, captions), the
+# user's feeds and playlists, and what changes their account (likes,
+# subscriptions, Watch later, playlists), through the page's own player and
+# the API the page itself calls. No click, no key: the window may be on
+# another workspace or hidden in the tray.
+YOUTUBE_READS = ("status", "search", "video", "home", "subscriptions", "history", "watch_later", "liked",
+                 "playlists", "playlist", "channel")
+YOUTUBE_PLAYER = ("play", "open", "pause", "resume", "toggle", "seek", "volume", "mute", "unmute", "speed", "next",
+                  "previous", "captions")
+YOUTUBE_ACCOUNT = ("like", "dislike", "unlike", "subscribe", "unsubscribe", "watch_later_add", "watch_later_remove",
+                   "playlist_create", "playlist_add", "playlist_remove", "playlist_delete", "innertube")
+YOUTUBE_ACTIONS = YOUTUBE_READS + YOUTUBE_PLAYER + YOUTUBE_ACCOUNT
+# ZenPlay's .desktop id (its Wayland app-id), started for `play` and `open`.
+YOUTUBE_APP_ID = "zenplay"
+YOUTUBE_START_WAIT = 40
+
+
+def youtube_running():
+    return os.path.exists(os.path.join(electron_dir(), "youtube.sock"))
+
+
+def youtube_start(ctx):
+    """ZenPlay started from its launcher entry (through its bridge), once its
+    YouTube page answers. False when it isn't installed."""
+    entry = applications().get(YOUTUBE_APP_ID)
+    if not entry or app_refused(ctx, "youtube"):
+        return False
+    ctx.guard.check_rate()
+    # Spawned by niri, not as our child: it outlives this server.
+    niri_action("spawn", "--", *exec_argv(entry))
+    deadline = time.monotonic() + YOUTUBE_START_WAIT
+    while time.monotonic() < deadline:
+        time.sleep(0.5)
+        if not youtube_running():
+            continue
+        with contextlib.suppress(ToolError):
+            if (electron(ctx, "youtube", "app", op="status", args={}) or {}).get("ready"):
+                return True
+    raise ToolError("ZenPlay was started but its YouTube page didn't load within "
+                    f"{YOUTUBE_START_WAIT} s: try again in a moment")
+
+
+@tool(
+    "youtube",
+    "pages",
+    "YouTube in ZenPlay (the user's YouTube app), without its window: no click, no key, on any workspace. "
+    "`status` (the page shown, what plays: video, position, volume…). Finding: `search` (`query`, `kind` "
+    "video|channel|playlist, `limit`), `video` (`video`: its details and what comes next), `channel` "
+    "(`channel` UC…, @handle or link: its latest videos), and the user's own once signed in: `home`, "
+    "`subscriptions`, `history`, `watch_later`, `liked`, `playlists`, `playlist` (`playlist`: its id, WL, "
+    "LL or link). Playing: `play` (`video`: id or link, or `query`: the first video found, or `playlist`; "
+    "`at` seconds) starts ZenPlay when it isn't running; `pause`, `resume`, `toggle`, `seek` (`to` seconds "
+    "or `by` ±seconds), `volume` (`level` 0-100, the player's own), `mute`, `unmute`, `speed` (`rate`), "
+    "`next`, `previous`, `captions` (`on`, `language`), `open` (`page` home|subscriptions|history|library|"
+    "playlists|watch_later|liked, or `url`: a YouTube link, shown without playing). The account: `like` / "
+    "`dislike` / `unlike` (`video`), `subscribe` / `unsubscribe` (`channel`), `watch_later_add` / "
+    "`watch_later_remove` (`video`), `playlist_create` (`title`, `description`, `privacy`, `videos`), "
+    "`playlist_add` / `playlist_remove` (`playlist`, `videos`), `playlist_delete` (asked to the user "
+    "first), `innertube` (`endpoint` e.g. browse, `body`): any other call of the page's own API, never the "
+    "account's settings. Its window: launch_app ZenPlay shows it (also when hidden in the tray).",
+    obj({"action": {"type": "string", "enum": list(YOUTUBE_ACTIONS)}, "query": {"type": "string"},
+         "kind": {"type": "string", "enum": ["video", "channel", "playlist"]}, "limit": {"type": "integer"},
+         "video": {"type": "string", "description": "A video's id or its YouTube link"},
+         "videos": {"type": "array", "items": {"type": "string"}}, "channel": {"type": "string"},
+         "playlist": {"type": "string"}, "at": {"type": "number"}, "to": {"type": "number"},
+         "by": {"type": "number"}, "level": {"type": "number"}, "rate": {"type": "number"},
+         "on": {"type": "boolean"}, "language": {"type": "string"}, "page": {"type": "string"},
+         "url": {"type": "string"}, "title": {"type": "string"}, "description": {"type": "string"},
+         "privacy": {"type": "string", "enum": ["private", "unlisted", "public"]},
+         "endpoint": {"type": "string"}, "body": {"type": "object"}}, ["action"]),
+    destructive=True,
+    brief="YouTube in ZenPlay without its window: search, play a video or a playlist, pause, seek, volume, speed, captions, the user's feeds and playlists, likes and subscriptions.",
+    props={"query": None, "video": None, "playlist": None, "channel": None},
+)
+def t_youtube(ctx, args):
+    action = as_str(args, "action", max_len=20)
+    if action not in YOUTUBE_ACTIONS:
+        raise ToolError("action: " + ", ".join(YOUTUBE_ACTIONS))
+    sent = forwarded(args, ("query", "kind", "limit", "video", "videos", "channel", "playlist", "at", "to", "by",
+                            "level", "rate", "on", "language", "page", "url", "title", "description", "privacy",
+                            "endpoint", "body"))
+    if action not in YOUTUBE_READS:
+        ctx.guard.check_rate()
+    if action == "playlist_delete" or (action == "innertube" and "delete" in str(args.get("endpoint") or "")):
+        ask_user_yes(ctx, "Let the agent delete a YouTube playlist?" if action == "playlist_delete"
+                     else f"Let the agent call {short(str(args.get('endpoint')), 60)} on YouTube?",
+                     str(args.get("playlist") or args.get("body") or ""))
+    started = False
+    if action in ("play", "open") and not youtube_running() and "youtube" not in unbridged_apps():
+        started = youtube_start(ctx)
+    r = electron(ctx, "youtube", "app", op=action, args=sent)
+    if started and isinstance(r, dict):
+        r = {"started": "ZenPlay", **r}
+    return app_reply(r)
+
+
 # Actual Budget (through its bridge): the money questions ("how much did I
 # spend on food this month?", "what's left in groceries?") answered from
 # Actual's own client in its page (electron/actual.js: $send / $query, its

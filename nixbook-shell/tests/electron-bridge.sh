@@ -13,7 +13,10 @@
 #   - links on the app's own hosts (--open-host): opened in the app, cold
 #     or running, any other refused;
 #   - Discord's operations (main world, the length cap, the rate limit,
-#     tokens and secret keys scrubbed, the audit log: lengths, no text).
+#     tokens and secret keys scrubbed, the audit log: lengths, no text);
+#   - the shell's colours (`style`): from the file only, each app's pages,
+#     YouTube's styling script and its own look, a <webview>'s page followed
+#     when it becomes a new target.
 # Needs bash, python3 and jq. Run: bash tests/electron-bridge.sh
 set -euo pipefail
 
@@ -399,7 +402,7 @@ stop_launchers
 expect_contains "restart: only a bridged app" \
   "$(python3 "$bridge" --config "$tmp/bridge.json" restart slack 2>&1 || true)" "one of discord"
 
-# -- the shell's colours (`style`, YouTube Music only) -----------------------
+# -- the shell's colours (`style`: YouTube Music, Gmail, YouTube) ------------
 styles() { jq -c 'select(.eval == "style") | [.length, .isolated]' "$FAKE_CDP_LOG"; }
 css="$XDG_STATE_HOME/quickshell/user/generated/apps/youtube-music.css"
 mkdir -p "$(dirname "$css")"
@@ -454,6 +457,76 @@ out=$(sock=$gm_sock ask '{"cmd":"style"}')
 expect_eq "style gmail: says how many pages" '{"ok": true, "result": {"styled": true, "pages": 2}}' "$out"
 kill "$gm_pid" 2>/dev/null || true
 wait "$gm_pid" 2>/dev/null || true
+
+# YouTube (ZenPlay): its own window (a local page) and the YouTube page its
+# <webview> shows; the styling script after the CSS, in the isolated world;
+# the app's own look as the palette's (its adapter's `look`, main world),
+# never a client's to ask; and the <webview>'s page followed when a reload
+# makes it a new target.
+zp_css="$XDG_STATE_HOME/quickshell/user/generated/apps/youtube.css"
+printf 'html { color-scheme: dark; }\n' >"$zp_css"
+evals() { jq -c "select(.eval == \"$1\") | $2" "$FAKE_CDP_LOG"; }
+: >"$FAKE_CDP_LOG"
+FAKE_CDP_APP=youtube python3 "$bridge" --page-js "$root/zen/page.js" --adapters "$root/electron" youtube -- python3 "$fake" &
+zp_pid=$!
+zp_sock="$XDG_RUNTIME_DIR/nixbook-electron/youtube.sock"
+for _ in $(seq 1 100); do
+  [ "$(gstyles)" = "S-T0 S-T1" ] && [ -n "$(evals nixbookApp .op)" ] && break
+  sleep 0.05
+done
+expect_eq "style youtube: ZenPlay's own window and the YouTube page" "S-T0 S-T1" "$(gstyles)"
+expect_eq "style youtube: the styling script after the CSS, in the isolated world" '[true,true,"S-T1"]' \
+  "$(evals nixbookStyle '[.on, .isolated, .session]' | grep S-T1 | head -n1)"
+expect_eq "style youtube: the app's own look as the palette's, in the YouTube page's main world only" \
+  '["look",{"mode":"dark"},false,"S-T1"]' "$(evals nixbookApp '[.op, .args, .isolated, .session]' | sort -u)"
+out=$(sock=$zp_sock ask '{"cmd":"style"}')
+expect_eq "style youtube: the YouTube page's answer, and how many pages" \
+  '{"ok": true, "result": {"styled": true, "tokens": 3, "mode": "dark", "pages": 2}}' "$out"
+out=$(sock=$zp_sock ask '{"cmd":"app","op":"look","args":{"mode":"light"}}')
+expect_contains "youtube: its look isn't a client's to set" "$out" "no operation 'look'"
+out=$(sock=$zp_sock ask '{"cmd":"app","op":"seek","args":{"to":90}}')
+expect_eq "youtube: its operations reach the page" '{"ok": true, "result": {"op": "seek", "args": {"to": 90}}}' "$out"
+before=$(sock=$zp_sock ask '{"cmd":"pages"}' | jq -c '.result[] | select(.main) | .id')
+: >"$FAKE_CDP_LOG"
+out=$(sock=$zp_sock ask '{"cmd":"go","action":"reload"}' '{"cmd":"pages"}')
+expect_eq "youtube reload: the <webview>'s page is a new target, the same page for the agents" \
+  "{\"ok\": true, \"result\": {\"page\": $before, \"title\": \"YouTube\", \"url\": \"https://www.youtube.com/\"}}|$before" \
+  "$(head -n1 <<<"$out")|$(tail -n1 <<<"$out" | jq -c '.result[] | select(.main) | .id')"
+for _ in $(seq 1 100); do
+  grep -q S-T1r <<<"$(gstyles)" && break
+  sleep 0.05
+done
+expect_contains "youtube reload: the new page styled without being asked" "$(gstyles)" "S-T1r"
+out=$(sock=$zp_sock ask '{"cmd":"read"}')
+expect_contains "youtube reload: read as before" "$out" '"ok": true'
+rm "$zp_css"
+: >"$FAKE_CDP_LOG"
+out=$(sock=$zp_sock ask '{"cmd":"style"}')
+expect_eq "style youtube off: its own look left to YouTube again" '{"mode":"device"}|false' \
+  "$(evals nixbookApp .args | tail -n1)|$(evals nixbookStyle .on | tail -n1)"
+kill "$zp_pid" 2>/dev/null || true
+wait "$zp_pid" 2>/dev/null || true
+# A look that was changed isn't changed again within LOOK_GAP (YouTube reloads
+# its page for it: never in a loop).
+looks=$(
+  python3 - "$bridge" <<'EOF'
+import importlib.util, sys
+s = importlib.util.spec_from_file_location("b", sys.argv[1]); b = importlib.util.module_from_spec(s); s.loader.exec_module(b)
+class Cdp:
+    on_event = None
+    calls = 0
+    def call(self, method, params=None, session=None, timeout=None):
+        Cdp.calls += 1
+        return {"result": {"value": {"look": "dark", "changed": True}}}
+bridge = b.Bridge("youtube", Cdp(), "", adapter_js="function nixbookApp() {}")
+for mode in ("dark", "light", "dark"):
+    bridge.look("S", mode)
+other = b.Bridge("gmail", Cdp(), "", adapter_js="function nixbookApp() {}")
+other.look("S", "dark")
+print(Cdp.calls)
+EOF
+)
+expect_eq "youtube look: changed once, then left for a while; never another app's" "1" "$looks"
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures failure(s)"

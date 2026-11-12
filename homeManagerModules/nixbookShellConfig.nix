@@ -302,6 +302,7 @@ in
         pear-desktop = "youtube-music";
         actual-budget = "actual";
         meru = "gmail";
+        zenplay = "youtube";
       };
       description = ''
         The apps bridged, by the name of the binary nixbook wraps → the

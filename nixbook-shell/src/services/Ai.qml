@@ -859,7 +859,7 @@ Singleton {
                 : " (machine_help isn't available now: the desktop tools are off; answer from the summary above and your own knowledge.)")
             + (desktop ? " You can see and drive the user's desktop with the desktop tools."
                 // The user's rule: headless first, input last.
-                + " Do what you're asked the most direct way that needs no mouse or keyboard: a tool made for it (an MCP server's, the desktop tools that act without input: page_*, discord, slack, youtube_music, budget and budget_edit, ui_act, the window and shell tools"
+                + " Do what you're asked the most direct way that needs no mouse or keyboard: a tool made for it (an MCP server's, the desktop tools that act without input: page_*, discord, slack, youtube_music, youtube, budget and budget_edit, ui_act, the window and shell tools"
                 + (shellTools.length > 0 ? ", or a command" : "")
                 + "); type, press keys or click only when none can, and the keyboard before the mouse."
                 // Asked again by the server itself (a notification with Allow / No).

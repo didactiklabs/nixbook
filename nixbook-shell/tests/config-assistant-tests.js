@@ -118,6 +118,15 @@ check("wie stelle ich die Ladegrenze ein", howTos.batteryPanel);
 check("wie ändere ich das Energieprofil", howTos.batteryPanel);
 check("làm sao đặt giới hạn sạc pin", howTos.batteryPanel);
 check("làm sao đổi chế độ nguồn", howTos.batteryPanel);
+check("how do I control youtube with dai", howTos.youtubeZenPlay);
+check("what is zenplay", howTos.youtubeZenPlay);
+check("can the youtube app use my theme colours", howTos.youtubeZenPlay);
+check(
+  "comment mettre l'appli youtube aux couleurs du thème",
+  howTos.youtubeZenPlay,
+);
+check("wie steuere ich die youtube-app", howTos.youtubeZenPlay);
+check("zenplay là gì", howTos.youtubeZenPlay);
 check("how do I change the sound output to my headphones", howTos.soundOutput);
 check("why is the easyeffects sink not in the output list", howTos.soundOutput);
 check("comment changer la sortie audio", howTos.soundOutput);
