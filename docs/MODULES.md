@@ -745,7 +745,7 @@ Whether the Chromium/Electron apps nixbook installs (Vesktop with desktopApps; t
 ### `customHomeManagerModules.nixbookShellConfig.electronBridge.apps`
 
 - **Type:** `attribute set of string matching the pattern [a-z0-9][a-z0-9-]{0,31}`
-- **Default:** `{"actual-budget":"actual","meru":"gmail","pear-desktop":"youtube-music","slack":"slack","vesktop":"discord","zenplay":"youtube"}`
+- **Default:** `{"actual-budget":"actual","meru":"gmail","pear-desktop":"youtube-music","slack":"slack","vesktop":"discord"}`
 
 The apps bridged, by the name of the binary nixbook wraps → the name agents know the app by (its target in `page_list`; `discord` has its own operations). Only the ones a machine installs through lib/electronA11y.nix are started so.
 

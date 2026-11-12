@@ -35,7 +35,7 @@ rec {
 
   # Settings that did nothing (or only did something under Hyprland), and
   # those of removed features (the agents' own desktop, Full AI mode, teach
-  # mode, pairing, music recognition), were removed: still accepted in Nix (so an old configuration evaluates) but
+  # mode, pairing, music recognition, ZenPlay's colours), were removed: still accepted in Nix (so an old configuration evaluates) but
   # ignored, with a warning (hm-module.nix).
   removedKeys = [
     "ai.agentDesktop"
@@ -44,6 +44,7 @@ rec {
     "ai.initiative.pairReadScreen"
     "ai.teach"
     "appearance.wallpaperTheming.apps.slack"
+    "appearance.wallpaperTheming.apps.youtube"
     "apps.manageUser"
     "apps.update"
     "background.hideWhenFullscreen"

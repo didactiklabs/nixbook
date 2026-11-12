@@ -105,14 +105,14 @@ ContentPage {
                         }
                     }
                     ConfigSwitch {
-                        configKey: "appearance.wallpaperTheming.apps.youtube";
+                        configKey: "appearance.wallpaperTheming.apps.zen";
                         enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;
-                        buttonIcon: "smart_display"
-                        text: Translation.tr("YouTube (ZenPlay)")
-                        checked: Config.options.appearance.wallpaperTheming.apps.youtube
-                        onCheckedChanged: { Config.options.appearance.wallpaperTheming.apps.youtube = checked }
+                        buttonIcon: "public"
+                        text: Translation.tr("Zen Browser")
+                        checked: Config.options.appearance.wallpaperTheming.apps.zen
+                        onCheckedChanged: { Config.options.appearance.wallpaperTheming.apps.zen = checked }
                         StyledToolTip {
-                            text: Translation.tr("Live, through ZenPlay's bridge: its window and YouTube in the theme's colours, light or dark (YouTube's own Appearance setting follows)")
+                            text: Translation.tr("Zen reads them when it starts: while it runs, a notification offers to restart it (tabs restored)")
                         }
                     }
                 }
@@ -129,20 +129,6 @@ ContentPage {
                             text: Translation.tr("Live, through Meru's bridge: every account's Gmail in the theme's colours, light or dark")
                         }
                     }
-                    ConfigSwitch {
-                        configKey: "appearance.wallpaperTheming.apps.zen";
-                        enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;
-                        buttonIcon: "public"
-                        text: Translation.tr("Zen Browser")
-                        checked: Config.options.appearance.wallpaperTheming.apps.zen
-                        onCheckedChanged: { Config.options.appearance.wallpaperTheming.apps.zen = checked }
-                        StyledToolTip {
-                            text: Translation.tr("Zen reads them when it starts: while it runs, a notification offers to restart it (tabs restored)")
-                        }
-                    }
-                }
-                ConfigRow {
-                    uniform: true
                     ConfigSwitch {
                         configKey: "appearance.wallpaperTheming.apps.zenPages";
                         enabled: !nixManaged && Config.options.appearance.wallpaperTheming.enableQtApps;

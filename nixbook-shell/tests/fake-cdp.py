@@ -10,8 +10,6 @@ would. Each message is logged (one JSON line) to $FAKE_CDP_LOG.
 
   FAKE_CDP_LOG=FILE fake-cdp.py [ARGS…]
   FAKE_CDP_APP=gmail: Meru's pages (its window, two Gmail accounts).
-  FAKE_CDP_APP=youtube: ZenPlay's pages (its window, a file, and the <webview>
-  showing YouTube, which becomes a new target each time it is reloaded).
   FAKE_CDP_HANDOVER=1: quits at once, like an app handing over to one already running.
   FAKE_CDP_QUIT_AFTER=S: quits on its own S seconds in, with FAKE_CDP_QUIT_CODE (default 0).
   FAKE_CDP_RELAUNCH=DIR: relaunches itself as Electron's app.relaunch() does, a
@@ -58,11 +56,6 @@ if os.environ.get("FAKE_CDP_APP") == "gmail":
          "url": "https://mail.google.com/mail/u/0/#inbox"},
         {"targetId": "T2", "type": "page", "title": "Inbox - work@example.com - Gmail",
          "url": "https://mail.google.com/mail/u/1/#inbox"},
-    ]
-if os.environ.get("FAKE_CDP_APP") == "youtube":
-    TARGETS = [
-        {"targetId": "T0", "type": "page", "title": "ZenPlay", "url": "file:///opt/zenplay/app/index.html"},
-        {"targetId": "T1", "type": "webview", "title": "YouTube", "url": "https://www.youtube.com/"},
     ]
 JPEG = ("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////"
         "////////////wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAAA//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AN//Z")
@@ -162,7 +155,7 @@ def app(op, o, params):
         return {"error": "fake: the app's code ran in an isolated world"}
     if os.environ.get("FAKE_CDP_APP") == "actual":
         return actual(op, o)
-    if os.environ.get("FAKE_CDP_APP") in ("slack", "youtube-music", "youtube"):
+    if os.environ.get("FAKE_CDP_APP") in ("slack", "youtube-music"):
         # Their adapters are checked by app-adapters-tests.js: what reached
         # the page, said back.
         return {"op": op, "args": o}
@@ -204,41 +197,20 @@ def answer(msg):
     if method == "Target.getTargets":
         return {"targetInfos": TARGETS}
     if method == "Target.attachToTarget":
-        if not any(t["targetId"] == params["targetId"] for t in TARGETS):
-            raise ValueError("No target with given id found")
         return {"sessionId": "S-" + params["targetId"]}
-    if method == "Target.setDiscoverTargets":
-        return {}
-    if method == "Page.reload" and os.environ.get("FAKE_CDP_APP") == "youtube":
-        # A <webview>'s page is a new target once it has loaded again.
-        old = next(t for t in TARGETS if t["type"] == "webview")
-        new = dict(old, targetId=old["targetId"] + "r")
-        TARGETS[TARGETS.index(old)] = new
-        emit({"method": "Target.detachedFromTarget", "params": {"sessionId": "S-" + old["targetId"]}})
-        emit({"method": "Target.targetCreated", "params": {"targetInfo": new}})
-        return {}
     if method == "Page.getFrameTree":
         return {"frameTree": {"frame": {"id": "F1"}}}
     if method == "Page.createIsolatedWorld":
         return {"executionContextId": 42}
     if method == "Runtime.evaluate":
         expr = params.get("expression") or ""
-        last = expr.rsplit("\n", 1)[-1]
-        m = re.match(r"^;nixbookStyle\((true|false)\)$", last)
-        if m:
-            # The app's styling script (APP.style.js), after the CSS.
-            if "function nixbookStyle(" not in expr:
-                raise ValueError("fake: nixbookStyle isn't defined in what was sent")
-            on = m.group(1) == "true"
-            log({"eval": "nixbookStyle", "on": on, "isolated": params.get("contextId") is not None,
-                 "session": msg.get("sessionId")})
-            return {"result": {"type": "object", "value": {"tokens": 3, "mode": "dark"} if on else {"tokens": 0}}}
         if "nixbook-app-style" in expr:
             # The `style` operation: the CSS is the argument of its last line.
             css = json.loads(re.search(r"\}\)\((.*)\)$", expr, re.S).group(1))
             log({"eval": "style", "length": len(css), "isolated": params.get("contextId") is not None,
                  "session": msg.get("sessionId")})
             return {"result": {"type": "object", "value": {"styled": bool(css)}}}
+        last = expr.rsplit("\n", 1)[-1]
         m = re.match(r"^;(nixbookPage|nixbookApp)\((.*)\)$", last, re.S)
         if not m:
             raise ValueError("fake: not one of the bridge's calls")
@@ -261,10 +233,6 @@ def answer(msg):
     if method == "Page.captureScreenshot":
         return {"data": JPEG}
     raise ValueError(f"fake: no {method}")
-
-
-def emit(event):
-    os.write(4, json.dumps(event).encode() + b"\0")
 
 
 def main():
