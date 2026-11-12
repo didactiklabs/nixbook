@@ -52,6 +52,9 @@ in
       # 2.7 GHz instead of 4.77: cooler (86 °C at 11 W with boost), and the
       # Radeon 680M gets more of the shared power budget in games.
       cpuBoost = false;
+      # The battery is down to half its capacity after two years charged to
+      # 100 %. The battery panel of the bar changes it (100 before a trip).
+      chargeLimit = 80;
     };
     # greetd with nixbook-shell's own login screen: the greeter's default
     # when a user runs nixbook-shell (tuigreet stays the fallback).

@@ -17,7 +17,7 @@ profiles/totoro/
 
 **Main development laptop** — ASUS Zenbook (AMD, `nixos-hardware` `asus/zenbook/um6702`, the NVIDIA GPU disabled, modesetting only).
 
-- **System:** laptop power profile, greetd with nixbook-shell's login screen, Niri (its polkit agent off: the shell has its own), Secure Boot, CA certificates (RPCU, Bealv, DidactikLabs), Lotus Vietnamese input, gaming (Steam, Proton, GameMode; `gpu = "none"`). AMD Panel Self Refresh on without Selective Update (`core.amdgpuPsr = "no-su"`).
+- **System:** laptop power profile, greetd with nixbook-shell's login screen, Niri (its polkit agent off: the shell has its own), Secure Boot, CA certificates (RPCU, Bealv, DidactikLabs), Lotus Vietnamese input, gaming (Steam, Proton, GameMode; `gpu = "none"`). AMD Panel Self Refresh on without Selective Update (`core.amdgpuPsr = "no-su"`). CPU boost off and the battery charged to 80 % (`laptopProfile.cpuBoost = false`, `chargeLimit = 80`).
 - **Desktop:** Niri + [nixbook-shell](/nixbook-shell/), multi-monitor Niri configuration.
 - **User (khoa):** CLI and dev tools, AI workspaces (ocm), Kubernetes tools with DidactikLabs/Bealv/RPCU kubeconfigs, NixVim, Goji, Atuin sync, Kitty, Zsh, Starship, kubeswitch, OpenCode, RTK, Zen Browser, rbw (Bitwarden), Slack, Moonlight, Anki, Actual Budget, YouTube Music (Pear Desktop).
 - **Input methods** (Ctrl+Space): French AZERTY → Vietnamese (Lotus) → Japanese (Mozc) → German umlauts (Schnelle Umlaute).

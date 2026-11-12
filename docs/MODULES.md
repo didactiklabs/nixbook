@@ -267,6 +267,13 @@ Whether to enable lanzaboote for UEFI Secure Boot. Lanzaboote replaces systemd-b
 
 ## laptopProfile
 
+### `customNixOSModules.laptopProfile.chargeLimit`
+
+- **Type:** `null or integer between 20 and 100 (both inclusive)`
+- **Default:** `null`
+
+Level (%) at which the battery stops charging, on laptops whose firmware has such a limit (`charge_control_end_threshold`: ASUS, Framework, ThinkPad…). A lithium battery kept at 100 % on the charger ages much faster than one kept at 80 %. null sets no limit. This is the limit a boot starts with until one is chosen at run time: `systemctl start battery-charge-limit@<percent>.service` (what nixbook-shell's battery panel does; no password for the person at the computer) applies another one and remembers it across reboots (/var/lib/battery-charge-limit/limit; delete it to come back to this option). Applied at boot and after each resume: some firmwares forget it.
+
 ### `customNixOSModules.laptopProfile.cpuBoost`
 
 - **Type:** `boolean`

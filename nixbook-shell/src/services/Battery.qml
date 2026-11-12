@@ -56,7 +56,10 @@ Singleton {
         if (root._acHigh - root._acLow >= root.drainPoints) root.chargerTooWeak = true;
     }
     onPercentageChanged: root._checkAc()
-    Component.onCompleted: root._checkAc()
+    Component.onCompleted: {
+        root._checkAc();
+        root.refreshChargeLimit();
+    }
 
     Timer {
         id: stallTimer
@@ -81,6 +84,63 @@ Singleton {
     property bool isCriticalAndNotCharging: isCritical && !isPluggedIn
     property bool isSuspendingAndNotCharging: allowAutomaticSuspend && isSuspending && !isPluggedIn
     property bool isFullAndCharging: isFull && isCharging
+
+    // The level charging stops at (the kernel's charge_control_end_threshold),
+    // read and set through `nixbook-charge-limit` (scripts/charge-limit.sh):
+    // a battery kept under 100 % on the charger lasts longer. 0: this battery
+    // has no such limit. Read at the start and when the battery panel opens,
+    // never polled.
+    property int chargeLimit: 0
+    property bool chargeLimitSettable: false
+    property string chargeLimitError: ""
+    readonly property bool chargeLimitBusy: chargeLimitProc.running
+    property int _limitWanted: 0
+    // On the charger and not charging because the limit is reached.
+    readonly property bool heldAtLimit: available && isPluggedIn && !isCharging
+        && chargeState != UPowerDeviceState.FullyCharged
+        && chargeLimit > 0 && chargeLimit < 100
+        && percentage * 100 >= chargeLimit - 2
+
+    function refreshChargeLimit() {
+        if (!root.available || chargeLimitProc.running) return;
+        chargeLimitProc.command = ["nixbook-charge-limit", "status"];
+        chargeLimitProc.running = true;
+    }
+    function setChargeLimit(percent) {
+        if (chargeLimitProc.running) {
+            root._limitWanted = percent; // the latest choice wins
+            return;
+        }
+        root.chargeLimitError = "";
+        root.chargeLimit = percent; // shown at once; the answer corrects it
+        chargeLimitProc.command = ["nixbook-charge-limit", "set", String(percent)];
+        chargeLimitProc.running = true;
+    }
+    onAvailableChanged: if (available) root.refreshChargeLimit()
+
+    Process {
+        id: chargeLimitProc
+        stdout: StdioCollector {
+            id: chargeLimitOut
+            onStreamFinished: {
+                let answer = null;
+                try {
+                    answer = JSON.parse(chargeLimitOut.text.trim());
+                } catch (e) {
+                    return;
+                }
+                root.chargeLimit = answer.limit ?? 0;
+                root.chargeLimitSettable = answer.canSet ?? false;
+                root.chargeLimitError = answer.error ?? "";
+            }
+        }
+        onExited: {
+            if (root._limitWanted <= 0) return;
+            const percent = root._limitWanted;
+            root._limitWanted = 0;
+            Qt.callLater(() => root.setChargeLimit(percent));
+        }
+    }
 
     property real energyRate: UPower.displayDevice.changeRate
     property real timeToEmpty: UPower.displayDevice.timeToEmpty

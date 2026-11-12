@@ -19,9 +19,42 @@ MouseArea {
     implicitWidth:  vertical ? Appearance.sizes.verticalBarWidth : batteryProgress.valueBarWidth + 8
     implicitHeight: vertical ? batteryProgress.valueBarWidth + 8 : Appearance.sizes.barHeight
 
-    hoverEnabled: !Config.options.bar.tooltips.clickToShow
-    // Hover-only (its popup): the hand only when a click shows it.
-    cursorShape: Config.options.bar.tooltips.clickToShow ? Qt.PointingHandCursor : Qt.ArrowCursor
+    // The battery panel (BatteryPopup) has controls, so it stays open while
+    // the pointer is on the widget or on it: hovering opens it (unless popups
+    // are off or shown on click), a click opens it too (and closes it when a
+    // click is what shows it), and it closes a moment after the pointer left.
+    property bool panelOpen: false
+    readonly property bool hoverOpens: Config.options.bar.tooltips.enable && !Config.options.bar.tooltips.clickToShow
+    readonly property bool cursorNear: containsMouse || batteryPopup.hovered
+
+    hoverEnabled: true
+    cursorShape: Qt.PointingHandCursor
+
+    onCursorNearChanged: {
+        if (cursorNear) {
+            closeTimer.stop()
+            if (!panelOpen && hoverOpens) hoverOpenTimer.restart()
+        } else {
+            hoverOpenTimer.stop()
+            if (panelOpen) closeTimer.restart()
+        }
+    }
+    onClicked: {
+        hoverOpenTimer.stop()
+        root.panelOpen = root.hoverOpens ? true : !root.panelOpen
+    }
+    onPanelOpenChanged: if (panelOpen) Battery.refreshChargeLimit()
+
+    Timer {
+        id: hoverOpenTimer
+        interval: 120
+        onTriggered: if (root.cursorNear) root.panelOpen = true
+    }
+    Timer {
+        id: closeTimer
+        interval: 700
+        onTriggered: if (!root.cursorNear) root.panelOpen = false
+    }
 
     ClippedProgressBar {
         id: batteryProgress
@@ -91,5 +124,7 @@ MouseArea {
     BatteryPopup {
         id: batteryPopup
         hoverTarget: root
+        hoverMargin: 10
+        active: root.panelOpen
     }
 }
