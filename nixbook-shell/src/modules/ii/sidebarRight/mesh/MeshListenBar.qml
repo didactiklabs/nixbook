@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import qs
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 import qs.services
 import QtQuick
@@ -32,10 +33,20 @@ ColumnLayout {
     readonly property real length: root.shared?.track?.length > 0 ? root.shared.track.length : 0
     property real now: Date.now()
     readonly property real position: MeshListen.positionOf(root.shared, root.now)
+    // The progress line's length on screen (set by the line itself).
+    property real lineWidth: 0
+    // Read often enough for the line to grow by half a screen pixel at most
+    // between two readings: it looks as continuous as an animation, which
+    // redrew the whole side panel 60 times a second for as long as a song
+    // was shared (a line of 300 px moves 1.5 px a second on a 3 minute song).
+    // Only while it can be seen (the panel stays mapped when it is closed).
     Timer {
-        interval: 1000
+        interval: root.length > 0 && root.lineWidth > 0
+            ? Math.max(50, Math.min(1000, 500 * root.length / (root.lineWidth * Screen.devicePixelRatio)))
+            : 1000
         repeat: true
-        running: root.visible && root.length > 0 && !!root.shared?.playing
+        running: root.length > 0 && !!root.shared?.playing && ObjectUtils.shown(root)
+        onRunningChanged: if (running) root.now = Date.now()
         onTriggered: root.now = Date.now()
     }
     function clock(seconds) {
@@ -170,18 +181,38 @@ ColumnLayout {
                         opacity: 0.8
                     }
                     Rectangle {
+                        id: line
                         Layout.fillWidth: true
                         implicitHeight: 4
                         radius: 2
                         color: Qt.rgba(card.fg.r, card.fg.g, card.fg.b, 0.2)
+                        onWidthChanged: root.lineWidth = line.width
                         Rectangle {
-                            width: parent.width * (root.length > 0 ? root.position / root.length : 0)
+                            id: lineFill
+                            // While the song plays the line follows it as it
+                            // is (a fraction of a pixel per reading). Only a
+                            // jump glides there: a seek, another song, the
+                            // panel resized.
+                            readonly property real target: line.width * (root.length > 0 ? root.position / root.length : 0)
+                            property bool glide: false
+                            function follow() {
+                                if (lineGlide.running) return; // it ends on the line's place of then
+                                lineFill.glide = root.visible && Math.abs(lineFill.target - lineFill.width) > 2;
+                                lineFill.width = lineFill.target;
+                            }
+                            onTargetChanged: lineFill.follow()
+                            Component.onCompleted: lineFill.width = lineFill.target
                             height: parent.height
                             radius: 2
                             color: card.fg
                             Behavior on width {
-                                enabled: root.visible
-                                NumberAnimation { duration: 900; easing.type: Easing.Linear }
+                                enabled: lineFill.glide
+                                NumberAnimation {
+                                    id: lineGlide
+                                    duration: 900
+                                    easing.type: Easing.Linear
+                                    onRunningChanged: if (!running) Qt.callLater(lineFill.follow)
+                                }
                             }
                         }
                     }

@@ -63,6 +63,16 @@ The IPC targets include `ai`, `bar`, `background`, `brightness`, `calendar`, `de
 
 See the [keybindings](/desktop/keybindings#applications-shell) for what is bound by default.
 
+### Animations follow the screen's frames
+
+Qt Quick steps animations with the frames of a window only while a single window is shown. A shell keeps dozens of surfaces mapped, so Qt fell back to a 16 ms timer on a 60 Hz screen: 62.5 steps a second for 60 frames, a double step about twice a second, animations 4% too fast, and every mapped surface redrawn each time an animation started from rest. nixbook-shell's Quickshell is patched (`patches/quickshell-frame-synced-animations.patch`) to step animations once after each frame a window was drawn for, and by a timer only while nothing is drawn. Only the surfaces that change are redrawn, and an animation that starts (a hover, a panel opening) shows in the very next frame.
+
+Set `QS_FRAME_SYNCED_ANIMATIONS=0` in the shell's environment to get Qt's own pacing back (to compare, or if a compositor other than Niri misbehaves):
+
+```bash
+systemctl --user edit nixbook-shell   # [Service] Environment=QS_FRAME_SYNCED_ANIMATIONS=0
+```
+
 ## Using it outside nixbook
 
 The `nixbook-shell/` directory is **self-contained** — nothing in it refers to the rest of the repository, and CI checks that by evaluating a copy of it alone. Use it in any Home Manager configuration:

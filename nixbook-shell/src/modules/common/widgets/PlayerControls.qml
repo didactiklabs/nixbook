@@ -21,6 +21,24 @@ Item {
     required property real radius
     signal toggleLyrics()
 
+    // The player's position, followed only while this can be seen: each
+    // reading of MprisPlayer.position, anywhere (the dock's card takes one a
+    // second), reaches every binding on it, and the media popup, which stays
+    // mapped when it is closed, redrew its seek slider and time for each.
+    readonly property bool onScreen: ObjectUtils.shown(root)
+    property real position: 0
+    function readPosition() {
+        root.position = root.player?.position ?? 0;
+    }
+    onOnScreenChanged: if (root.onScreen) root.readPosition()
+    onPlayerChanged: root.readPosition()
+    Component.onCompleted: root.readPosition()
+    Connections {
+        target: root.player
+        enabled: root.onScreen
+        function onPositionChanged() { root.readPosition(); }
+    }
+
     component TrackChangeButton: RippleButton {
         implicitWidth: 24
         implicitHeight: 24
@@ -177,7 +195,7 @@ Item {
                     color: root.blendedColors.colSubtext
                     elide: Text.ElideRight
                     font.features: { "tnum": 1 }
-                    text: `${StringUtils.friendlyTimeForSeconds(root.player?.position)} / ${StringUtils.friendlyTimeForSeconds(root.player?.length)}`
+                    text: `${StringUtils.friendlyTimeForSeconds(root.position)} / ${StringUtils.friendlyTimeForSeconds(root.player?.length)}`
                 }
 
                 RowLayout {
@@ -211,7 +229,7 @@ Item {
                                 highlightColor: root.blendedColors.colPrimary
                                 trackColor: root.blendedColors.colSecondaryContainer
                                 handleColor: root.blendedColors.colPrimary
-                                value: root.player?.position / root.player?.length
+                                value: root.position / root.player?.length
                                 onMoved: root.player.position = value * root.player.length
                             }
                         }
@@ -228,7 +246,7 @@ Item {
                                 wavy: root.player?.isPlaying
                                 highlightColor: root.blendedColors.colPrimary
                                 trackColor: root.blendedColors.colSecondaryContainer
-                                value: root.player?.position / root.player?.length
+                                value: root.position / root.player?.length
                             }
                         }
                     }

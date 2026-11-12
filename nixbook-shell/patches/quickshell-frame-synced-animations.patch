@@ -1,0 +1,500 @@
+diff --git a/src/core/CMakeLists.txt b/src/core/CMakeLists.txt
+--- a/src/core/CMakeLists.txt
++++ b/src/core/CMakeLists.txt
+@@ -16,6 +16,7 @@
+ 	scanenv.cpp
+ 	qsintercept.cpp
+ 	incubator.cpp
++	frameanimationdriver.cpp
+ 	lazyloader.cpp
+ 	easingcurve.cpp
+ 	iconimageprovider.cpp
+diff --git a/src/core/frameanimationdriver.cpp b/src/core/frameanimationdriver.cpp
+--- a/src/core/frameanimationdriver.cpp
++++ b/src/core/frameanimationdriver.cpp
+@@ -0,0 +1,282 @@
++#include "frameanimationdriver.hpp"
++#include <cmath>
++
++#include <private/qsgrenderloop_p.h>
++#include <qpa/qplatformwindow.h>
++#include <qabstractanimation.h>
++#include <qcoreapplication.h>
++#include <qcoreevent.h>
++#include <qguiapplication.h>
++#include <qlogging.h>
++#include <qloggingcategory.h>
++#include <qminmax.h>
++#include <qnamespace.h>
++#include <qobject.h>
++#include <qquickwindow.h>
++#include <qscreen.h>
++#include <qtenvironmentvariables.h>
++#include <qtimer.h>
++#include <qtypes.h>
++
++#include "logcat.hpp"
++
++namespace {
++QS_LOGGING_CATEGORY(logFrameAnimation, "quickshell.frameanimation", QtWarningMsg);
++
++// A step that follows the previous one by less than this much of a frame is
++// "short". One is expected when a window starts to render: its first two
++// frames are synchronized at once, then its render thread waits for the
++// compositor and holds the next ones back. Two in a row mean nothing holds
++// the frames back (a window that is not shown, a compositor that sends no
++// frame callbacks): the timer paces the steps then.
++constexpr double SHORT_STEP = 0.5;
++// A window that asked to be updated gets its frame, and the step that follows
++// it, when the compositor says so. The timer waits for it this many frames
++// before it steps anyway (a late frame), and then stops waiting for that
++// window until it is heard of again (a surface the compositor does not show
++// gets its frame callbacks once a second).
++constexpr double AWAIT_FRAMES = 3;
++// The first step, this long after the animations start (ms).
++constexpr int FIRST_STEP = 1;
++// A screen stops being the one that paces the steps this long after its last
++// frame (ns).
++constexpr qint64 PACER_TIMEOUT = 250'000'000;
++
++double frameInterval(const QScreen* screen) {
++	auto rate = screen ? screen->refreshRate() : 0;
++	// Some platforms report 0 or something bogus.
++	if (rate < 1) rate = 60;
++	return 1000.0 / rate;
++}
++} // namespace
++
++QsFrameAnimationDriver::QsFrameAnimationDriver(QObject* parent): QAnimationDriver(parent) {
++	this->interval = frameInterval(QGuiApplication::primaryScreen());
++
++	// Timers are dispatched after the posted events of an event loop
++	// iteration, update requests included.
++	this->syncedTimer.setSingleShot(true);
++	this->syncedTimer.setInterval(0);
++	QObject::connect(
++	    &this->syncedTimer,
++	    &QTimer::timeout,
++	    this,
++	    &QsFrameAnimationDriver::onWindowsSynced
++	);
++
++	this->tickTimer.setSingleShot(true);
++	this->tickTimer.setTimerType(Qt::PreciseTimer);
++	QObject::connect(&this->tickTimer, &QTimer::timeout, this, &QsFrameAnimationDriver::tick);
++
++	this->clock.start();
++}
++
++QsFrameAnimationDriver* QsFrameAnimationDriver::init(QSGRenderLoop* renderLoop) {
++	static QsFrameAnimationDriver* instance = nullptr; // NOLINT
++	static bool tried = false;
++	if (tried) return instance;
++	tried = true;
++
++	auto ok = false;
++	auto enabled = qEnvironmentVariableIntValue("QS_FRAME_SYNCED_ANIMATIONS", &ok);
++	if (ok && enabled == 0) {
++		qCInfo(logFrameAnimation) << "Disabled by QS_FRAME_SYNCED_ANIMATIONS.";
++		return nullptr;
++	}
++
++	auto* app = QCoreApplication::instance();
++	auto* loopDriver = renderLoop ? renderLoop->animationDriver() : nullptr;
++	if (!app || !loopDriver) {
++		qCInfo(logFrameAnimation) << "The render loop has no animation driver, keeping Qt's.";
++		return nullptr;
++	}
++
++	// Only one driver can be installed. The render loop keeps its own, which
++	// from here on never runs: it starts no timer and asks no window to update.
++	loopDriver->uninstall();
++	instance = new QsFrameAnimationDriver(app);
++	instance->renderLoop = renderLoop;
++	instance->install();
++	app->installEventFilter(instance);
++
++	qCDebug(logFrameAnimation) << "Animations follow the frames of the windows.";
++	return instance;
++}
++
++// As the render loop's own timer: the frame interval in whole milliseconds.
++int QsFrameAnimationDriver::timerInterval() const {
++	return qMax(1, static_cast<int>(this->interval));
++}
++
++double QsFrameAnimationDriver::sinceLastStep() const {
++	return static_cast<double>(this->clock.nsecsElapsed() - this->lastStep) / 1e6;
++}
++
++void QsFrameAnimationDriver::start() {
++	this->time = 0;
++	this->lastStep = this->clock.nsecsElapsed();
++	this->wallClock = false;
++	this->lag = 0;
++	this->bad = 0;
++	this->good = 0;
++
++	this->lastShort = false;
++	this->unpaced = false;
++	this->stalled.clear();
++
++	QAnimationDriver::start();
++
++	// The first step right away, once what started the animations is done
++	// (the render loop's timer made it wait a frame's time): what was just
++	// asked for moves in the next frame, not the one after.
++	this->syncedTimer.stop();
++	this->tickTimer.start(FIRST_STEP);
++}
++
++void QsFrameAnimationDriver::stop() {
++	this->syncedTimer.stop();
++	this->tickTimer.stop();
++	QAnimationDriver::stop();
++}
++
++qint64 QsFrameAnimationDriver::elapsed() const { return static_cast<qint64>(this->time); }
++
++bool QsFrameAnimationDriver::eventFilter(QObject* watched, QEvent* event) {
++	if (event->type() == QEvent::UpdateRequest && this->isRunning()) {
++		if (auto* window = qobject_cast<QQuickWindow*>(watched)) this->onUpdateRequest(window);
++	}
++
++	return false;
++}
++
++// A window is about to be polished and synchronized for a frame.
++void QsFrameAnimationDriver::onUpdateRequest(QQuickWindow* window) {
++	auto now = this->clock.nsecsElapsed();
++	auto interval = frameInterval(window->screen());
++
++	// With screens of different refresh rates, the windows of the fastest one
++	// that renders pace the steps: once per frame of each screen would step
++	// the animations too often.
++	this->stalled.remove(window);
++	if (interval > this->interval + 0.1 && now - this->intervalSeen < PACER_TIMEOUT) return;
++	this->interval = interval;
++	this->intervalSeen = now;
++
++	if (!this->syncedTimer.isActive()) this->syncedTimer.start();
++}
++
++// The update requests of this frame have been handled: the windows that
++// changed are synchronized, and their render threads draw. Step the
++// animations for the next frame, as the render loop does after synchronizing
++// its only window.
++void QsFrameAnimationDriver::onWindowsSynced() {
++	if (!this->isRunning()) return;
++
++	auto isShort = this->sinceLastStep() < this->interval * SHORT_STEP;
++	if (isShort && this->lastShort) {
++		// Nothing holds these frames back: one step per frame's time, by the
++		// timer (armed by the last step).
++		this->unpaced = true;
++		if (!this->tickTimer.isActive()) this->tickTimer.start(this->timerInterval());
++		return;
++	}
++
++	this->lastShort = isShort;
++	this->unpaced = false;
++	this->step();
++}
++
++// Whether a window that is shown waits for the compositor to be updated: its
++// frame, and the step after it, are on their way.
++bool QsFrameAnimationDriver::awaitingFrame(bool giveUp) {
++	if (!this->renderLoop) return false;
++
++	auto awaiting = false;
++	for (auto* window: this->renderLoop->windows()) {
++		if (!window->isVisible() || !window->isExposed() || this->stalled.contains(window)) continue;
++		const auto* handle = window->handle();
++		if (!handle || !handle->hasPendingUpdateRequest()) continue;
++
++		awaiting = true;
++		if (giveUp) this->stalled.insert(window);
++		else break;
++	}
++
++	return awaiting;
++}
++
++// A frame's time has passed since the last step.
++void QsFrameAnimationDriver::tick() {
++	if (!this->isRunning()) return;
++
++	if (this->awaitingFrame(false)) {
++		// A frame is coming, the step follows it (stepping now as well would
++		// move what it shows by two steps). Unless it is late for good.
++		auto wait = this->interval * AWAIT_FRAMES - this->sinceLastStep();
++		if (wait > 0) {
++			this->tickTimer.start(static_cast<int>(std::ceil(wait)));
++			return;
++		}
++
++		this->awaitingFrame(true);
++	}
++
++	// The animations change nothing that is drawn, or the windows are
++	// synchronized as soon as they change (nothing paces their frames, and
++	// the frame that follows this step is not owed another one): by the
++	// timer, as the render loop's own.
++	this->lastShort = this->unpaced;
++	this->step();
++}
++
++void QsFrameAnimationDriver::step() {
++	this->syncedTimer.stop();
++
++	emit this->aboutToAdvance();
++	// (Incubating objects may have ended the last animation.)
++	if (this->isRunning()) this->advance();
++}
++
++void QsFrameAnimationDriver::advance() {
++	auto now = this->clock.nsecsElapsed();
++	auto delta = static_cast<double>(now - this->lastStep) / 1e6;
++	this->lastStep = now;
++
++	if (this->wallClock) {
++		this->time += delta;
++
++		if (delta < this->interval * 1.25) this->good++;
++		else this->good = 0;
++
++		if (this->good > 10) {
++			this->wallClock = false;
++			this->lag = 0;
++			this->bad = 0;
++			qCDebug(logFrameAnimation) << "Frames are on time again, stepping by frame.";
++		}
++	} else {
++		// A late frame still moves the animations by one frame: catching up
++		// would add a jump to the frame that was held. Only frames that keep
++		// coming late switch to the wall clock.
++		this->time += this->interval;
++
++		if (delta > this->interval * 1.25) {
++			this->lag += delta / this->interval;
++			this->bad++;
++
++			if (this->lag > 10 && this->bad > 2) {
++				this->wallClock = true;
++				this->good = 0;
++				qCDebug(logFrameAnimation) << "Frames keep coming late, following the wall clock.";
++			}
++		} else {
++			this->lag = 0;
++			this->bad = 0;
++		}
++	}
++
++	this->advanceAnimation();
++
++	// Without a frame, the next step comes after one frame's time.
++	if (this->isRunning()) this->tickTimer.start(this->timerInterval());
++}
+diff --git a/src/core/frameanimationdriver.hpp b/src/core/frameanimationdriver.hpp
+--- a/src/core/frameanimationdriver.hpp
++++ b/src/core/frameanimationdriver.hpp
+@@ -0,0 +1,100 @@
++#pragma once
++
++#include <qabstractanimation.h>
++#include <qelapsedtimer.h>
++#include <qevent.h>
++#include <qobject.h>
++#include <qpointer.h>
++#include <qset.h>
++#include <qtimer.h>
++#include <qtmetamacros.h>
++#include <qtypes.h>
++
++class QQuickWindow;
++class QSGRenderLoop;
++
++///! Advances animations once per presented frame.
++/// Qt Quick's threaded render loop steps animations with the frames of the
++/// window only while exactly one window is exposed. With more (a shell has
++/// dozens of layer surfaces) it falls back to a system timer of
++/// int(vsync interval) ms: 16 ms on a 60 Hz screen, so 62.5 steps a second
++/// for 60 frames. About two frames a second then show a double step, every
++/// animation runs ~4% fast, and each time an animation starts from rest the
++/// render loop makes every exposed window render and present a frame.
++///
++/// This driver takes the render loop's place. Animations step when a window
++/// has just been synchronized for a frame, which is where the single window
++/// path steps them: the next synchronization of that window waits for its
++/// render thread, which waits for the compositor's frame callback, so there
++/// is one step per presented frame. A timer steps them only while no window
++/// renders (animations of things that are not on screen).
++///
++/// The time itself moves as in the render loop's driver: one frame interval
++/// per step, and the wall clock once frames keep coming late.
++class QsFrameAnimationDriver: public QAnimationDriver {
++	Q_OBJECT;
++
++public:
++	explicit QsFrameAnimationDriver(QObject* parent = nullptr);
++
++	/// Takes the place of the render loop's animation driver. Returns null,
++	/// and changes nothing, when QS_FRAME_SYNCED_ANIMATIONS=0 or when the
++	/// render loop has no driver of its own (not the threaded loop).
++	static QsFrameAnimationDriver* init(QSGRenderLoop* renderLoop);
++
++	void advance() override;
++	[[nodiscard]] qint64 elapsed() const override;
++
++	bool eventFilter(QObject* watched, QEvent* event) override;
++
++signals:
++	/// Before each step: the moment to incubate objects for a fraction of a
++	/// frame, as QSGRenderLoop::timeToIncubate().
++	void aboutToAdvance();
++
++protected:
++	void start() override;
++	void stop() override;
++
++private slots:
++	void onWindowsSynced();
++	void tick();
++
++private:
++	void step();
++	void onUpdateRequest(QQuickWindow* window);
++	bool awaitingFrame(bool giveUp);
++	[[nodiscard]] double sinceLastStep() const;
++	[[nodiscard]] int timerInterval() const;
++
++	// `syncedTimer` runs once the update requests of a frame have been
++	// handled, `tickTimer` when the next step is due without a frame. Each
++	// step stops the first and arms the second again.
++	QTimer syncedTimer;
++	QTimer tickTimer;
++
++	QElapsedTimer clock;
++	qint64 lastStep = 0; // ns on `clock`
++	double time = 0; // ms of animation time
++
++	// Frame interval of the screen whose windows pace the steps (the fastest
++	// one that rendered lately), in ms.
++	double interval = 1000.0 / 60.0;
++	qint64 intervalSeen = 0; // ns on `clock`
++
++	// Whether the last step came right after the one before it, and whether
++	// nothing holds the frames back (the timer paces the steps then).
++	bool lastShort = false;
++	bool unpaced = false;
++	// Windows whose frame did not come in time: not waited for again until
++	// they are updated.
++	QSet<QQuickWindow*> stalled;
++	QPointer<QSGRenderLoop> renderLoop;
++
++	// As QSGDefaultAnimationDriver: frames that keep coming late switch the
++	// time to the wall clock, until they are on time again.
++	bool wallClock = false;
++	double lag = 0;
++	int bad = 0;
++	int good = 0;
++};
+diff --git a/src/core/incubator.cpp b/src/core/incubator.cpp
+--- a/src/core/incubator.cpp
++++ b/src/core/incubator.cpp
+@@ -10,9 +10,11 @@
+ #include <qobject.h>
+ #include <qobjectdefs.h>
+ #include <qqmlincubator.h>
++#include <qquickwindow.h>
+ #include <qscreen.h>
+ #include <qtmetamacros.h>
+ 
++#include "frameanimationdriver.hpp"
+ #include "logcat.hpp"
+ 
+ QS_LOGGING_CATEGORY(logIncubator, "quickshell.incubator", QtWarningMsg);
+@@ -52,6 +54,27 @@
+ 	    &QsIncubationController::incubate
+ 	);
+ 
++	// Animations step with the frames of the windows (QsFrameAnimationDriver)
++	// instead of the render loop's timer, which then never asks to incubate.
++	this->frameDriver = QsFrameAnimationDriver::init(this->renderLoop);
++	if (this->frameDriver) {
++		QObject::connect(
++		    this->frameDriver,
++		    &QsFrameAnimationDriver::aboutToAdvance,
++		    this,
++		    &QsIncubationController::incubate
++		);
++
++		QObject::connect(
++		    this->frameDriver,
++		    &QAnimationDriver::stopped,
++		    this,
++		    &QsIncubationController::animationStopped
++		);
++
++		return;
++	}
++
+ 	QAnimationDriver* animationDriver = this->renderLoop->animationDriver();
+ 	if (animationDriver) {
+ 		QObject::connect(
+@@ -106,7 +129,7 @@
+ 		if (!this->followRenderloop) {
+ 			this->incubateFor(10);
+ 			if (this->incubatingObjectCount()) this->incubateLater();
+-		} else if (this->renderLoop->interleaveIncubation()) {
++		} else if (this->interleaveIncubation()) {
+ 			this->incubateFor(this->incubationTime);
+ 		} else {
+ 			this->incubateFor(this->incubationTime * 2);
+@@ -117,10 +140,23 @@
+ 
+ void QsIncubationController::animationStopped() { this->incubate(); }
+ 
++// Whether objects are incubated a fraction of a frame at a time, between the
++// steps of running animations (QSGThreadedRenderLoop::interleaveIncubation()).
++bool QsIncubationController::interleaveIncubation() const {
++	if (!this->renderLoop) return false;
++	if (!this->frameDriver) return this->renderLoop->interleaveIncubation();
++	if (!this->frameDriver->isRunning()) return false;
++
++	for (const auto* window: this->renderLoop->windows()) {
++		if (window->isVisible() && window->isExposed()) return true;
++	}
++
++	return false;
++}
++
+ void QsIncubationController::incubatingObjectCountChanged(int count) {
+ 	if (count
+-	    && (!this->followRenderloop
+-	        || (this->renderLoop && !this->renderLoop->interleaveIncubation())))
++	    && (!this->followRenderloop || (this->renderLoop && !this->interleaveIncubation())))
+ 	{
+ 		this->incubateLater();
+ 	}
+diff --git a/src/core/incubator.hpp b/src/core/incubator.hpp
+--- a/src/core/incubator.hpp
++++ b/src/core/incubator.hpp
+@@ -27,6 +27,7 @@
+ };
+ 
+ class QSGRenderLoop;
++class QsFrameAnimationDriver;
+ 
+ class QsIncubationController
+     : public QObject
+@@ -56,6 +57,9 @@
+ #else
+ 	QSGRenderLoop* renderLoop = nullptr;
+ #endif
++	[[nodiscard]] bool interleaveIncubation() const;
++
++	QsFrameAnimationDriver* frameDriver = nullptr;
+ 	int incubationTime = 0;
+ 	int timerId = 0;
+ 	bool followRenderloop = false;
