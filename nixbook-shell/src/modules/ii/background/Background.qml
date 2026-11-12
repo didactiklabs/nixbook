@@ -153,8 +153,8 @@ Variants {
 
                 // Decode wallpapers at screen resolution. Uploading a 5K+ image and its mipmaps to the GPU
                 // stalls the render thread, and the GUI thread with it while an animation is running.
-                readonly property size wallpaperSourceSize: Qt.size(Math.ceil(modelData.width * modelData.devicePixelRatio),
-                    Math.ceil(modelData.height * modelData.devicePixelRatio))
+                readonly property size wallpaperSourceSize: Wallpapers.pixelSize(modelData.name, modelData.width, modelData.height,
+                    modelData.devicePixelRatio)
 
                 property real transitionProgress: 1.0
                 property bool transitionPending: false

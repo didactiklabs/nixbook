@@ -1,4 +1,5 @@
 import qs
+import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions as CF
@@ -233,8 +234,7 @@ Item {
             mipmap: true
             antialiasing: true
             // Same request as the background wallpaper, so both share a single decode
-            sourceSize: Qt.size(Math.ceil(root.screen.width * root.screen.devicePixelRatio),
-                Math.ceil(root.screen.height * root.screen.devicePixelRatio))
+            sourceSize: Wallpapers.pixelSize(root.screen.name, root.screen.width, root.screen.height, root.screen.devicePixelRatio)
             property real imageZoom: 1
             scale: root.centeredImageScale() * (1 / centeredWallpaperShapeItem.shapeZoom) * imageZoom
         }

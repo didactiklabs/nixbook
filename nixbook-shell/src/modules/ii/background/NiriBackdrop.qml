@@ -24,6 +24,8 @@ Variants {
         // intermediate textures stay in memory for as long as the shell runs.
         property int shrink: 1
         property int blurRadius: 48 // fixme variable
+        readonly property size pixelSize: Wallpapers.pixelSize(surface.screen.name, surface.screen.width, surface.screen.height,
+            surface.screen.devicePixelRatio)
 
         WlrLayershell.layer: WlrLayer.Background
         WlrLayershell.namespace: surface.layerName
@@ -32,6 +34,11 @@ Variants {
 
         exclusionMode: ExclusionMode.Ignore
         color: "transparent"
+        // A single picture (or its blur) and nothing over it: no depth and
+        // stencil buffers, which are as large as the surface (28 MB each at
+        // 2880×1800) and serve overlapping or rotated, clipped content only
+        // (quickshell.nix, patches/quickshell-surface-no-depth-stencil.patch).
+        surfaceFormat.depthStencil: false
 
         anchors {
             top: true
@@ -50,8 +57,8 @@ Variants {
             // one shared decode. Unbounded, a wallpaper change decoded the
             // full-resolution file again and uploaded that texture in the
             // middle of the transition.
-            sourceSize: Qt.size(Math.ceil(surface.screen.width * surface.screen.devicePixelRatio / surface.shrink),
-                Math.ceil(surface.screen.height * surface.screen.devicePixelRatio / surface.shrink))
+            sourceSize: Qt.size(Math.ceil(surface.pixelSize.width / surface.shrink),
+                Math.ceil(surface.pixelSize.height / surface.shrink))
             asynchronous: true
             // The previous picture until the new one is decoded: cleared, the
             // surface was empty for a few frames and the windows above showed
@@ -62,15 +69,20 @@ Variants {
             visible: !surface.blurred
         }
 
-        FastBlur {
-            visible: surface.blurred
+        // Only while it shows (a video's still frame isn't blurred): hidden
+        // after it has drawn, a FastBlur keeps the off-screen textures of its
+        // steps, the first two as large as the screen.
+        Loader {
+            active: surface.blurred
             width: sourceImage.width
             height: sourceImage.height
             scale: surface.shrink
             transformOrigin: Item.TopLeft
-            source: sourceImage
-            radius: surface.blurRadius
-            transparentBorder: false
+            sourceComponent: FastBlur {
+                source: sourceImage
+                radius: surface.blurRadius
+                transparentBorder: false
+            }
         }
     }
 

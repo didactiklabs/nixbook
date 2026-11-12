@@ -19,6 +19,7 @@ Singleton {
     readonly property var workspaceById: backend?.workspaceById ?? ({})
     readonly property var activeWorkspace: backend?.activeWorkspace ?? null
     readonly property var monitors: backend?.monitors ?? []
+    readonly property bool outputsKnown: backend?.outputsKnown ?? true
     readonly property var focusedMonitor: backend?.focusedMonitor ?? null
 
     function focusWindow(id) { backend?.focusWindow(id) }
@@ -29,5 +30,6 @@ Singleton {
     function activeWorkspaceForMonitor(monitorName) { return backend?.activeWorkspaceForMonitor(monitorName) ?? null }
     function biggestWindowForWorkspace(wsId) { return backend?.biggestWindowForWorkspace(wsId) ?? null }
     function fullscreenOnMonitor(monitorName) { return backend?.fullscreenOnMonitor(monitorName) ?? false }
+    function scaleFor(name) { return backend?.scaleFor(name) ?? 0 }
     function monitorGeometry(screen) { return backend?.monitorGeometry(screen) ?? { x: 0, y: 0, scale: 1 } }
 }

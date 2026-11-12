@@ -366,19 +366,26 @@ Scope {
                 color: Cyberpunk.panel
                 opacity: 0.62 * Math.min(1, call.t * 1.5)
             }
+            // Painted a few pixels wide and stretched across the screen: the
+            // lines are the same all along. A canvas the size of the screen
+            // kept a 20 MB picture (and as much again as a texture once a call
+            // had shown) for as long as the theme was on.
             Canvas {
                 id: scanlines
-                anchors.fill: parent
+                width: 8
+                height: parent.height
+                transform: Scale { xScale: scanlines.parent.width / scanlines.width }
                 visible: Cyberpunk.glitch
                 opacity: 0.22 * Math.min(1, call.t * 1.5)
-                onWidthChanged: requestPaint()
                 onHeightChanged: requestPaint()
                 onPaint: {
                     const ctx = getContext("2d");
                     ctx.reset();
                     ctx.fillStyle = "#000000";
+                    // Past both sides, so the last column of pixels (a
+                    // fraction of one at a fractional scale) is full too.
                     for (let y = 0; y < height; y += 4)
-                        ctx.fillRect(0, y, width, 2);
+                        ctx.fillRect(-1, y, width + 2, 2);
                 }
             }
 
