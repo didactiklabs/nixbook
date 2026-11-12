@@ -58,6 +58,8 @@ friend's song with it.
   nixbook-ytmusic videos search WORDS... [--count N]
   nixbook-ytmusic videos channel URL|VIDEO [--count N]
   nixbook-ytmusic videos channels [--cached]
+  nixbook-ytmusic videos video ID      one video (a pasted link): its title
+                                       and channel, through YouTube's oEmbed
                                        YouTube's videos (www.youtube.com, the
                                        same session): your home page, your
                                        subscriptions' latest, a search; JSON
@@ -1240,15 +1242,22 @@ def videos_copy_path(feed):
     return os.path.join(cache_dir(), f"videos-{feed}.json")
 
 
-def channel_of_video(vid):
-    """A video's channel page through YouTube's oEmbed (~0.1 s; yt-dlp's
-    flat lists leave it out for some videos), "" when it can't say."""
+def oembed(vid):
+    """YouTube's oEmbed answer about a video (~0.1 s, no sign-in), {} when
+    it can't say (private, removed, no network)."""
     url = "https://www.youtube.com/oembed?format=json&url=" + urllib.parse.quote(YOUTUBE_WATCH.format(vid), safe="")
     try:
         with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=10) as r:
-            m = CHANNEL_URL.match(str(json.loads(r.read(65536)).get("author_url") or ""))
-    except (OSError, ValueError, AttributeError):
-        return ""
+            answer = json.loads(r.read(65536))
+    except (OSError, ValueError):
+        return {}
+    return answer if isinstance(answer, dict) else {}
+
+
+def channel_of_video(vid):
+    """A video's channel page through YouTube's oEmbed (~0.1 s; yt-dlp's
+    flat lists leave it out for some videos), "" when it can't say."""
+    m = CHANNEL_URL.match(str(oembed(vid).get("author_url") or ""))
     return m.group(0).replace("://m.", "://www.") if m else ""
 
 
@@ -1304,6 +1313,18 @@ def cmd_videos(args):
             out({"error": usage}, 1)
         args = args[:i] + args[i + 2:]
     feed = args[0]
+    if feed == "video":
+        # One video by its id (a link pasted in the tab's search field).
+        vid = args[1] if len(args) > 1 else ""
+        if not VIDEO_ID.match(vid):
+            out({"error": "videos video: a YouTube video id"}, 1)
+        info = oembed(vid)
+        m = CHANNEL_URL.match(str(info.get("author_url") or ""))
+        out({"feed": "video", "items": [{
+            "id": vid, "title": str(info.get("title") or ""), "channel": str(info.get("author_name") or ""),
+            "channelUrl": m.group(0).replace("://m.", "://www.") if m else "", "duration": 0, "views": 0,
+            "live": False, "upcoming": False, "thumb": f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg"}],
+             "found": bool(info), "at": int(time.time())})
     if feed == "channels":
         # The channels you're subscribed to (YouTube's feed/channels page).
         if "--cached" in args:

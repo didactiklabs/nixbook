@@ -46,7 +46,7 @@ The right sidebar's **YouTube** tab (Mod+N; Settings > Panels turns the tab off)
 
 - **Home**: the videos of your YouTube home page, as YouTube picks them for you.
 - **Subscriptions**: the channels you're subscribed to (picture, name, subscribers); click one for its latest videos.
-- **Search YouTube**: any video; the results come once you stop typing.
+- **Search YouTube**: any video; the results come once you stop typing. **Paste a YouTube link** there instead (`watch?v=`, `youtu.be/`, Shorts, live, music.youtube.com) and that video shows at once: Enter (or a click) plays it, from the time in the link (`t=90`, `t=1m30s`) when it has one.
 
 Click a video to play it in **mpv**, your mpv with its settings (controls, upscaling…); the music playing [in the background](#youtube-music-in-the-background) pauses. While it plays, a card at the top of the tab shows it with **play/pause** and **its own volume** (mpv's, not the system's); the next video starts at the volume you left there.
 

@@ -18,7 +18,8 @@ import Quickshell.Widgets
  * (services/YouTubeMusic.qml, `nixbook-ytmusic videos`, through yt-dlp);
  * Subscriptions lists the channels you're subscribed to, each opening its
  * latest videos;
- * the search field finds any video, signed in or not. A click opens the
+ * the search field finds any video, signed in or not (a pasted YouTube
+ * link shows that video: Enter plays it, from its t= time). A click opens the
  * video in mpv (`nixbook-ytmusic watch`: your mpv and its configuration),
  * pausing the music playing in the background. Each feed shows its last
  * copy at once and is asked again when older than ten minutes. A video's
@@ -147,9 +148,22 @@ Item {
     property bool searching: false
     property string searchError: ""
     readonly property bool inSearch: searchField.text.trim().length >= 2
+    // A YouTube link pasted in the field: {id, start}, else null.
+    readonly property var pastedLink: YouTubeMusic.parseVideoLink(searchField.text)
     function search(force) {
         const q = searchField.text.trim();
         searchDelay.stop();
+        const link = YouTubeMusic.parseVideoLink(q);
+        if (link) {
+            if (!force && root.results?.query === q && root.searchError === "") return;
+            root.searching = true;
+            YouTubeMusic.videoInfo(link.id, (ok, answer) => {
+                root.searching = false;
+                root.searchError = ok ? "" : (answer?.error || Translation.tr("YouTube didn't answer"));
+                if (ok) root.results = Object.assign({}, answer, { query: q, start: link.start });
+            });
+            return;
+        }
         if (q.length < 2) {
             YouTubeMusic.cancelVideoSearch();
             root.searching = false;
@@ -182,7 +196,10 @@ Item {
     readonly property bool canMore: root.view !== "subscriptions" && root.shown.length >= root.countOf(root.view) && root.countOf(root.view) < root.maxCount
 
     function watch(video) {
-        if (YouTubeMusic.watch(video.id)) root.say(Translation.tr("Opening “%1” in mpv…").arg(video.title), "busy");
+        // A pasted link's video: from its t= time.
+        const start = root.view === "search" && root.results?.items?.[0]?.id === video.id ? (root.results?.start ?? 0) : 0;
+        if (YouTubeMusic.watch(video.id, start))
+            root.say(Translation.tr("Opening “%1” in mpv…").arg(video.title || video.id), "busy");
     }
 
     function length(s) {
@@ -397,7 +414,8 @@ Item {
                 spacing: 2
                 StyledText {
                     Layout.fillWidth: true
-                    text: row.video?.title ?? ""
+                    // A pasted link YouTube said nothing about: its id.
+                    text: row.video?.title || Translation.tr("YouTube video %1").arg(row.video?.id ?? "")
                     wrapMode: Text.Wrap
                     maximumLineCount: 2
                     elide: Text.ElideRight
@@ -527,13 +545,20 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: false
                 implicitHeight: 40
-                placeholderText: Translation.tr("Search YouTube")
+                placeholderText: Translation.tr("Search YouTube or paste a link")
                 colBackground: Appearance.colors.colLayer2
                 onTextChanged: {
                     if (searchField.text.trim().length < 2) root.search(false);
+                    // A pasted link: shown at once.
+                    else if (YouTubeMusic.parseVideoLink(searchField.text)) root.search(false);
                     else searchDelay.restart();
                 }
-                onAccepted: root.search(false)
+                // Enter on a pasted link plays it.
+                onAccepted: {
+                    const link = YouTubeMusic.parseVideoLink(searchField.text);
+                    if (link) root.watch(root.results?.items?.[0]?.id === link.id ? root.results.items[0] : { id: link.id, title: "" });
+                    else root.search(false);
+                }
                 Keys.onEscapePressed: event => {
                     if (searchField.text === "" && root.channel !== null) {
                         root.closeChannel();

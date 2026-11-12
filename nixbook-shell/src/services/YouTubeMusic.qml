@@ -218,6 +218,34 @@ Singleton {
     function cancelVideoSearch() {
         root._videoSearchGen++;
     }
+    // A YouTube link (watch?v=, youtu.be/, /shorts/, /live/, /embed/,
+    // music.youtube.com): {id, start (seconds, from t=/start=)}, or null.
+    // Links only: a bare id looks like an ordinary word to search for.
+    function parseVideoLink(text) {
+        const t = String(text ?? "").trim();
+        const m = t.match(/^(?:https?:\/\/)?(?:(?:www|m|music)\.)?(?:youtube\.com\/(?:watch\?(?:[^#\s]*&)?v=|shorts\/|live\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])([^\s]*)$/);
+        if (!m) return null;
+        const tm = m[2].match(/[?&#](?:t|start)=([0-9hms]+)/);
+        let start = 0;
+        if (tm) {
+            const v = tm[1];
+            if (/^[0-9]+$/.test(v)) start = Number(v);
+            else {
+                const h = Number((v.match(/([0-9]+)h/) ?? [])[1] ?? 0), mi = Number((v.match(/([0-9]+)m/) ?? [])[1] ?? 0),
+                    s = Number((v.match(/([0-9]+)s/) ?? [])[1] ?? 0);
+                start = h * 3600 + mi * 60 + s;
+            }
+        }
+        return { id: m[1], start: start };
+    }
+    // One video by its id (its title and channel through oEmbed), as a search
+    // answers; only the latest asked answers (shares the search's turn).
+    function videoInfo(id, then) {
+        const gen = ++root._videoSearchGen;
+        root.run(["videos", "video", id], "", (ok, answer) => {
+            if (gen === root._videoSearchGen && then) then(ok, answer);
+        });
+    }
     // A channel's latest videos, newest first (its link, or a video's id
     // when the feed didn't give the link): {channel: {name, url, followers},
     // items}; only the latest asked answers.
