@@ -66,6 +66,8 @@ The palette is made **readable** first: text colours get at least 4.5:1 contrast
 
 Gmail's colours come from [Catppuccin's Gmail userstyle](https://github.com/catppuccin/userstyles/tree/main/styles/gmail) (MIT), which follows Gmail's pages as they change: `nixbook-shell/scripts/gmail-template.py` compiles it with each Catppuccin colour mapped to a palette role (base → surface, text → on_surface, the accent → primary…) into `app-templates/gmail.css`. Its icon filters become a grey at the text's lightness (`.gray` in the templates). When Gmail changes and their style follows, bump the script's `REV` and run it again.
 
+Catppuccin's style is made for Gmail's own dark theme, and each Meru account keeps its own Gmail theme. The script adds rules of its own (`EXTRA`) so an account left on a light theme is coloured too: the message list, the search box, the side panel (Calendar, Keep, Tasks…) and the compose window opened on its own. They match elements by their accessibility role and Gmail's long-lived class names, not Google's header classes, which change.
+
 ## Adding a theme
 
 Themes are declared once, in `src/modules/common/themes.json`, which the shell, the Nix options, the login screen and Niri's first frames all read:
