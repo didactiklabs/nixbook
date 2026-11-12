@@ -186,6 +186,20 @@ EXTRA = """
     [contenteditable], [role="menu"], [role="listbox"], [role="option"])) {
   color: {{colors.on_surface.default.hex}} !important;
 }
+/* Suggestion lists (the recipients' contacts under To, in either compose
+ * window): light with the theme's light text on a light theme. */
+:root [role="listbox"] {
+  background-color: {{colors.surface_container_high.default.hex}} !important;
+  color: {{colors.on_surface.default.hex}} !important;
+}
+:root [role="listbox"] [role="option"],
+:root [role="listbox"] [role="option"] *:not(img) {
+  background-color: transparent !important;
+  color: {{colors.on_surface.default.hex}} !important;
+}
+:root [role="listbox"] [role="option"]:is(:hover, [aria-selected="true"]) {
+  background-color: {{colors.surface_container_highest.default.hex}} !important;
+}
 /* The band beside the formatting toolbar and the Send row under it (they
  * hold buttons, so the rule above leaves them): the surface itself, not
  * transparent, which showed a light container behind the Send row. */
