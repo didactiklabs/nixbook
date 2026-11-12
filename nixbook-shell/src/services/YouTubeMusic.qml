@@ -119,6 +119,19 @@ Singleton {
             if (then) then(ok, answer);
         });
     }
+    function isOwn(playlistId) {
+        return root.ownPlaylists.some(p => p.id === playlistId);
+    }
+    // A song out of one of them (`track` from its songs: its setVideoId says
+    // which copy; Liked Music: the like taken back): then(ok, answer
+    // {status: removed|absent} or {error}); the playlists read again.
+    function removeFromPlaylist(playlistId, track, then) {
+        const item = track?.setVideoId ? [track.setVideoId] : [];
+        root.run(["remove", playlistId, track?.videoId ?? "", ...item], "", (ok, answer) => {
+            if (ok) root.refreshPlaylists(true);
+            if (then) then(ok, answer);
+        });
+    }
     // A new private playlist with the song in it: then(ok, {playlist, title}).
     function createPlaylist(title, videoId, then) {
         const words = String(title ?? "").trim().split(/\s+/).filter(w => w !== "");

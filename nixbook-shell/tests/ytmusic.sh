@@ -142,6 +142,18 @@ class YTMusic:
         if vids == ["dupe1111111"]:
             return {"status": "STATUS_FAILED", "actions": [{"confirmDialogEndpoint": {"content": "This song is already in the playlist"}}]}
         return {"status": "STATUS_SUCCEEDED", "playlistEditResults": []}
+    # PLmine holds song1111111 twice (two items) and song2222222.
+    def get_playlist(self, pid, limit=100):
+        self._log("get", pid)
+        if pid != "PLmine":
+            return {"title": "Theirs", "tracks": [{"videoId": "song1111111", "title": "x"}]}
+        return {"title": "Mine", "tracks": [
+            {"videoId": "song2222222", "title": "two", "setVideoId": "SETB"},
+            {"videoId": "song1111111", "title": "one", "setVideoId": "SETA"},
+            {"videoId": "song1111111", "title": "one again", "setVideoId": "SETC"}]}
+    def remove_playlist_items(self, pid, videos):
+        self._log("remove", pid, ",".join(v["videoId"] + "/" + v["setVideoId"] for v in videos))
+        return "STATUS_SUCCEEDED"
     def create_playlist(self, title, description, privacy_status="PRIVATE", video_ids=None):
         self._log("create", title, privacy_status, video_ids)
         return "PLnew123"
@@ -178,6 +190,27 @@ add PLmine dupe1111111 False
 rate song2222222 LIKE
 add PLtheirs song1111111 False
 create From Victor PRIVATE ['song1111111']" "$(cat "$tmp/ytm-edits.log")"
+# -- Removing a song from a playlist (the tab) ------------------------------------------------
+: >"$tmp/ytm-edits.log"
+mkdir -p "$tmp/cache/nixbook-ytmusic/offline"
+expect "playlist: each song's own item id kept (what removing takes)" "SETB SETA SETC" \
+  "$(ya playlist PLmine | "$py" -c 'import json,sys; print(" ".join(t["setVideoId"] for t in json.load(sys.stdin)["tracks"]))')"
+expect "remove: the item said" '{"ok": true, "playlist": "PLmine", "videoId": "song1111111", "status": "removed"}' "$(ya remove PLmine song1111111 SETC)"
+expect "remove: the playlist's copy without that item, the other copy of the song kept" "SETB SETA" \
+  "$("$py" -c 'import json,sys; print(" ".join(t["setVideoId"] for t in json.load(open(sys.argv[1]))["tracks"]))' "$(ls "$tmp"/cache/nixbook-ytmusic/offline/playlist-PLmine*.json)")"
+expect "remove: no item id, the song's first one looked up" "removed" "$(ya remove PLmine song1111111 | field status)"
+expect "remove: a song not in it said so" "absent" "$(ya remove PLmine dupe1111111 | field status)"
+expect "remove: Liked Music takes the like back" "removed" "$(ya remove LM song2222222 | field status)"
+expect "remove: ids checked before anything is asked" "1" "$(
+  ya remove PLmine 'not an id' >/dev/null
+  echo $?
+)"
+expect "remove: what YouTube Music was asked" "get PLmine
+remove PLmine song1111111/SETC
+get PLmine
+remove PLmine song1111111/SETA
+get PLmine
+rate song2222222 INDIFFERENT" "$(cat "$tmp/ytm-edits.log")"
 # A session gone stale: renewed from the browser it came from (Zen, its
 # most recent login of the same account), then the add done.
 : >"$tmp/ytm-edits.log"

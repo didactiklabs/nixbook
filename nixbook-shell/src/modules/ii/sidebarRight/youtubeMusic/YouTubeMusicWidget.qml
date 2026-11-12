@@ -81,6 +81,49 @@ Item {
             if (!YouTubeMusic.downloading) root.refreshDetail();
         }
     }
+    // Removing a song from the open playlist (yours, or Liked Music: the
+    // like taken back): a first click asks, a second within 3 s removes.
+    readonly property bool detailOwn: root.detail !== null && !(root.detail.offline ?? false) && YouTubeMusic.isOwn(root.detail.id)
+    property string removeAsk: ""
+    property string removeBusy: ""
+    Timer {
+        id: removeAskOff
+        interval: 3000
+        onTriggered: root.removeAsk = ""
+    }
+    function trackKey(t) {
+        return t?.setVideoId || t?.videoId || "";
+    }
+    function removeTrack(track) {
+        const key = root.trackKey(track);
+        if (key === "" || root.removeBusy !== "") return;
+        if (root.removeAsk !== key) {
+            root.removeAsk = key;
+            removeAskOff.restart();
+            return;
+        }
+        root.removeAsk = "";
+        const id = root.detail.id;
+        const name = root.detail.title;
+        root.removeBusy = key;
+        YouTubeMusic.removeFromPlaylist(id, track, (ok, answer) => {
+            root.removeBusy = "";
+            if (!ok) {
+                root.say(answer?.error || Translation.tr("YouTube Music didn't remove it"), "error");
+                return;
+            }
+            if (root.detail?.id === id) {
+                const tracks = (root.detail.tracks ?? []).slice();
+                const at = tracks.findIndex(t => root.trackKey(t) === key);
+                if (at >= 0) tracks.splice(at, 1);
+                const d = Object.assign({}, root.detail);
+                d.tracks = tracks;
+                root.detail = d;
+            }
+            root.say(id === "LM" ? Translation.tr("%1: no longer liked").arg(track.title)
+                : Translation.tr("%1 removed from %2").arg(track.title).arg(name), "ok");
+        });
+    }
     function play(tracks, index, shuffle, playlistId, name) {
         if (!tracks?.length) return;
         // No network (the playlist from its copy): only what is here.
@@ -225,11 +268,18 @@ Item {
         readonly property bool current: (row.track?.videoId ?? "") !== "" && String(root.player?.metadata?.["xesam:url"] ?? "").endsWith(row.track.videoId)
         // Offline, a song that isn't here can't play.
         property bool reachable: true
+        // In one of your playlists: a remove button while hovered.
+        property bool removable: false
+        signal removeAsked
+        readonly property string itemKey: root.trackKey(row.track)
         opacity: row.reachable ? 1 : 0.45
         implicitHeight: 48
         buttonRadius: Appearance.rounding.small
         colBackground: row.current ? Appearance.colors.colLayer2 : ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 1)
         onClicked: row.activated()
+        HoverHandler {
+            id: rowHover
+        }
         contentItem: RowLayout {
             spacing: 10
             Picture {
@@ -281,6 +331,21 @@ Item {
                 text: row.track?.duration ? root.time(row.track.duration) : ""
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
+            }
+            IconButton {
+                readonly property bool asked: root.removeAsk !== "" && root.removeAsk === row.itemKey
+                readonly property bool busy: root.removeBusy !== "" && root.removeBusy === row.itemKey
+                visible: row.removable
+                // Kept in the layout (no jump on hover), shown while hovered.
+                opacity: rowHover.hovered || asked || busy ? 1 : 0
+                enabled: opacity > 0 && !busy
+                implicitWidth: 30
+                implicitHeight: 30
+                symbol: busy ? "hourglass_empty" : asked ? "delete" : "playlist_remove"
+                lit: asked
+                tip: asked ? Translation.tr("Click again to remove it")
+                    : root.detail?.id === "LM" ? Translation.tr("Remove from Liked Music (unlike)") : Translation.tr("Remove from this playlist")
+                onClicked: row.removeAsked()
             }
         }
     }
@@ -990,7 +1055,9 @@ Item {
                 width: ListView.view.width
                 track: modelData
                 reachable: !root.detail?.offline || (modelData.cached ?? false)
+                removable: root.detailOwn
                 onActivated: root.play(root.detail.tracks, index, false, root.detail.id, modelData.title)
+                onRemoveAsked: root.removeTrack(modelData)
             }
         }
     }
