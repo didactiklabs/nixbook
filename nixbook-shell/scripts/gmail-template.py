@@ -133,6 +133,67 @@ EXTRA = """
 :root [contenteditable="true"][role="textbox"] a * {
   color: {{colors.primary.default.hex}} !important;
 }
+/* Gmail's light themes. Catppuccin's style is made for Gmail's dark theme
+ * (their README asks for it), and Meru's accounts each keep their own: on
+ * an account left on a light one, the message list's card (.aeJ) stayed
+ * white, so did every unread row on it (they have no background of their
+ * own; read rows get one above), the search box stayed light blue, and the
+ * theme's light text was unreadable on them. Catppuccin's search box rules
+ * name Google's bar by its gb_* classes, which change: matched by role
+ * here. Harmless on the dark theme, where these are dark already. */
+:root .wl,
+:root .aeJ {
+  background-color: {{colors.surface_container_low.default.hex}} !important;
+}
+:root header[role="banner"] form[role="search"] {
+  background-color: {{colors.surface_container_high.default.hex}} !important;
+}
+:root header[role="banner"] form[role="search"] input {
+  color: {{colors.on_surface.default.hex}} !important;
+}
+:root header[role="banner"] form[role="search"] svg {
+  fill: {{colors.on_surface_variant.default.hex}} !important;
+}
+/* The side panel (Calendar, Keep, Tasks, Contacts, get add-ons) on the
+ * right: white on a light theme. Its "+" (after the apps' separator, a
+ * dark picture) is inverted; the apps' own icons keep their colours. */
+:root .bAw [role="complementary"],
+:root .bAw [role="complementary"] > div:not([role]) {
+  background-color: {{colors.surface_container_low.default.hex}} !important;
+}
+:root .bAw [role="complementary"] [role="tablist"] > [role="separator"] ~ * {
+  filter: invert(1) hue-rotate(180deg) !important;
+}
+/* The compose window popped out of Gmail (body.xE, a page of its own):
+ * none of Catppuccin's compose rules (for the compose inside the inbox)
+ * reach it, and on a light theme its header, field area and the band
+ * behind the formatting toolbar are light. Its page takes the surface and
+ * every plain container (not a button, toolbar, menu, chip or the editor,
+ * and holding none of them) lets it through, in the theme's text colour. */
+:root body.xE {
+  background-color: {{colors.surface.default.hex}} !important;
+}
+:root body.xE :is(div, td, tr, table, form):not([role="button"], [role="button"] *, [role="toolbar"],
+    [role="toolbar"] *, [role="menu"] *, [role="listbox"] *, [role="dialog"] *, [role="option"],
+    [role="option"] *, [contenteditable], [contenteditable] *):not(:has([role="button"], [role="toolbar"],
+    [contenteditable], [role="menu"], [role="listbox"], [role="option"])),
+:root body.xE :is(form, [role="region"]) {
+  background-color: transparent !important;
+}
+:root body.xE :is(div, td, tr, table, form):not([role="button"], [role="button"] *, [role="toolbar"],
+    [role="toolbar"] *, [role="menu"] *, [role="listbox"] *, [role="dialog"] *, [role="option"],
+    [role="option"] *, [contenteditable], [contenteditable] *):not(:has([role="button"], [role="toolbar"],
+    [contenteditable], [role="menu"], [role="listbox"], [role="option"])) {
+  color: {{colors.on_surface.default.hex}} !important;
+}
+/* The band beside the formatting toolbar and the Send row under it (they
+ * hold buttons, so the rule above leaves them): the surface itself, not
+ * transparent, which showed a light container behind the Send row. */
+:root body.xE :has(> * > [role="toolbar"]),
+:root body.xE :has(> * > * > [role="toolbar"]),
+:root body.xE :has(> * > * > * > [role="toolbar"]) {
+  background-color: {{colors.surface.default.hex}} !important;
+}
 """
 
 
