@@ -238,6 +238,10 @@ Singleton {
         }
         return { id: m[1], start: start };
     }
+    // Subscribe to a channel (UC…), or no longer; then(ok, answer).
+    function subscribeChannel(channelId, on, then) {
+        root.run(["videos", on ? "subscribe" : "unsubscribe", channelId], "", then);
+    }
     // One video by its id (its title and channel through oEmbed), as a search
     // answers; only the latest asked answers (shares the search's turn).
     function videoInfo(id, then) {

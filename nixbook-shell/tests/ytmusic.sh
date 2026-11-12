@@ -362,6 +362,13 @@ def _t(vid):
 class YTMusic:
     def __init__(self, auth=None):
         pass
+    # Subscriptions (the YouTube tab): logged to $FAKE_YTM_SUBS.
+    def subscribe_artist(self, channelId):
+        open(os.environ["FAKE_YTM_SUBS"], "a").write(f"subscribe {channelId}\n")
+        return {}
+    def unsubscribe_artists(self, channelIds):
+        open(os.environ["FAKE_YTM_SUBS"], "a").write(f"unsubscribe {' '.join(channelIds)}\n")
+        return {}
     def get_library_playlists(self, limit=None):
         _down()
         # YouTube Music answering an empty library, no error (it happens).
@@ -520,6 +527,17 @@ expect "videos channels: the channels you're subscribed to, their picture's larg
   "$(yv channels | "$py" -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["channels"]))')"
 expect "videos channels: --cached, the last copy at once" "1" \
   "$(NIXBOOK_YTMUSIC_YT_DLP=/nonexistent ytm videos channels --cached | "$py" -c 'import json,sys; print(len(json.load(sys.stdin)["channels"]))')"
+# Subscribing to a channel (the fake ytmusicapi logs it); the kept list follows.
+subs() { PYTHONPATH="$tmp/fakeapi" FAKE_YTM_SUBS="$tmp/subs.log" ytm videos "$@"; }
+expect "videos subscribe: a channel id only" "1" "$(
+  set +e
+  subs subscribe https://www.youtube.com/@chan >/dev/null 2>&1
+  echo $?
+)"
+expect "videos subscribe: through ytmusicapi, the kept list has it first" "true subscribe UCcccccccccccccccccccccc UCcccccccccccccccccccccc" \
+  "$(subs subscribe UCcccccccccccccccccccccc 2>/dev/null | jq -r .subscribed) $(tail -n1 "$tmp/subs.log") $(ytm videos channels --cached | jq -r '.channels[0].id')"
+expect "videos unsubscribe: through ytmusicapi, out of the kept list" "false unsubscribe UCcccccccccccccccccccccc 0" \
+  "$(subs unsubscribe UCcccccccccccccccccccccc 2>/dev/null | jq -r .subscribed) $(tail -n1 "$tmp/subs.log") $(ytm videos channels --cached | jq '[.channels[] | select(.id == "UCcccccccccccccccccccccc")] | length')"
 # One video (a pasted link) through oEmbed (urlopen stubbed: no network here).
 expect "videos video: a pasted link's title and channel through oEmbed; its id alone when unknown" \
   "Found It|Chan B|https://www.youtube.com/@chan|True |False" \

@@ -25,7 +25,9 @@ import Quickshell.Widgets
  * copy at once and is asked again when older than ten minutes. A video's
  * channel name opens that channel's latest videos (newest first). While a
  * video plays, a card on top shows it with its own volume (mpv's, through
- * MPRIS), which the next video starts at too.
+ * MPRIS), which the next video starts at too. Hovering a video or a
+ * channel shows a button copying its link (the playing video's: at its
+ * current second); a channel's page subscribes to it or no longer.
  */
 Item {
     id: root
@@ -55,8 +57,11 @@ Item {
         const key = video.channelUrl || video.id;
         root.channel = { key: key, name: video.channel, url: video.channelUrl, followers: 0, items: [] };
         root.set("counts", "channel", root.page);
+        root.unsubscribeAsked = false;
         searchField.text = "";
         root.loadChannel();
+        // Whether you're subscribed: your list (asked if it isn't here yet).
+        root.load("subscriptions", false);
     }
     function loadChannel() {
         if (!root.channel) return;
@@ -76,6 +81,55 @@ Item {
                 followers: answer.channel?.followers ?? 0,
                 items: answer.items ?? []
             });
+        });
+    }
+    // Links copied (wl-copy through services/Clipboard.qml).
+    function copyLink(url) {
+        Clipboard.copy(url, () => root.say(Translation.tr("Link copied"), "ok"));
+    }
+    function videoLink(id, at) {
+        const t = Math.floor(at ?? 0);
+        return `https://www.youtube.com/watch?v=${id}${t > 0 ? `&t=${t}` : ""}`;
+    }
+    // A channel's id (UC…) from its link, "" for an @handle not resolved yet.
+    function channelIdOf(url) {
+        return (String(url ?? "").match(/\/channel\/(UC[A-Za-z0-9_-]{22})/) ?? [])[1] ?? "";
+    }
+    function isSubscribed(id) {
+        return id !== "" && (root.feeds.subscriptions?.channels ?? []).some(c => c.id === id);
+    }
+    // Subscribing: a second click on Subscribed (within 3 s) unsubscribes.
+    property bool subscribing: false
+    property bool unsubscribeAsked: false
+    Timer {
+        id: unsubscribeAskedOff
+        interval: 3000
+        onTriggered: root.unsubscribeAsked = false
+    }
+    function toggleSubscribe() {
+        const id = root.channelIdOf(root.channel?.url);
+        if (id === "" || root.subscribing) return;
+        const on = !root.isSubscribed(id);
+        if (!on && !root.unsubscribeAsked) {
+            root.unsubscribeAsked = true;
+            unsubscribeAskedOff.restart();
+            return;
+        }
+        root.unsubscribeAsked = false;
+        root.subscribing = true;
+        const ch = root.channel;
+        YouTubeMusic.subscribeChannel(id, on, (ok, answer) => {
+            root.subscribing = false;
+            if (!ok) {
+                root.say(answer?.error || Translation.tr("YouTube didn't take it"), "error");
+                return;
+            }
+            // The list at once; its picture and the rest with the next refresh.
+            const subs = root.feeds.subscriptions ?? { channels: [], at: 0 };
+            const others = (subs.channels ?? []).filter(c => c.id !== id);
+            const channels = on ? [{ id: id, name: ch?.name ?? "", url: ch?.url ?? "", followers: ch?.followers ?? 0, avatar: "" }, ...others] : others;
+            root.set("feeds", "subscriptions", Object.assign({}, subs, { channels: channels, at: 0 }));
+            root.say(on ? Translation.tr("Subscribed to %1").arg(ch?.name ?? "") : Translation.tr("Unsubscribed from %1").arg(ch?.name ?? ""), "ok");
         });
     }
     function closeChannel() {
@@ -339,11 +393,20 @@ Item {
                     color: Appearance.colors.colSubtext
                 }
             }
+            IconButton {
+                visible: crowHover.hovered
+                symbol: "link"
+                tip: Translation.tr("Copy the channel's link")
+                onClicked: root.copyLink(crow.channelData?.url ?? "")
+            }
             MaterialSymbol {
                 text: "chevron_right"
                 iconSize: Appearance.font.pixelSize.huge
                 color: Appearance.colors.colSubtext
             }
+        }
+        HoverHandler {
+            id: crowHover
         }
         StyledToolTip {
             text: Translation.tr("Their latest videos")
@@ -461,6 +524,15 @@ Item {
                     }
                 }
             }
+            IconButton {
+                visible: rowHover.hovered
+                symbol: "link"
+                tip: Translation.tr("Copy the video's link")
+                onClicked: root.copyLink(root.videoLink(row.video?.id ?? ""))
+            }
+        }
+        HoverHandler {
+            id: rowHover
         }
         StyledToolTip {
             text: Translation.tr("Play in mpv")
@@ -499,6 +571,12 @@ Item {
                         font.pixelSize: Appearance.font.pixelSize.small
                         font.weight: Font.DemiBold
                         color: Appearance.colors.colOnLayer2
+                    }
+                    IconButton {
+                        symbol: "link"
+                        tip: Translation.tr("Copy the link, at this moment")
+                        onClicked: root.copyLink(root.videoLink((String(root.player?.metadata?.["xesam:url"] ?? "").match(/[?&]v=([A-Za-z0-9_-]{11})/) ?? [])[1] ?? "",
+                            root.player?.position ?? 0))
                     }
                     IconButton {
                         symbol: root.player?.isPlaying ? "pause" : "play_arrow"
@@ -613,8 +691,39 @@ Item {
             }
             MaterialLoadingIndicator {
                 implicitSize: 18
-                visible: root.channelLoading
+                visible: root.channelLoading || root.subscribing
                 loading: visible
+            }
+            IconButton {
+                visible: (root.channel?.url ?? "") !== ""
+                symbol: "link"
+                tip: Translation.tr("Copy the channel's link")
+                onClicked: root.copyLink(root.channel?.url ?? "")
+            }
+            // Subscribe, or Subscribed (a second click unsubscribes).
+            RippleButton {
+                id: subButton
+                readonly property bool subscribed: root.isSubscribed(root.channelIdOf(root.channel?.url))
+                visible: YouTubeMusic.signedIn && root.channelIdOf(root.channel?.url) !== ""
+                enabled: !root.subscribing
+                implicitHeight: 34
+                implicitWidth: subText.implicitWidth + 28
+                buttonRadius: Appearance.rounding.full
+                toggled: !subscribed
+                colBackground: Appearance.colors.colLayer2
+                colBackgroundToggled: Appearance.colors.colPrimary
+                colBackgroundToggledHover: Appearance.colors.colPrimaryHover
+                onClicked: root.toggleSubscribe()
+                contentItem: StyledText {
+                    id: subText
+                    horizontalAlignment: Text.AlignHCenter
+                    text: !subButton.subscribed ? Translation.tr("Subscribe")
+                        : root.unsubscribeAsked ? Translation.tr("Unsubscribe?") : Translation.tr("Subscribed")
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    font.weight: Font.DemiBold
+                    color: !subButton.subscribed ? Appearance.colors.colOnPrimary
+                        : root.unsubscribeAsked ? Appearance.m3colors.m3error : Appearance.colors.colOnLayer2
+                }
             }
         }
 
