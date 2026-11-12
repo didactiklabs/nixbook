@@ -186,8 +186,13 @@ in
       after = [ "power-profiles-daemon.service" ];
       requires = [ "power-profiles-daemon.service" ];
       wantedBy = [ "multi-user.target" ];
+      # At boot only: a oneshot that ended was started again by every system
+      # switch (a deploy), which put the profile chosen since back to this
+      # one; staying active and never restarted for a change, it isn't.
+      restartIfChanged = false;
       serviceConfig = {
         Type = "oneshot";
+        RemainAfterExit = true;
         ExecStart = "${lib.getExe' config.services.power-profiles-daemon.package "powerprofilesctl"} set ${cfg.powerProfileOnBoot}";
       };
     };

@@ -895,6 +895,12 @@ if out="$(cl_run set 90)"; then
 else
   expect_eq "charge-limit: a refused start gives systemctl's reason, the limit as it is" '{"limit": 60, "canSet": true, "error": "Access denied"}' "$out"
 fi
+# Writable and the unit there: through the unit all the same, which remembers
+# it (a direct write was undone at the next boot, resume or system switch).
+rm "$cl/refuse"
+chmod u+w "$cl/ps/BAT0/charge_control_end_threshold"
+expect_eq "charge-limit: writable with the unit, set through the unit (remembered)" "70 1" \
+  "$(cl_run set 70 | jq -r .limit) $(grep -c "start battery-charge-limit@70.service" "$cl/systemctl.log")"
 
 # No battery with a limit (a desktop, a laptop whose firmware has none).
 rm "$cl/ps/BAT0/charge_control_end_threshold"
