@@ -67,9 +67,12 @@ let
     exec ${pkgs.bash}/bin/bash ${./scripts/update-check.sh} "$@"
   '';
 
-  # Echo cancellation (scripts/echo-cancel.sh), run by the
-  # `nixbook-echo-cancel` user unit (hm-module.nix, services/EchoCancel.qml).
+  # Echo cancellation and clearer voices in calls (scripts/echo-cancel.sh),
+  # run by the `nixbook-echo-cancel` user unit (hm-module.nix,
+  # services/EchoCancel.qml). LADSPA_PATH: swh's compressor (sc4) and
+  # limiter, for its speech stages.
   echoCancel = pkgs.writeShellScriptBin "nixbook-echo-cancel" ''
+    export LADSPA_PATH=${pkgs.ladspaPlugins}/lib/ladspa
     export PATH=${
       lib.makeBinPath (
         with pkgs;

@@ -181,6 +181,10 @@
     "volumeMixer": "pavucontrol-qt || pavucontrol"
   },
   "audio": {
+    "calls": {
+      "clearMicrophone": true,
+      "clearVoices": true
+    },
     "protection": {
       "enable": false,
       "maxAllowed": 99,

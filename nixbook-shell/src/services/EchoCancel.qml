@@ -49,7 +49,7 @@ Singleton {
     // EasyEffects' (which records the default input: this one, a loop).
     function canCapture(node) {
         const name = node?.name ?? "";
-        return name !== "" && name !== root.sourceName && name !== "easyeffects_source" && !name.endsWith(".monitor")
+        return name !== "" && name !== root.sourceName && name !== root.aecName && name !== "easyeffects_source" && !name.endsWith(".monitor")
             && !(node?.isStream ?? true);
     }
     // Another microphone: while it runs, the canceller takes it (a restart,
@@ -68,6 +68,15 @@ Singleton {
         root.error = "";
         root.busy = true;
         ctl.command = ["sh", "-c", 'printf "%s\\n" "$1" > "$2" && systemctl --user restart "$3"', "_", name, root.micFile, root.unit];
+        ctl.running = true;
+    }
+    // On the same microphone (the unit puts it back as the default input
+    // when it stops, and takes the default when it starts).
+    function _restartSame() {
+        if (root.busy) return;
+        root.error = "";
+        root.busy = true;
+        ctl.command = ["systemctl", "--user", "restart", root.unit];
         ctl.running = true;
     }
     // Its microphone came back (a suspend, plugged in again): the canceller
@@ -129,6 +138,43 @@ Singleton {
         }
     }
 
+    // Voices made clearer in calls, the unit's two speech stages
+    // (scripts/echo-cancel.sh; no AI: an equalizer, a compressor, a
+    // limiter), each a switch of audio.calls:
+    // - clearMicrophone, your voice for the others: the stage sits between
+    //   the canceller's own microphone (aecName) and the one apps record;
+    // - clearVoices, the others' voices for you: the "Call voices" output
+    //   (voicesName), where call apps play: a PipeWire stream rule gives
+    //   them that target (hm-module.nix, echoCancel.callApps), and without
+    //   it they play straight on the default output, never through
+    //   EasyEffects (the music equalizer's curve and preamp, on voices).
+    // The unit reads the switches from the settings file when it starts: one
+    // changed while it runs restarts it once the file is written, and so
+    // does a unit found running without what the switches ask (after an
+    // update). Only then: a stage that didn't load isn't retried in a loop.
+    readonly property string aecName: "nixbook-echo-cancel.aec"
+    readonly property string voicesName: "nixbook-call-voices"
+    readonly property bool micStage: Pipewire.nodes.values.some(n => n.name === root.aecName)
+    readonly property bool voicesStage: Pipewire.nodes.values.some(n => n.name === root.voicesName && !n.isStream)
+    readonly property bool wantMicStage: Config.options.audio.calls.clearMicrophone
+    readonly property bool wantVoicesStage: Config.options.audio.calls.clearVoices
+    onWantMicStageChanged: stagesTimer.restart()
+    onWantVoicesStageChanged: stagesTimer.restart()
+    Connections {
+        target: Config
+        function onReadyChanged() { if (Config.ready) stagesTimer.restart(); }
+    }
+    Component.onCompleted: if (Config.ready) stagesTimer.restart()
+    Timer {
+        id: stagesTimer
+        interval: 2500 // the settings written, the unit's nodes listed
+        onTriggered: {
+            if (!Config.ready || !root.active || root.busy) return;
+            if (root.micStage !== root.wantMicStage || root.voicesStage !== root.wantVoicesStage)
+                root._restartSame();
+        }
+    }
+
     // `nixbook-shell ipc call echoCancel on|off|toggle|status`.
     IpcHandler {
         target: "echoCancel"
@@ -142,7 +188,8 @@ Singleton {
             root.toggle();
         }
         function status(): string {
-            return JSON.stringify({ available: root.available, active: root.active, inUse: root.inUse, mic: root.mic, error: root.error });
+            return JSON.stringify({ available: root.available, active: root.active, inUse: root.inUse, mic: root.mic, error: root.error,
+                clearMicrophone: root.micStage, clearVoices: root.voicesStage });
         }
     }
 }

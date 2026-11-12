@@ -749,7 +749,7 @@ cat >"$ec/bin/pipewire" <<'EOF'
 cp "$2" "$EC_CONF_OUT"
 EOF
 chmod +x "$ec/bin/wpctl" "$ec/bin/pipewire"
-ec_run() { EC_DEFAULT="$ec/default" EC_CONF_OUT="$ec/conf" XDG_RUNTIME_DIR="$ec/run" PATH="$ec/bin:$PATH" bash "$scripts/echo-cancel.sh" run; }
+ec_run() { EC_DEFAULT="$ec/default" EC_CONF_OUT="$ec/conf" XDG_RUNTIME_DIR="$ec/run" XDG_CONFIG_HOME="$ec/config" LADSPA_PATH="${EC_LADSPA:-}" PATH="$ec/bin:$PATH" bash "$scripts/echo-cancel.sh" run; }
 echo alsa_input.laptop-mic >"$ec/default"
 ec_run
 expect_contains "echo-cancel: the capture takes the default microphone" "$(cat "$ec/conf")" 'target.object = "alsa_input.laptop-mic"'
@@ -758,6 +758,43 @@ echo nixbook-echo-cancel.source >"$ec/default"
 printf 'alsa_input.usb-headset\n' >"$ec/run/nixbook-shell/echo-cancel-previous-source"
 ec_run
 expect_contains "echo-cancel: already the default, the microphone saved (what the shell's picker writes)" "$(cat "$ec/conf")" 'target.object = "alsa_input.usb-headset"'
+
+# Clearer voices in calls: two speech stages, each a switch of audio.calls in
+# the shell's settings (on unless false there). The microphone apps record
+# keeps its name: with the voice stage it is that stage's output, and the
+# canceller's own is .aec. The compressor and the limiter only when their
+# LADSPA plugins are found, the equalizer alone otherwise.
+ec_count() { grep -cF -- "$1" "$ec/conf" || true; }
+echo alsa_input.laptop-mic >"$ec/default"
+ec_run
+expect_contains "echo-cancel: no settings file, the canceller's own microphone is the one before the voice stage" "$(cat "$ec/conf")" 'node.name = "nixbook-echo-cancel.aec"'
+expect_contains "echo-cancel: the voice stage records the canceller's microphone" "$(cat "$ec/conf")" 'target.object = "nixbook-echo-cancel.aec"'
+expect_eq "echo-cancel: one microphone with the name apps record" 1 "$(ec_count 'node.name = "nixbook-echo-cancel.source"')"
+expect_contains 'echo-cancel: "Call voices", an output' "$(cat "$ec/conf")" 'node.name = "nixbook-call-voices"'
+expect_eq "echo-cancel: without the plugins, no compressor" 0 "$(ec_count 'type = ladspa')"
+expect_eq "echo-cancel: without the plugins, both equalizers 2 dB down" 2 "$(ec_count 'freq = 0 gain = -2.0')"
+expect_eq "echo-cancel: the two capture streams and \"Call voices\" playback can't be moved" 3 "$(ec_count 'node.dont-move = true')"
+mkdir -p "$ec/ladspa"
+touch "$ec/ladspa/sc4_1882.so" "$ec/ladspa/fast_lookahead_limiter_1913.so"
+EC_LADSPA="/nonexistent:$ec/ladspa" ec_run
+expect_eq "echo-cancel: with the plugins, a compressor and a limiter in each stage" 4 "$(ec_count 'type = ladspa')"
+expect_eq "echo-cancel: with the plugins, the limiter keeps the level: no 2 dB down" 0 "$(ec_count 'freq = 0 gain = -2.0')"
+rm "$ec/ladspa/fast_lookahead_limiter_1913.so"
+EC_LADSPA="$ec/ladspa" ec_run
+expect_eq "echo-cancel: one plugin missing, no compressor either" 0 "$(ec_count 'type = ladspa')"
+mkdir -p "$ec/config/nixbook-shell"
+echo '{"audio": {"calls": {"clearMicrophone": false}}}' >"$ec/config/nixbook-shell/config.json"
+ec_run
+expect_eq "echo-cancel: clearMicrophone off, no voice stage" 0 "$(ec_count 'nixbook-echo-cancel.aec')"
+expect_eq "echo-cancel: clearMicrophone off, the canceller's microphone is the one apps record" 1 "$(ec_count 'node.name = "nixbook-echo-cancel.source"')"
+expect_contains 'echo-cancel: clearMicrophone off, "Call voices" stays' "$(cat "$ec/conf")" 'node.name = "nixbook-call-voices"'
+echo '{"audio": {"calls": {"clearVoices": false}}}' >"$ec/config/nixbook-shell/config.json"
+ec_run
+expect_eq 'echo-cancel: clearVoices off, no "Call voices"' 0 "$(ec_count 'nixbook-call-voices')"
+expect_contains "echo-cancel: clearVoices off, the voice stage stays" "$(cat "$ec/conf")" 'node.name = "nixbook-echo-cancel.aec"'
+echo 'not json' >"$ec/config/nixbook-shell/config.json"
+ec_run
+expect_contains "echo-cancel: unreadable settings, both stages" "$(cat "$ec/conf")" 'node.name = "nixbook-call-voices"'
 
 if [ "$failures" -ne 0 ]; then
   echo "$failures nixbook-shell test(s) failed" >&2
