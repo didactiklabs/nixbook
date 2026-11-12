@@ -136,8 +136,21 @@ ColumnLayout {
         readonly property real padding: 4
         readonly property real spacing: 2
         readonly property real innerWidth: width - padding * 2 - spacing * (root.tabs.length - 1)
-        readonly property real otherTabWidth: Math.max(44, innerWidth / (root.tabs.length + 1.4))
+        // The open tab gets the room its icon and name need (the others
+        // narrower, down to 36 px each, when there are many tabs); a name
+        // still too long is elided in it rather than drawn over its
+        // neighbours.
+        readonly property real currentWanted: 22 + 6 + currentName.advanceWidth + 28
+        readonly property real otherTabWidth: root.tabs.length < 2 ? 0 : Math.max(36, Math.min(innerWidth / (root.tabs.length + 1.4), (innerWidth - currentWanted) / (root.tabs.length - 1)))
         readonly property real currentTabWidth: innerWidth - otherTabWidth * (root.tabs.length - 1)
+
+        TextMetrics {
+            id: currentName
+            text: root.tabs[root.selectedTab]?.name ?? ""
+            font.family: Appearance.font.family.main
+            font.pixelSize: Appearance.font.pixelSize.small
+            font.weight: Font.DemiBold
+        }
 
         Row {
             anchors.fill: parent
@@ -300,7 +313,10 @@ ColumnLayout {
                 }
                 StyledText {
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: tabButton.current
+                    // What's left beside the icon: elided past it.
+                    width: Math.min(implicitWidth, tabButton.width - tabIcon.width - parent.spacing - 20)
+                    visible: tabButton.current && width > 24
+                    elide: Text.ElideRight
                     text: tabButton.modelData.name
                     font.weight: Font.DemiBold
                     color: Appearance.colors.colOnSecondaryContainer
