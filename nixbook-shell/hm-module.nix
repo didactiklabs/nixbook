@@ -44,13 +44,37 @@ let
         c
     ) (lib.stringToCharacters word);
   callAppsPattern = "~.*(${lib.concatMapStringsSep "|" anyCase cfg.echoCancel.callApps}).*";
+  # Calls in a web browser (echoCancel.callSites): Firefox and the browsers
+  # built on it (Zen is "Twilight" or "Zen") name each tab's sound stream
+  # after the tab's title, so a call site is known by its title while a video
+  # site's tab isn't touched. Chromium names every stream "Playback": its
+  # calls can't be told apart, and never match.
+  callBrowsersPattern = "~.*(${
+    lib.concatMapStringsSep "|" anyCase [
+      "twilight"
+      "zen"
+      "firefox"
+      "librewolf"
+      "floorp"
+      "waterfox"
+    ]
+  }).*";
+  callSitesPattern = "~^(${lib.concatStringsSep "|" cfg.echoCancel.callSites})$";
+  callVoicesMatches =
+    lib.optionals (cfg.echoCancel.callApps != [ ]) [
+      ''{ application.name = "${callAppsPattern}" media.class = "Stream/Output/Audio" }''
+      ''{ application.process.binary = "${callAppsPattern}" media.class = "Stream/Output/Audio" }''
+    ]
+    ++
+      lib.optional (cfg.echoCancel.callSites != [ ])
+        ''{ application.name = "${callBrowsersPattern}" media.name = "${callSitesPattern}" media.class = "Stream/Output/Audio" }'';
   callVoicesRule = ''
-    # nixbook-shell (programs.nixbook-shell.echoCancel.callApps): call apps
-    # play on "Call voices", or straight on the default output without it.
+    # nixbook-shell (programs.nixbook-shell.echoCancel.callApps and
+    # callSites): call apps and calls in a browser play on "Call voices", or
+    # straight on the default output without it.
     stream.rules = [
       { matches = [
-          { application.name = "${callAppsPattern}" media.class = "Stream/Output/Audio" }
-          { application.process.binary = "${callAppsPattern}" media.class = "Stream/Output/Audio" }
+          ${lib.concatStringsSep "\n      " callVoicesMatches}
         ]
         actions = { update-props = { node.dont-move = true target.object = "nixbook-call-voices" } }
       }
@@ -393,10 +417,10 @@ let
       vi = "Khử tiếng vọng giữ những gì máy này đang phát (nhạc, phim, tiếng người bên kia cuộc gọi) không lọt vào micro của bạn, và giảm tiếng ồn nền: dùng khi gọi điện, hoặc khi nghe nhạc cùng nhau trong Mesh mà vẫn đang gọi. Áp dụng cho mọi ứng dụng: bật trong Cài đặt > Âm thanh > Echo cancellation, bằng ô cài đặt nhanh Echo cancellation (thêm nó trong chế độ sửa các ô cài đặt nhanh), công tắc trong hộp thoại đầu vào âm thanh (chuột phải vào ô micro), hoặc nút trong thanh nghe cùng nhau của Mesh. Khi bật, Echo-cancelled microphone là đầu vào mặc định; tắt đi thì micro của bạn quay lại. Nó vẫn bật qua các lần đăng nhập cho đến khi bạn tắt. Để đổi micro khi tính năng đang bật, chọn micro trong hộp thoại đầu vào âm thanh: bộ khử vọng sẽ chuyển sang micro đó.";
     };
     clearVoices = {
-      en = "Voices in calls are made clearer without AI while echo cancellation is on (Settings > Sound > Echo cancellation), by two switches there, both on by default. \"Clearer voice in calls: mine, for the others\": before call apps record you, your voice is equalized for speech (less rumble and boxiness, more presence) and evened out, a quiet voice coming up. \"Clearer voices in calls: the others', for me\": call apps (Discord or Vesktop, Slack, Zoom, Teams and the like; the list is echoCancel.callApps in the Nix configuration) play through a \"Call voices\" output with the same treatment for listening, quiet speakers brought up, and never through the music equalizer; it has its own line, Call voices, in the volume mixer. Changing a switch restarts echo cancellation, about a second without microphone. A call in a web browser is left as it is. If the others find your voice too processed, turn the first switch off, or turn off the call app's own noise suppression and automatic gain.";
-      fr = "Les voix des appels sont rendues plus claires sans IA tant que l'annulation d'écho est active (Paramètres > Son > Echo cancellation), par deux interrupteurs à cet endroit, activés par défaut. « Clearer voice in calls: mine, for the others » : avant que les applications d'appel ne vous enregistrent, votre voix est égalisée pour la parole (moins de grave sourd et d'effet de boîte, plus de présence) et nivelée, une voix faible étant remontée. « Clearer voices in calls: the others', for me » : les applications d'appel (Discord ou Vesktop, Slack, Zoom, Teams et semblables ; la liste est echoCancel.callApps dans la configuration Nix) jouent à travers une sortie « Call voices » avec le même traitement pour l'écoute, les voix faibles remontées, et jamais à travers l'égaliseur de musique ; elle a sa propre ligne, Call voices, dans le mixeur de volume. Changer un interrupteur redémarre l'annulation d'écho, environ une seconde sans micro. Un appel dans un navigateur web est laissé tel quel. Si les autres trouvent votre voix trop traitée, coupez le premier interrupteur, ou coupez la suppression de bruit et le gain automatique de l'application d'appel.";
-      de = "Stimmen in Anrufen werden ohne KI klarer gemacht, solange die Echounterdrückung an ist (Einstellungen > Ton > Echo cancellation), durch zwei Schalter dort, beide standardmäßig an. „Clearer voice in calls: mine, for the others“: bevor Anruf-Apps dich aufnehmen, wird deine Stimme für Sprache entzerrt (weniger Dröhnen und Kistenklang, mehr Präsenz) und ausgeglichen, eine leise Stimme wird angehoben. „Clearer voices in calls: the others', for me“: Anruf-Apps (Discord oder Vesktop, Slack, Zoom, Teams und ähnliche; die Liste ist echoCancel.callApps in der Nix-Konfiguration) spielen über eine Ausgabe „Call voices“ mit derselben Behandlung fürs Zuhören, leise Sprecher werden angehoben, und nie über den Musik-Equalizer; sie hat ihre eigene Zeile, Call voices, im Lautstärkemixer. Einen Schalter umzulegen startet die Echounterdrückung neu, etwa eine Sekunde ohne Mikrofon. Ein Anruf im Webbrowser bleibt, wie er ist. Finden die anderen deine Stimme zu stark bearbeitet, schalte den ersten Schalter aus, oder schalte die Rauschunterdrückung und die automatische Verstärkung der Anruf-App aus.";
-      vi = "Giọng nói trong cuộc gọi được làm rõ hơn mà không dùng AI khi khử tiếng vọng đang bật (Cài đặt > Âm thanh > Echo cancellation), bằng hai công tắc ở đó, mặc định đều bật. “Clearer voice in calls: mine, for the others”: trước khi ứng dụng gọi điện thu âm bạn, giọng bạn được cân bằng cho lời nói (bớt ù và bớt tiếng hộp, thêm độ rõ) và được làm đều, giọng nhỏ được nâng lên. “Clearer voices in calls: the others', for me”: các ứng dụng gọi điện (Discord hoặc Vesktop, Slack, Zoom, Teams và tương tự; danh sách là echoCancel.callApps trong cấu hình Nix) phát qua đầu ra “Call voices” với cùng cách xử lý cho việc nghe, người nói nhỏ được nâng lên, và không bao giờ qua bộ cân bằng nhạc; nó có dòng riêng, Call voices, trong bộ trộn âm lượng. Đổi một công tắc sẽ khởi động lại khử tiếng vọng, khoảng một giây không có micro. Cuộc gọi trong trình duyệt web được giữ nguyên. Nếu người khác thấy giọng bạn bị xử lý quá nhiều, hãy tắt công tắc thứ nhất, hoặc tắt tính năng khử ồn và tự động tăng âm của chính ứng dụng gọi điện.";
+      en = "Voices in calls are made clearer without AI while echo cancellation is on (Settings > Sound > Echo cancellation), by two switches there, both on by default. \"Clearer voice in calls: mine, for the others\": before call apps record you, your voice is equalized for speech (less rumble and boxiness, more presence) and evened out, a quiet voice coming up. \"Clearer voices in calls: the others', for me\": call apps (Discord or Vesktop, Slack, Zoom, Teams and the like; the list is echoCancel.callApps in the Nix configuration) play through a \"Call voices\" output with the same treatment for listening, quiet speakers brought up, and never through the music equalizer; it has its own line, Call voices, in the volume mixer. Changing a switch restarts echo cancellation, about a second without microphone. Calls in the web browser count too in Zen and other Firefox-based browsers: a tab titled like a call site (Google Meet, Jitsi Meet, Microsoft Teams; the list is echoCancel.callSites) plays on Call voices, while a YouTube or music tab isn't touched. If the others find your voice too processed, turn the first switch off, or turn off the call app's own noise suppression and automatic gain.";
+      fr = "Les voix des appels sont rendues plus claires sans IA tant que l'annulation d'écho est active (Paramètres > Son > Echo cancellation), par deux interrupteurs à cet endroit, activés par défaut. « Clearer voice in calls: mine, for the others » : avant que les applications d'appel ne vous enregistrent, votre voix est égalisée pour la parole (moins de grave sourd et d'effet de boîte, plus de présence) et nivelée, une voix faible étant remontée. « Clearer voices in calls: the others', for me » : les applications d'appel (Discord ou Vesktop, Slack, Zoom, Teams et semblables ; la liste est echoCancel.callApps dans la configuration Nix) jouent à travers une sortie « Call voices » avec le même traitement pour l'écoute, les voix faibles remontées, et jamais à travers l'égaliseur de musique ; elle a sa propre ligne, Call voices, dans le mixeur de volume. Changer un interrupteur redémarre l'annulation d'écho, environ une seconde sans micro. Les appels dans le navigateur web comptent aussi dans Zen et les autres navigateurs basés sur Firefox : un onglet dont le titre est celui d'un site d'appel (Google Meet, Jitsi Meet, Microsoft Teams ; la liste est echoCancel.callSites) joue sur Call voices, alors qu'un onglet YouTube ou de musique n'est pas touché. Si les autres trouvent votre voix trop traitée, coupez le premier interrupteur, ou coupez la suppression de bruit et le gain automatique de l'application d'appel.";
+      de = "Stimmen in Anrufen werden ohne KI klarer gemacht, solange die Echounterdrückung an ist (Einstellungen > Ton > Echo cancellation), durch zwei Schalter dort, beide standardmäßig an. „Clearer voice in calls: mine, for the others“: bevor Anruf-Apps dich aufnehmen, wird deine Stimme für Sprache entzerrt (weniger Dröhnen und Kistenklang, mehr Präsenz) und ausgeglichen, eine leise Stimme wird angehoben. „Clearer voices in calls: the others', for me“: Anruf-Apps (Discord oder Vesktop, Slack, Zoom, Teams und ähnliche; die Liste ist echoCancel.callApps in der Nix-Konfiguration) spielen über eine Ausgabe „Call voices“ mit derselben Behandlung fürs Zuhören, leise Sprecher werden angehoben, und nie über den Musik-Equalizer; sie hat ihre eigene Zeile, Call voices, im Lautstärkemixer. Einen Schalter umzulegen startet die Echounterdrückung neu, etwa eine Sekunde ohne Mikrofon. Anrufe im Webbrowser zählen in Zen und anderen Firefox-basierten Browsern auch: ein Tab, dessen Titel der einer Anrufseite ist (Google Meet, Jitsi Meet, Microsoft Teams; die Liste ist echoCancel.callSites), spielt über Call voices, während ein YouTube- oder Musik-Tab unberührt bleibt. Finden die anderen deine Stimme zu stark bearbeitet, schalte den ersten Schalter aus, oder schalte die Rauschunterdrückung und die automatische Verstärkung der Anruf-App aus.";
+      vi = "Giọng nói trong cuộc gọi được làm rõ hơn mà không dùng AI khi khử tiếng vọng đang bật (Cài đặt > Âm thanh > Echo cancellation), bằng hai công tắc ở đó, mặc định đều bật. “Clearer voice in calls: mine, for the others”: trước khi ứng dụng gọi điện thu âm bạn, giọng bạn được cân bằng cho lời nói (bớt ù và bớt tiếng hộp, thêm độ rõ) và được làm đều, giọng nhỏ được nâng lên. “Clearer voices in calls: the others', for me”: các ứng dụng gọi điện (Discord hoặc Vesktop, Slack, Zoom, Teams và tương tự; danh sách là echoCancel.callApps trong cấu hình Nix) phát qua đầu ra “Call voices” với cùng cách xử lý cho việc nghe, người nói nhỏ được nâng lên, và không bao giờ qua bộ cân bằng nhạc; nó có dòng riêng, Call voices, trong bộ trộn âm lượng. Đổi một công tắc sẽ khởi động lại khử tiếng vọng, khoảng một giây không có micro. Cuộc gọi trong trình duyệt web cũng được tính trong Zen và các trình duyệt dựa trên Firefox khác: một thẻ có tiêu đề của trang gọi điện (Google Meet, Jitsi Meet, Microsoft Teams; danh sách là echoCancel.callSites) sẽ phát qua Call voices, còn thẻ YouTube hay thẻ nhạc thì không bị đụng tới. Nếu người khác thấy giọng bạn bị xử lý quá nhiều, hãy tắt công tắc thứ nhất, hoặc tắt tính năng khử ồn và tự động tăng âm của chính ứng dụng gọi điện.";
     };
     visualizer = {
       en = "The music visualizer is a desktop widget: turn it on from the desktop's right-click menu > Widgets, or in Settings > Desktop widgets > Visualizer (style: bars, aurora, ring, dots, mirror; colours from the theme or the cover; height or ring size). It moves only while music plays and it can be seen: with 'Pause while windows cover the desktop' on (the default), it fades out on a workspace that has a tiled window, or under a floating window, and the audio analyser (cava) stops with it; go to an empty workspace to see it. If it does not appear, or stays flat, while music plays on an empty workspace, run nixbook-shell ipc call mediaControls visualizerStatus: it says which player the shell follows and whether it plays, whether a visualizer can be seen, and whether cava runs (it is started again by itself when the audio output changes).";
@@ -982,8 +1006,29 @@ in
         in the user's configuration: the target "Call voices", and
         `node.dont-move` so EasyEffects can't take the stream back), read
         when the sound server and each app start: a change applies from the
-        next login. Empty: no rule. A call in a web browser isn't told from
-        the browser's other sound, and is left alone.
+        next login. Empty: no rule for apps. Calls in a web browser:
+        `echoCancel.callSites`.
+      '';
+    };
+    echoCancel.callSites = lib.mkOption {
+      type = lib.types.listOf (lib.types.strMatching ''[^"\\]+'');
+      default = [
+        "Meet( (-|–|—) .*)?"
+        "Google Meet.*"
+        ".* [|] Jitsi Meet"
+        ".* [|] Microsoft Teams"
+      ];
+      description = ''
+        Calls in a web browser: a tab whose whole title matches one of these
+        (POSIX extended regular expressions, no `"` nor `\`: `[|]` for a
+        literal `|`) plays on "Call voices" like a call app
+        (`echoCancel.callApps`), by the same stream rule. In Firefox and the
+        browsers built on it (Zen, LibreWolf, Floorp…), which name each
+        tab's sound after the tab's title; decided when the tab's sound
+        starts. Other tabs (a video, music) aren't touched. Not in Chromium
+        browsers, which give every tab's sound the same name. The default:
+        Google Meet ("Meet", "Meet – the-code"), Jitsi Meet and Microsoft
+        Teams. Empty: no rule for browsers.
       '';
     };
 
@@ -1480,10 +1525,10 @@ in
         # rule for PulseAudio clients (Electron apps: read by pipewire-pulse)
         # and for PipeWire's own.
         xdg.configFile."pipewire/pipewire-pulse.conf.d/60-nixbook-call-voices.conf" = lib.mkIf (
-          cfg.echoCancel.enable && cfg.echoCancel.callApps != [ ]
+          cfg.echoCancel.enable && callVoicesMatches != [ ]
         ) { text = callVoicesRule; };
         xdg.configFile."pipewire/client.conf.d/60-nixbook-call-voices.conf" = lib.mkIf (
-          cfg.echoCancel.enable && cfg.echoCancel.callApps != [ ]
+          cfg.echoCancel.enable && callVoicesMatches != [ ]
         ) { text = callVoicesRule; };
         xdg.configFile."nixbook-accounts/google-client.json" =
           lib.mkIf (cfg.accounts.googleClient != null)

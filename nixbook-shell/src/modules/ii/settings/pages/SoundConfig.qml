@@ -340,7 +340,7 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("While echo cancellation is on, and without AI. Mine: your voice is equalized for speech (less rumble and boxiness, more presence) and evened out, a quiet voice coming up, before call apps record it. The others': call apps (Discord, Slack, Zoom… the list is echoCancel.callApps in the Nix configuration) play through \"Call voices\", the same treatment for listening with quiet speakers brought up, and never through the music equalizer. Changing a switch restarts echo cancellation: about a second without microphone.")
+                text: Translation.tr("While echo cancellation is on, and without AI. Mine: your voice is equalized for speech (less rumble and boxiness, more presence) and evened out, a quiet voice coming up, before call apps record it. The others': call apps (Discord, Slack, Zoom…) and call tabs of the browser (Google Meet…; echoCancel.callApps and callSites in the Nix configuration) play through \"Call voices\", the same treatment for listening with quiet speakers brought up, and never through the music equalizer. Changing a switch restarts echo cancellation: about a second without microphone.")
             }
         }
     }
