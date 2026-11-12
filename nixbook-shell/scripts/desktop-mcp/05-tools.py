@@ -180,7 +180,7 @@ def t_get_status(ctx, args):
                 "paused": paused,
                 "pointer": pointer,
                 "enabled_groups": ctx.cfg["tools"],
-                "focused_window": focused and slim_window(focused),
+                "focused_window": focused and slim_window(focused, ctx.cfg),
                 "helpers": {h: bool(shutil.which(h)) for h in ["niri", "grim", "wtype", "ydotool", "wl-copy"]},
                 "niri_socket": bool(os.environ.get("NIRI_SOCKET")),
             }
@@ -188,11 +188,65 @@ def t_get_status(ctx, args):
     ]
 
 
-def slim_window(w):
+# Private windows: a password manager's or a password prompt's
+# (habitsIgnoreApps: the apps the habits, curiosity and the recent context
+# skip too) and private browsing ones. An agent gets nothing of what they
+# show: ui_read refuses them, and nothing is captured while one is in view
+# (private_in_view). Their title is kept back wherever windows are named, as
+# is the title of a window asking for a password (habitsIgnoreTitles).
+PRIVATE_BROWSING = re.compile(r"private browsing|incognito|inprivate", re.I)
+PRIVATE_TITLE = "(private: title not shown)"
+
+
+def window_private(w, cfg=None):
+    cfg = DEFAULT_CONFIG if cfg is None else cfg
+    return bool(_any_match(cfg.get("habitsIgnoreApps"), str(w.get("app_id") or ""))
+                or PRIVATE_BROWSING.search(str(w.get("title") or "")))
+
+
+def window_title(w, cfg=None):
+    """The window's title as an agent may read it."""
+    cfg = DEFAULT_CONFIG if cfg is None else cfg
+    if window_private(w, cfg) or _any_match(cfg.get("habitsIgnoreTitles"), str(w.get("title") or "")):
+        return PRIVATE_TITLE
+    return w.get("title")
+
+
+def private_in_view(ctx, x, y, w, h):
+    """Refuses a capture of this desktop rectangle (logical pixels) while a
+    private window is in it: a floating one where it is, a tiled one
+    anywhere on a monitor the rectangle covers (niri gives no position for
+    tiled windows, so it can neither be told apart nor blacked out)."""
+    outputs = {n: o["logical"] for n, o in (niri_json("outputs") or {}).items() if o.get("logical")}
+
+    def overlaps(ax, ay, aw, ah):
+        return ax < x + w and x < ax + aw and ay < y + h and y < ay + ah
+
+    covered = {n: lg for n, lg in outputs.items()
+               if overlaps(lg.get("x", 0), lg.get("y", 0), lg.get("width") or 1, lg.get("height") or 1)}
+    active = {ws.get("id"): covered[ws.get("output")] for ws in niri_json("workspaces") or []
+              if ws.get("is_active") and ws.get("output") in covered}
+    for win in windows():
+        lg = active.get(win.get("workspace_id"))
+        if lg is None or not window_private(win, ctx.cfg):
+            continue
+        layout = win.get("layout") or {}
+        pos, size = layout.get("tile_pos_in_workspace_view"), layout.get("window_size")
+        if win.get("is_floating") and pos and size:
+            off = layout.get("window_offset_in_tile") or [0, 0]
+            if not overlaps(lg.get("x", 0) + pos[0] + off[0], lg.get("y", 0) + pos[1] + off[1], size[0], size[1]):
+                continue
+        raise ToolError(
+            f"refused: a private window ({win.get('app_id')}: a password manager's or prompt's, or private "
+            "browsing) is on screen there, and it would be in the capture. Read the window you need with "
+            "ui_read or the page tools instead, or ask the user to move the private window to another workspace.")
+
+
+def slim_window(w, cfg=None):
     s = {
         "id": w.get("id"),
         "app_id": w.get("app_id"),
-        "title": w.get("title"),
+        "title": window_title(w, cfg),
         "workspace_id": w.get("workspace_id"),
         "focused": w.get("is_focused", False),
         "floating": w.get("is_floating", False),
@@ -221,7 +275,7 @@ def t_list_windows(ctx, args):
     wss = {w["id"]: w for w in niri_json("workspaces")}
     out = []
     for w in windows():
-        s = slim_window(w)
+        s = slim_window(w, ctx.cfg)
         ws = wss.get(w.get("workspace_id"))
         if ws:
             s["workspace"] = {"index": ws.get("idx"), "name": ws.get("name"), "monitor": ws.get("output")}

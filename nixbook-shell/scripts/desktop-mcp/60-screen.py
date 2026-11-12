@@ -210,6 +210,8 @@ def wl_copy(data, mime=None):
 
 def screenshot_window(ctx, wid):
     w = window_by_id(wid)
+    if window_private(w, ctx.cfg):
+        raise ToolError("refused: that window is private (a password manager's or prompt's, or private browsing)")
     # niri writes the capture where asked (--path), but also puts it in the
     # clipboard (no way around that): keep what was there to put it back.
     saved = saved_clipboard()
@@ -256,7 +258,7 @@ def screenshot_window(ctx, wid):
             os.chmod(out, 0o600)
             path = out
     info = (
-        f"Window {wid} ({w.get('app_id')}: {w.get('title')!r}), captured whole"
+        f"Window {wid} ({w.get('app_id')}: {window_title(w, ctx.cfg)!r}), captured whole"
         + (f", {size[0]}x{size[1]} pixels" if size else "")
         + ". For pointer coordinates, take a monitor screenshot."
     )
@@ -352,6 +354,7 @@ def read_screen_now(ctx, args):
         x, y, w, h = lg.get("x", 0), lg.get("y", 0), lg.get("width") or 1, lg.get("height") or 1
         grim = ["-o", name]
         what = f"monitor {name}"
+    private_in_view(ctx, x, y, w, h)
     scale = round(min(OCR_SCALE, OCR_MAX_EDGE / max(w, h)), 4)
     capture = run(["grim", *grim, "-s", f"{scale:.4f}", "-t", "ppm", "-"], timeout=15, binary=True).stdout
     gray = run(["magick", "ppm:-", "-colorspace", "gray", "pgm:-"], input=capture, timeout=15, binary=True).stdout
@@ -422,6 +425,19 @@ def ocr_lines(tsv, x, y, scale):
 CLIPBOARD_SECRET_TYPES = {"x-kde-passwordManagerHint", "x-kde-passwordmanagerhint"}
 
 
+CLIPBOARD_PLAIN_ID = re.compile(r"[0-9a-fA-F]{7,64}|[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+
+
+def copied_secret(held):
+    """Whether what was copied is a secret as a whole (a password, a code, a
+    key, a card number): never read. A longer text holding a key isn't: its
+    keys are blacked out (redact_secrets) and the rest is read."""
+    held = str(held or "").strip()
+    if CLIPBOARD_PLAIN_ID.fullmatch(held):
+        return False
+    return find_secret(redact_secrets(held) if re.search(r"\s", held) else held)
+
+
 def clipboard_secret():
     try:
         return bool(CLIPBOARD_SECRET_TYPES & set(clipboard_types()))
@@ -432,7 +448,8 @@ def clipboard_secret():
 @tool(
     "clipboard_get",
     "screen",
-    "Read the clipboard's text.",
+    "Read the clipboard's text (refused when it is a password, a one-time "
+    "code, a key or a card number on its own).",
     read_only=True,
 )
 def t_clipboard_get(ctx, args):
@@ -441,13 +458,23 @@ def t_clipboard_get(ctx, args):
     proc = run(["wl-paste", "--no-newline", "--type", "text"], timeout=3, check=False)
     if proc.returncode != 0:
         return [text("(the clipboard holds no text)")]
-    return [text(proc.stdout[:20000])]
+    # A password copied without a manager's mark (a command-line one's, a
+    # page's), a one-time code, a key, a card number: never read. Commit
+    # hashes and UUIDs are (find_secret takes long hex and base64 for keys).
+    if copied_secret(proc.stdout):
+        raise ToolError("refused: the clipboard looks like a secret (a password, a one-time code, a key or a card "
+                        "number). To put it somewhere, paste it (press_keys ctrl+v) without reading it.")
+    # In a longer text: the keys and tokens blacked out, the rest as it is.
+    return [text(redact_secrets(proc.stdout[:20000]))]
 
 
 def notification_history_path():
     # The shell's history (Directories.notificationHistoryPath), oldest first.
     return os.path.join(xdg("XDG_STATE_HOME", "~/.local/state"), "quickshell", "user", "notification-history.json")
 
+
+# In place of a notification no model reads (notice_secret).
+NOTICE_HIDDEN = "(not shown: a one-time code, or a bank's, a payment's or a password manager's)"
 
 # Unicode bidi isolates Vesktop wraps names in: noise for the model.
 BIDI_MARKS = dict.fromkeys(map(ord, "⁦⁧⁨⁩‎‏"))
@@ -460,7 +487,8 @@ BIDI_MARKS = dict.fromkeys(map(ord, "⁦⁧⁨⁩‎‏"))
     "messages (Vesktop: \"sender (#channel, server): message\", or just the "
     "sender for a DM), mail, reminders… Cheaper than a screenshot to see "
     "whether someone answered. Filter by `app` (e.g. vesktop), `contains` "
-    "(in the title or text) and `since_minutes`.",
+    "(in the title or text) and `since_minutes`. One-time codes, banks', "
+    "payments' and password managers' are listed without what they say.",
     obj(
         {
             "app": {"type": "string", "description": "App name, case-insensitive substring (e.g. vesktop)"},
@@ -498,11 +526,17 @@ def t_notifications(ctx, args):
         when = n.get("time") if isinstance(n.get("time"), (int, float)) else 0
         if app and app not in name.lower():
             continue
-        if contains and contains not in summary.lower() and contains not in body.lower():
-            continue
         if when < cutoff:
             continue
         stamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(when / 1000))
+        # A one-time code, a bank's, a password manager's: that it came,
+        # never what it says (nor whether `contains` is in it).
+        if notice_secret(ctx.cfg, name, summary, body):
+            if not contains:
+                lines.append(f"{stamp} [{name}] {NOTICE_HIDDEN}")
+            continue
+        if contains and contains not in summary.lower() and contains not in body.lower():
+            continue
         lines.append(f"{stamp} [{name}] {summary}: {body}"[:2000])
     if not lines:
         return [text("no notifications match")]

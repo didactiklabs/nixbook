@@ -150,7 +150,7 @@ def after_action_now(ctx, args, shot, extra):
             extra.append(text(f"(the screen was still changing after {SETTLE_MAX_MS / 1000:g} s)"))
     try:
         w = focused_window()
-        extra.append(text(f"Focused: {w.get('app_id')} — {w.get('title')!r} (id {w.get('id')})" if w else "Focused: no window"))
+        extra.append(text(f"Focused: {w.get('app_id')} — {window_title(w, ctx.cfg)!r} (id {w.get('id')})" if w else "Focused: no window"))
         app_id = (w or {}).get("app_id") or ""
         ctx.last_app = (desktop_for_app(app_id, applications()) or app_id) if app_id else None
         for notes in (notes_for_window(ctx, w), notes_for_action(ctx, w, args)):

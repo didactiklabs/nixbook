@@ -743,7 +743,7 @@ def t_launch_app(ctx, args):
 
 
 def launched(ctx, name, main, new):
-    return [text({"started": name, "window": slim_window(main)})]
+    return [text({"started": name, "window": slim_window(main, ctx.cfg)})]
 
 
 # -- windows and workspaces --------------------------------------------------
@@ -807,7 +807,7 @@ def t_focus_app(ctx, args):
     w = found[0]
     ctx.guard.check_rate()
     niri_action("focus-window", "--id", str(w["id"]))
-    return [text(f"focused {w.get('app_id')} — {short(w.get('title') or '', 80)!r} (window {w['id']})")]
+    return [text(f"focused {w.get('app_id')} — {short(window_title(w, ctx.cfg) or '', 80)!r} (window {w['id']})")]
 
 @tool(
     "close_window",

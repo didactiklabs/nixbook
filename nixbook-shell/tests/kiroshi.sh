@@ -28,6 +28,9 @@ expect_eq() {
 expect_contains() {
   if grep -qF -- "$3" <<<"$2"; then pass "$1"; else fail "$1" "missing: $3"$'\n'"in:"$'\n'"$2"; fi
 }
+expect_not_contains() {
+  if grep -qF -- "$3" <<<"$2"; then fail "$1" "unexpected: $3"$'\n'"in:"$'\n'"$2"; else pass "$1"; fi
+}
 
 bin="$tmp/bin"
 mkdir -p "$bin" "$tmp/runtime" "$tmp/state" "$tmp/config/nixbook-shell" "$tmp/data"
@@ -97,9 +100,11 @@ EOF
 req() {
   jq -n --arg img "$tmp/shot.png" --arg claude "$bin/claude" '{mode: "scan", lang: "en", claude: $claude, image: $img,
     context: {app: "vesktop", title: "Anna — Discord"},
-    windows: [{app: "vesktop", title: "Anna — Discord"}, {app: "kitty", title: "nix build"}],
+    windows: [{app: "vesktop", title: "Anna — Discord"}, {app: "kitty", title: "nix build"},
+              {app: "zen-twilight", title: "My bank — Zen Twilight Private Browsing"}],
     notifications: [{id: 7, time: "10:02", app: "Vesktop", summary: "Anna", body: "When is the release?", actions: [], canReply: true},
-                    {id: 8, time: "09:40", app: "Shop", summary: "Sale", body: "50% off", actions: ["Open"], canReply: false}],
+                    {id: 8, time: "09:40", app: "Shop", summary: "Sale", body: "50% off", actions: ["Open"], canReply: false},
+                    {id: 9, time: "09:30", app: "Messages", summary: "Google", body: "G-482913 is your verification code", actions: [], canReply: false}],
     events: [{when: "Friday 10:00", summary: "Release", location: "", meeting: true}], recent: []}' >"$tmp/req.json"
 }
 req
@@ -136,6 +141,9 @@ labels="$STUB_LOG/labels"
 expect_eq "the image first" "image|image/png" "$(jq -r '.content[0] | "\(.type)|\(.source.media_type)"' "$labels")"
 expect_contains "the context: the windows" "$(jq -r '.content[1].text' "$labels")" "kitty — nix build"
 expect_contains "the context: a notification with its id" "$(jq -r '.content[1].text' "$labels")" "#7 [10:02] Vesktop · Anna: When is the release? (can reply)"
+expect_contains "the context: a private window without its title" "$(jq -r '.content[1].text' "$labels")" "zen-twilight — (private: title not shown)"
+expect_not_contains "the context: never a private window's title" "$(jq -r '.content[1].text' "$labels")" "My bank"
+expect_not_contains "the context: never a one-time code" "$(jq -r '.content[1].text' "$labels")" "482913"
 expect_contains "the context: the next event" "$(jq -r '.content[1].text' "$labels")" "Friday 10:00: Release (video call)"
 expect_contains "Claude Code without tools or servers" "$(jq -r '.argv | join(" ")' "$labels")" "--tools  --model sonnet"
 expect_contains "the offers taken, read back" "$(jq -r '.content[2].text' "$STUB_LOG/item0")" "- Add a task (for: a request in Slack)"

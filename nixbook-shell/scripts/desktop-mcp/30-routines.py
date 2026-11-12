@@ -643,6 +643,8 @@ def routine_agent(cfg, r, event):
            "--tools", "", "--allowedTools", ",".join(f"mcp__{s}" for s in config["mcpServers"]),
            "--max-turns", str(ROUTINE_AGENT_TURNS), "--append-system-prompt", system,
            "--model", cfg.get("routineModel") or "haiku"]
+    # Kept with what else was sent (Settings > On its own > What it sent).
+    sent_note("a routine", cfg.get("routineModel") or "haiku", prompt)
     try:
         proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=workdir, timeout=240)
     except (OSError, subprocess.TimeoutExpired) as e:

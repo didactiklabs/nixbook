@@ -904,7 +904,8 @@ def sent_purpose(system):
     system = system.removesuffix("\n\n" + PRIVACY_PROMPT)
     return {INITIATIVE_SYSTEM: "notifications", CURIOUS_SYSTEM: "curiosity", NEWS_SYSTEM: "news", IDEA_SYSTEM: "a routine idea",
             LEARN_SYSTEM: "memory pass", TIDY_SYSTEM: "memory tidy-up", DLEARN_SYSTEM: "desktop memory pass",
-            DTIDY_SYSTEM: "desktop memory tidy-up"}.get(system, "other")
+            DTIDY_SYSTEM: "desktop memory tidy-up", IMPROVE_SYSTEM: "an improvement idea",
+            ROUTINE_JUDGE_SYSTEM: "routine topics"}.get(system, "other")
 
 
 def sent_read():

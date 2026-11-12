@@ -70,6 +70,9 @@ def ui_window(ctx, args):
     for pat in ctx.cfg.get("inputDenyTitles", []):
         if re.search(pat, title, re.IGNORECASE):
             raise ToolError("refused: that window looks like a password or authentication prompt")
+    if window_private(w, ctx.cfg):
+        raise ToolError("refused: that window is private (private browsing, or a password manager's): "
+                        "neither read nor used")
     return w
 
 

@@ -1115,6 +1115,7 @@ def screenshot_now(ctx, args):
         scale = min(max(covered), max_edge / max(w, h))
         grim = ["-g", f"{x},{y} {w}x{h}"]
         what = f"Region {w}x{h} at ({x},{y})"
+        private_in_view(ctx, x, y, w, h)
     else:
         name = as_str(args, "monitor", required=False, max_len=64, pattern=r"[\w.\-]+")
         if not name:
@@ -1126,6 +1127,7 @@ def screenshot_now(ctx, args):
         scale = min(1.0, max_edge / max(w, h))
         grim = ["-o", name]
         what = f"Monitor {name}: {w}x{h} logical pixels at ({x},{y})"
+        private_in_view(ctx, x, y, w, h)
         if ctx.transport != "cli" and shutil.which("magick"):
             return monitor_screenshot(ctx, name, grim, round(scale, 4), x, y, what, args.get("full") is True)
     scale = round(scale, 4)
