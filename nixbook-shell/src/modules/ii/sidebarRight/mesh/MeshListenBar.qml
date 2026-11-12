@@ -22,8 +22,8 @@ ColumnLayout {
     readonly property bool followingThis: !!root.session && MeshListen.following === root.session.sid
     readonly property var track: root.hosting ? MeshListen.hostTrack : root.session?.track ?? null
     readonly property var listeners: root.hosting ? MeshListen.hosting.listeners : root.session?.listeners ?? {}
-    // A film or an episode (Jellyfin): watching, not listening.
-    readonly property bool video: (root.hosting ? MeshListen.hostService : root.session?.service ?? "") === "jellyfin"
+    // A film or an episode (Jellyfin), a YouTube video: watching, not listening.
+    readonly property bool video: MeshListen.kindOf(root.hosting ? MeshListen.hostService : root.session?.service ?? "") === "video"
     spacing: 4
     visible: root.hosting || !!root.session || MeshListen.notice !== ""
 
@@ -265,7 +265,7 @@ ColumnLayout {
 
     // Someone else's song (listening along or not), once signed in to
     // YouTube Music in the background: it goes to your own playlists.
-    readonly property bool canAdd: !root.hosting && !root.video && !!root.session?.track && YouTubeMusic.signedIn
+    readonly property bool canAdd: !root.hosting && (!root.video || root.session?.service === "youtube") && !!root.session?.track && YouTubeMusic.signedIn
     property bool adding: false
     onCanAddChanged: if (!root.canAdd) root.adding = false
     YouTubeMusicAddToPlaylist {

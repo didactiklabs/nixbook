@@ -305,8 +305,9 @@ Item {
                 visible: MeshListen.videoOffered && !MeshListen.hostingIn(root.conv) && !MeshListen.sessionIn(root.conv)
                 can: MeshListen.canShareVideo
                 tip: MeshListen.canShareVideo
-                    ? Translation.tr("Watch together: share what Jellyfin plays on this computer with %1; they can watch along on their own Jellyfin").arg(Mesh.nameOf(root.conv))
-                    : Translation.tr("Watch together: play something from Jellyfin on this computer (its player), then share it here")
+                    ? Translation.tr("Watch together: share what %1 plays on this computer with %2; they can watch along")
+                        .arg(MeshListen.serviceName(MeshListen.serviceOf(MeshListen.shareablePlayer("video")))).arg(Mesh.nameOf(root.conv))
+                    : Translation.tr("Watch together: play a video from the YouTube tab, or something from Jellyfin on this computer, then share it here")
             }
             MaterialSymbol {
                 visible: !Mesh.connected

@@ -256,11 +256,14 @@ Singleton {
         if (root.videoPlayer) MprisController.setPlayerVolume(root.videoPlayer, v);
         Persistent.states.media.videoVolume = v;
     }
-    function watch(videoId) {
+    // `start`: from that second (watching along with someone in the mesh).
+    function watch(videoId, start) {
         if (!/^[A-Za-z0-9_-]{11}$/.test(String(videoId ?? ""))) return false;
         // At the volume the tab was last left at.
         const volume = Math.round(Math.max(0, Math.min(1, Persistent.states.media.videoVolume ?? 1)) * 100);
-        AppLaunch.spawn([root.binPath || root.bin, "watch", videoId, "--volume", String(volume)]);
+        const from = Math.floor(Number(start ?? 0));
+        AppLaunch.spawn([root.binPath || root.bin, "watch", videoId, "--volume", String(volume),
+            ...(from > 3 ? ["--start", String(from)] : [])]);
         return true;
     }
 

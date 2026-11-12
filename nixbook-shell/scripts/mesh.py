@@ -855,12 +855,15 @@ def listen_data(data):
     clean = {"op": op, "sid": sid}
     if op == "state":
         service = str(data.get("service") or "")
-        if service not in ("spotify", "youtube-music", "jellyfin"):
-            fail("only YouTube Music, Spotify and Jellyfin can be shared")
+        if service not in ("spotify", "youtube-music", "jellyfin", "youtube"):
+            fail("only YouTube Music, Spotify, Jellyfin and YouTube videos can be shared")
         t = data.get("track") if isinstance(data.get("track"), dict) else {}
         track = {k: str(t.get(k) or "")[:300] for k in ("id", "title", "artist", "album", "art")}
         if not re.match(r"^[A-Za-z0-9_-]{1,64}$", track["id"]):
             fail("no track to share")
+        # A YouTube video (watched in mpv): its id, nothing longer.
+        if service == "youtube" and not re.match(r"^[A-Za-z0-9_-]{11}$", track["id"]):
+            fail("not a YouTube video id")
         if not re.match(r"^https://", track["art"]):
             track["art"] = ""
         try:

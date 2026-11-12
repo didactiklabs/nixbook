@@ -454,6 +454,10 @@ r=$(mesh alice send "$server" listen <<<"$(jq -c '.service = "jellyfin" | .sid =
   | .jf = {serverId: "srv-1", id: "0f3c9a2b7e", type: "Episode", seriesName: "Edgerunners", season: 1, episode: 3,
            providers: {imdb: "tt123", evil: "x"}, seriesProviders: {tvdb: "416359"}, token: "secret"}' <<<"$state")")
 expect "a Jellyfin episode can be shared too" true "$(field .ok "$r")"
+r=$(mesh alice send "$server" listen <<<"$(jq -c '.service = "youtube" | .sid = "aaaabbbbcccceeee" | .track.id = "MK3GL-B8mRs" | .track.art = "https://i.ytimg.com/vi/MK3GL-B8mRs/mqdefault.jpg"' <<<"$state")")
+expect "a YouTube video (watched in mpv) can be shared too" true "$(field .ok "$r")"
+r=$(mesh alice send "$server" listen <<<"$(jq -c '.service = "youtube" | .track.id = "4uLU6hMCjMI75M1A2tKUQC"' <<<"$state")" || true)
+expect "a YouTube video's id is 11 characters" false "$(field .ok "$r")"
 r=$(mesh alice send "$server" listen <<<"$(jq -c '.service = "deezer"' <<<"$state")" || true)
 expect "only YouTube Music and Spotify are shared" false "$(field .ok "$r")"
 r=$(mesh alice send "$server" listen <<<"$(jq -c '.op = "steal"' <<<"$state")" || true)
