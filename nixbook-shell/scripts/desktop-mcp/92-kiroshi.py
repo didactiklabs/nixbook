@@ -227,10 +227,14 @@ def kiroshi_context(cfg, req):
     ids, taken: the offers this user takes}."""
     ctx = req.get("context") or {}
     parts = [f"Today: {time.strftime('%Y-%m-%d %H:%M, %A')}"]
-    where = " — ".join(str(ctx[k]) for k in ("app", "title") if ctx.get(k))
+    # Private windows' titles (window_title) stay here, as everywhere
+    # windows are named to a model.
+    shown = lambda app, title: str(window_title({"app_id": app, "title": title}, cfg) or "")  # noqa: E731
+    where = " — ".join(v for v in (str(ctx.get("app") or ""),
+                                   shown(ctx.get("app"), ctx.get("title")) if ctx.get("title") else "") if v)
     if where:
         parts.append(f"Focused window: {where}")
-    wins = [f"- {w.get('app', '')} — {str(w.get('title', ''))[:90]}" for w in (req.get("windows") or [])[:10]
+    wins = [f"- {w.get('app', '')} — {shown(w.get('app'), w.get('title', ''))[:90]}" for w in (req.get("windows") or [])[:10]
             if isinstance(w, dict)]
     if wins:
         parts.append("Open windows (last used first):\n" + "\n".join(wins))
@@ -245,6 +249,10 @@ def kiroshi_context(cfg, req):
     notes, ids = [], set()
     for n in (req.get("notifications") or [])[:8]:
         if not isinstance(n, dict):
+            continue
+        # One-time codes, banks', password managers': not sent, and no
+        # option can act on them (their ids aren't known).
+        if notice_secret(cfg, str(n.get("app") or ""), str(n.get("summary") or ""), str(n.get("body") or "")):
             continue
         body = " ".join(str(n.get("body") or "").split())[:220]
         nid = n.get("id")

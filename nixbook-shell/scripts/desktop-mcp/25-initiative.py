@@ -259,6 +259,13 @@ NOTICE_SECRET = re.compile(
 NOTICE_SECRET_APPS = re.compile(r"bank|banque|paypal|revolut|lydia|boursorama|n26|wise|authenticator|aegis|2fas|otp", re.I)
 
 
+def notice_secret(cfg, app, summary, body=""):
+    """A notification no model reads, asked for or not: a bank's, an
+    authenticator's or a password manager's, a one-time code, a payment."""
+    return bool(NOTICE_SECRET_APPS.search(app) or _any_match(cfg.get("habitsIgnoreApps"), app)
+                or NOTICE_SECRET.search(f"{summary} {body}"))
+
+
 def notice_triage(cfg, data, items, focused):
     """The notifications worth the model's look: not the shell's own, not
     the focused app's (the user sees them), not a kind it found boring, not
@@ -270,8 +277,7 @@ def notice_triage(cfg, data, items, focused):
         app, summary = str(i.get("app") or "")[:60], str(i.get("summary") or "")[:200]
         if not summary or fold(app) in INITIATIVE_OWN_APPS or i.get("urgency") == "low":
             continue
-        if NOTICE_SECRET_APPS.search(app) or _any_match(cfg.get("habitsIgnoreApps"), app) \
-                or NOTICE_SECRET.search(f"{summary} {i.get('body') or ''}"):
+        if notice_secret(cfg, app, summary, str(i.get("body") or "")):
             continue
         if focused and fold(app) and fold(app) in fold(focused):
             continue
@@ -1101,8 +1107,10 @@ def context_lines(cfg, events, now=None):
             if cmd:
                 out.append((t, f"a command failed in {short(cwd, 60)}: `{cmd}`" + (f" (exit {code})" if code else "")))
         elif kind == "copied":
-            copied = short(re.sub(r"\s+", " ", context_redact(str(e.get("text") or ""))).strip(), 240)
-            if not clipboard_secret() and copied:
+            held = str(e.get("text") or "").strip()
+            copied = short(re.sub(r"\s+", " ", context_redact(held)).strip(), 240)
+            # Never a password, a code or a key copied on its own (as clipboard_get).
+            if not clipboard_secret() and copied and not copied_secret(held):
                 out.append((t, f"copied: {copied}"))
     return out[-CONTEXT_LINES:]
 

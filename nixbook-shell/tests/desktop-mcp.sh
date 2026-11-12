@@ -93,6 +93,12 @@ if [ "$1 $2" = "msg --json" ]; then
         {id: 5, app_id: "org.gnome.Calculator", title: "Calculator", workspace_id: 10, is_focused: false, is_floating: true,
          layout: {window_size: [400, 300], tile_pos_in_workspace_view: [10, 20], window_offset_in_tile: [2, 3]}}
       ] + (if $launched then [{id: $launched_id, app_id: $launched_app, title: "New Tab", workspace_id: 10, is_focused: false, is_floating: false}] else [] end)
+      # With $STUB_PRIVATE a private browsing window, tiled on the screen
+      # shown ("floating": a password manager instead, floating there).
+      + (if env.STUB_PRIVATE == "floating" then [{id: 8, app_id: "org.keepassxc.KeePassXC", title: "Passwords", workspace_id: 10, is_focused: false, is_floating: true,
+           layout: {window_size: [300, 200], tile_pos_in_workspace_view: [2000, 1000], window_offset_in_tile: [0, 0]}}]
+         elif env.STUB_PRIVATE then [{id: 8, app_id: "zen-twilight", title: "My bank — Zen Twilight Private Browsing", workspace_id: 10, is_focused: ($f == "private"), is_floating: false}]
+         else [] end)
       | map(select(.id as $i | $hidden | index($i) | not))' ;;
     workspaces)
       echo '[{"id":10,"idx":1,"name":null,"output":"eDP-1","is_active":true,"is_focused":true,"active_window_id":1},
@@ -597,6 +603,20 @@ expect_contains "notifications: count keeps the newest" "$out" "lol"
 expect_eq "notifications: count" "1" "$(wc -l <<<"$out")"
 expect_contains "notifications: no match" "$(call notifications '{"app":"nothing"}')" "no notifications match"
 expect_contains "notifications: bad count" "$(call notifications '{"count":0}')" "positive integer"
+# Never what a one-time code, a bank's or a password manager's says.
+jq -n --argjson now "$now_ms" '[
+  {id: 5, time: ($now - 50000), appName: "Messages", summary: "Google", body: "G-482913 is your verification code"},
+  {id: 6, time: ($now - 40000), appName: "Ma Banque", summary: "Carte", body: "Paiement de 42 EUR"},
+  {id: 7, time: ($now - 30000), appName: "KeePassXC", summary: "Copied", body: "hunter2 copied"},
+  {id: 8, time: ($now - 20000), appName: "vesktop", summary: "Alesio", body: "on se voit demain ?"}
+]' >"$XDG_STATE_HOME/quickshell/user/notification-history.json"
+out=$(call notifications)
+expect_not_contains "notifications: a one-time code is never read" "$out" "482913"
+expect_not_contains "notifications: nor a bank's" "$out" "42 EUR"
+expect_not_contains "notifications: nor a password manager's" "$out" "hunter2"
+expect_eq "notifications: they are listed, unread" "3" "$(grep -c "not shown: a one-time code" <<<"$out")"
+expect_contains "notifications: the others as before" "$out" "[vesktop] Alesio: on se voit demain ?"
+expect_contains "notifications: contains never finds a secret one" "$(call notifications '{"contains":"482913"}')" "no notifications match"
 
 # Accessibility trees (ui): the deny lists hold for reading too.
 echo kitty >"$STUB_FOCUS"
@@ -604,6 +624,34 @@ expect_contains "ui_read: terminals refused" "$(call ui_read)" "refused: 'kitty'
 echo firefox >"$STUB_FOCUS"
 rm -f "$XDG_RUNTIME_DIR/nixbook-shell/ui-refs.json" "$XDG_RUNTIME_DIR/ui-refs.json"
 expect_contains "ui_act: needs a ui_read first" "$(call ui_act '{"index":1,"action":"click"}')" "no element [1]: ui_read first"
+
+# Private windows (private browsing, a password manager's): named without
+# their title, never read, and nothing is captured while one is in view.
+out=$(STUB_PRIVATE=1 call list_windows)
+expect_eq "private window: listed without its title" "zen-twilight (private: title not shown)" "$(jq -r '.[] | select(.id==8) | "\(.app_id) \(.title)"' <<<"$out")"
+expect_eq "private window: a password prompt's title kept back too" "(private: title not shown)" "$(jq -r '.[] | select(.id==3).title' <<<"$out")"
+expect_eq "private window: the others as before" "Mozilla Firefox" "$(jq -r '.[] | select(.id==1).title' <<<"$out")"
+expect_contains "private window: never read" "$(STUB_PRIVATE=1 call ui_read '{"window_id":8}')" "refused: that window is private"
+reset_calls
+expect_contains "private window: no screenshot of its monitor" "$(STUB_PRIVATE=1 call screenshot)" "refused: a private window (zen-twilight"
+expect_contains "private window: nor of a region there" "$(STUB_PRIVATE=1 call screenshot '{"region":{"x":0,"y":0,"width":400,"height":300}}')" "refused: a private window"
+expect_contains "private window: nor read_screen" "$(STUB_PRIVATE=1 call read_screen)" "refused: a private window"
+expect_contains "private window: nor of a window beside it" "$(STUB_PRIVATE=1 call screenshot '{"window_id":4}')" "refused: a private window"
+expect_eq "private window: nothing was captured" "" "$(grep '^grim' "$calls" || true)"
+expect_contains "private window: another monitor still is" "$(STUB_PRIVATE=1 call screenshot '{"monitor":"HDMI-A-1"}')" "Monitor HDMI-A-1"
+# A floating one: only what overlaps it is refused.
+expect_contains "private window: floating, a region away from it is captured" \
+  "$(STUB_PRIVATE=floating call screenshot '{"region":{"x":0,"y":0,"width":400,"height":300}}')" "Region 400x300"
+expect_contains "private window: floating, a region over it isn't" \
+  "$(STUB_PRIVATE=floating call screenshot '{"region":{"x":1900,"y":900,"width":400,"height":300}}')" "refused: a private window (org.keepassxc.KeePassXC"
+expect_contains "private window: floating, nor its monitor" "$(STUB_PRIVATE=floating call screenshot)" "refused: a private window"
+expect_contains "private window: itself, off screen through niri neither" \
+  "$(STUB_PRIVATE=floating call screenshot '{"window_id":8}')" "refused"
+echo private >"$STUB_FOCUS"
+out=$(STUB_PRIVATE=1 call focus_window '{"id":8}')
+expect_contains "private window: focused, named without its title" "$out" "Focused: zen-twilight — '(private: title not shown)' (id 8)"
+expect_not_contains "private window: its title never in a reply" "$out" "My bank"
+echo firefox >"$STUB_FOCUS"
 expect_contains "ui_wait: needs find" "$(call ui_wait)" "must be a non-empty string"
 expect_contains "ui_wait: timeout bounds" "$(call ui_wait '{"find":"ok","timeout_ms":60000}')" "must be 100 to 15000"
 echo kitty >"$STUB_FOCUS"
@@ -654,6 +702,21 @@ expect_contains "the shell's Settings window refused" "$(guard org.quickshell li
 printf 'x-kde-passwordManagerHint\ntext/plain\n' >"$STUB_CLIP.type"
 echo hunter2 >"$STUB_CLIP"
 expect_contains "clipboard: a password manager's secret refused" "$(call clipboard_get)" "holds a secret"
+# Nor a password copied without that mark, a one-time code or a key; a
+# commit hash, a UUID and plain text are read.
+echo text/plain >"$STUB_CLIP.type"
+printf 'Tr0ub4dor&3xyz' >"$STUB_CLIP"
+expect_contains "clipboard: a password-like word refused" "$(call clipboard_get)" "looks like a secret"
+printf '482913' >"$STUB_CLIP"
+expect_contains "clipboard: a one-time code refused" "$(call clipboard_get)" "looks like a secret"
+printf '9fceb02d0ae598e95dc970b74767f19372d61af8' >"$STUB_CLIP"
+expect_eq "clipboard: a commit hash is read" "9fceb02d0ae598e95dc970b74767f19372d61af8" "$(call clipboard_get)"
+printf '3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b' >"$STUB_CLIP"
+expect_eq "clipboard: a UUID is read" "3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b" "$(call clipboard_get)"
+printf 'deploy with the token ghp_abcdefghijklmnopqrstuvwxyz0123 then restart' >"$STUB_CLIP"
+out=$(call clipboard_get)
+expect_contains "clipboard: a text is read" "$out" "then restart"
+expect_not_contains "clipboard: a key in it blacked out" "$out" "ghp_abcdefghijklmnopqrstuvwxyz0123"
 rm -f "$STUB_CLIP.type"
 reset_calls
 echo prompt >"$STUB_FOCUS"
@@ -1817,7 +1880,8 @@ out=$(call page_list '{}')
 expect_contains "page_list: a tab" "$out" "zen:3 (shown) 'Inbox' https://mail.example.org/ · container Work"
 expect_contains "page_list: a blocked one, private" "$out" "zen:7 private: the Banking container"
 expect_contains "page_list: another workspace" "$out" "'News' https://news.example.org/ · other workspace"
-expect_eq "pages: the guard sent along" '["Banking"]' "$(head -n1 "$tmp/zen.log" | jq -c .guard.containers)"
+# The bridge's own first word (the page theme, from a thread) may come before it.
+expect_eq "pages: the guard sent along" '["Banking"]' "$(jq -c 'select(.guard) | .guard.containers' "$tmp/zen.log" | head -n1)"
 out=$(call page_read '{"query":"send"}')
 expect_contains "page_read: the elements" "$out" "[2] text field 'To' = 'ana@example.org'"
 expect_contains "page_read: no password value" "$out" "[3] password field 'Password' (password: off limits)"

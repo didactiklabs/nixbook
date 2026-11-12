@@ -51,6 +51,17 @@ Singleton {
         const windows = root.currentTool !== "none" && root.desktopTools.length > 0 ? root.openWindowsLines() : [];
         return head + (windows.length > 0 ? `[Open windows (ids for the window tools):\n${windows.join("\n")}]\n\n` : "");
     }
+    // Private windows (a password manager's or a password prompt's, private
+    // browsing, a window asking for a password): listed, their title kept
+    // back. As desktop-mcp's window_title (its habitsIgnoreApps and
+    // habitsIgnoreTitles defaults).
+    readonly property var privateWindowApps: /keepass|bitwarden|1password|enpass|proton-?pass|seahorse|gnome-keyring|gcr-prompter|pinentry|polkit|lxqt-policykit|kdesu/i
+    readonly property var privateWindowTitles: /private browsing|incognito|inprivate|\bpassword\b|\bpassphrase\b/i
+    function windowTitle(w) {
+        const title = String(w?.title ?? "").replace(/\s+/g, " ");
+        return root.privateWindowApps.test(String(w?.appId ?? "")) || root.privateWindowTitles.test(title)
+            ? "(private: title not shown)" : title;
+    }
     function openWindowsLines() {
         const spaces = {};
         for (const w of WM.workspaces ?? []) spaces[w.id] = w;
@@ -59,7 +70,7 @@ Singleton {
             .slice(0, 20)
             .map(w => {
                 const sp = spaces[w.workspaceId] ?? {};
-                const title = String(w.title ?? "").replace(/\s+/g, " ");
+                const title = root.windowTitle(w);
                 return `- id ${w.id}: ${w.appId || "?"} — ${title.length > 60 ? title.slice(0, 59) + "…" : title}`
                     + ` (workspace ${sp.idx ?? "?"}${sp.output ? " on " + sp.output : ""}${w.focused ? ", focused" : ""}${w.floating ? ", floating" : ""})`;
             });

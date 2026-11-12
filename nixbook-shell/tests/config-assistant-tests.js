@@ -136,6 +136,21 @@ check("how do I send a photo to someone in the mesh", howTos.mesh);
 check("comment envoyer une photo dans le mesh", howTos.mesh);
 check("wie kann ich im Mesh eine Datei senden", howTos.mesh);
 check("làm sao gửi ảnh trong mesh", howTos.mesh);
+check("can DAI see my private window", howTos.privateWindowsIncognito);
+check(
+  "does the agent read my password manager",
+  howTos.privateWindowsIncognito,
+);
+check(
+  "why is the screenshot refused with private browsing open",
+  howTos.privateWindowsIncognito,
+);
+check("DAI peut-il voir ma fenêtre privée", howTos.privateWindowsIncognito);
+check("kann DAI mein privates Fenster sehen", howTos.privateWindowsIncognito);
+check(
+  "DAI có thấy cửa sổ riêng tư của tôi không",
+  howTos.privateWindowsIncognito,
+);
 check("comment fonctionne la mémoire", howTos.desktopMemory);
 check("wie funktioniert das Gedächtnis", howTos.desktopMemory);
 
