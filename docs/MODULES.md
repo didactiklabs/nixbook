@@ -267,6 +267,13 @@ Whether to enable lanzaboote for UEFI Secure Boot. Lanzaboote replaces systemd-b
 
 ## laptopProfile
 
+### `customNixOSModules.laptopProfile.cpuBoost`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Whether the CPU may run above its nominal frequency (turbo, Core Performance Boost). false caps every core at the nominal frequency its firmware reports (ACPI CPPC `nominal_freq`; on totoro 2.7 GHz instead of 4.77 GHz): cooler, and where the CPU and an integrated GPU share one power budget more of it is left to the GPU in games, for slower single-thread work everywhere. The cap is each core's `scaling_max_freq`, not the global `cpufreq/boost` switch: with that one off the kernel refuses every write to the per-core `boost` files, which power-profiles-daemon writes at each profile change, so the profile could no longer be changed ("Failed to activate CPU driver 'amd_pstate'").
+
 ### `customNixOSModules.laptopProfile.enable`
 
 - **Type:** `boolean`

@@ -48,6 +48,24 @@ in
         changed back. null keeps the saved profile.
       '';
     };
+    cpuBoost = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether the CPU may run above its nominal frequency (turbo, Core
+        Performance Boost). false caps every core at the nominal frequency
+        its firmware reports (ACPI CPPC `nominal_freq`; on totoro 2.7 GHz
+        instead of 4.77 GHz): cooler, and where the CPU and an integrated GPU
+        share one power budget more of it is left to the GPU in games, for
+        slower single-thread work everywhere.
+
+        The cap is each core's `scaling_max_freq`, not the global
+        `cpufreq/boost` switch: with that one off the kernel refuses every
+        write to the per-core `boost` files, which power-profiles-daemon
+        writes at each profile change, so the profile could no longer be
+        changed ("Failed to activate CPU driver 'amd_pstate'").
+      '';
+    };
   };
   config = lib.mkIf cfg.enable {
     services = {
@@ -100,6 +118,40 @@ in
         ExecStart = "${lib.getExe' config.services.power-profiles-daemon.package "powerprofilesctl"} set ${cfg.powerProfileOnBoot}";
       };
     };
+
+    # Not RemainAfterExit: the sleep targets start it again after each resume,
+    # where the cores come back online.
+    systemd.services.cpu-boost-off = lib.mkIf (!cfg.cpuBoost) (
+      let
+        sleepTargets = [
+          "suspend.target"
+          "hibernate.target"
+          "hybrid-sleep.target"
+          "suspend-then-hibernate.target"
+        ];
+      in
+      {
+        description = "Cap the CPU at its nominal frequency (no boost)";
+        after = sleepTargets;
+        wantedBy = [ "multi-user.target" ] ++ sleepTargets;
+        serviceConfig.Type = "oneshot";
+        script = ''
+          capped=0
+          for cpu in /sys/devices/system/cpu/cpu[0-9]*; do
+            nominal=$(cat "$cpu/acpi_cppc/nominal_freq" 2>/dev/null || echo 0)
+            if [ "$nominal" -gt 0 ] && [ -w "$cpu/cpufreq/scaling_max_freq" ]; then
+              echo $((nominal * 1000)) > "$cpu/cpufreq/scaling_max_freq"
+              capped=$((capped + 1))
+            fi
+          done
+          if [ "$capped" -eq 0 ]; then
+            echo "no core reports a nominal frequency (acpi_cppc/nominal_freq): boost left on" >&2
+            exit 1
+          fi
+          echo "$capped cores capped at their nominal frequency"
+        '';
+      }
+    );
 
     powerManagement = lib.mkForce {
       enable = true;
