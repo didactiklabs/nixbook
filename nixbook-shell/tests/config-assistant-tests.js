@@ -104,6 +104,11 @@ check(
 check("comment activer l'annulation d'écho", howTos.echoCancel);
 check("wie schalte ich die Echounterdrückung ein", howTos.echoCancel);
 check("làm sao bật khử tiếng vọng", howTos.echoCancel);
+check("where is my music visualizer", howTos.visualizer);
+check("the visualizer doesn't appear anymore", howTos.visualizer);
+check("pourquoi le visualiseur ne s'affiche plus", howTos.visualizer);
+check("wo ist die Musik-Visualisierung", howTos.visualizer);
+check("trình hiển thị nhạc không hiện", howTos.visualizer);
 check("comment regarder ensemble un film", howTos.mesh);
 check("comment écouter ensemble de la musique", howTos.mesh);
 check("wie können wir zusammen hören", howTos.mesh);

@@ -90,7 +90,26 @@ Singleton {
     property list<real> visualizerPoints: []
     // Desktop visualizers currently animating (not paused behind windows):
     // cava only runs for them while this is > 0 (MediaControls.cavaWanted).
+    // Each widget reports its own state and the count is taken again from the
+    // widgets that are still there and still animating: kept by adding and
+    // subtracting one, a single missed or doubled step left it wrong for
+    // good, and the visualizer never came back until the shell restarted.
     property int desktopVisualizersAnimating: 0
+    property var _desktopVisualizers: []
+    function _visualizerAnimates(widget) {
+        try {
+            // (A destroyed widget reads as undefined.)
+            return !!widget && widget.gone === false && widget.animate === true && widget.visible === true;
+        } catch (e) {
+            return false;
+        }
+    }
+    function reportDesktopVisualizer(widget) {
+        const list = root._desktopVisualizers.filter(w => w !== widget && root._visualizerAnimates(w));
+        if (root._visualizerAnimates(widget)) list.push(widget);
+        root._desktopVisualizers = list;
+        root.desktopVisualizersAnimating = list.length;
+    }
     // Bumped when the desktop layer (Background.qml, Bottom layer) must be
     // re-mapped to stack above a video wallpaper that just started.
     property int backgroundRestack: 0
