@@ -323,6 +323,10 @@ Singleton {
 		// nixbook-ytmusic's player sets its mpv's volume from MPRIS; its keys
 		// (the YouTube Music app's desktop entry) would find the app's stream.
 		if (String(player.dbusName ?? "").includes("nixbook_ytmusic")) return null;
+		// mpv's MPRIS volume is its own; its stream is found by the binary,
+		// which every mpv shares (a YouTube video, the background player,
+		// Jellyfin's): the wrong one could be set.
+		if (root.appKey(player.identity) === "mpv") return null;
 		const keys = root.playerKeys(player);
 		if (keys.length === 0) return null;
 		const streams = Audio.outputAppNodes;

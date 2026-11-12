@@ -117,6 +117,9 @@ Singleton {
                 // D-Bus name of the player picked in a media source selector;
                 // "" = automatic (follow whatever is playing).
                 property string selectedPlayer: ""
+                // The YouTube tab's volume (0-1): each video it opens in mpv
+                // starts there.
+                property real videoVolume: 1
                 // Echo cancellation on (services/EchoCancel.qml): started
                 // again at the next login.
                 property bool echoCancel: false

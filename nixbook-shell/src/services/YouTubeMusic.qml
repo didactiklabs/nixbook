@@ -218,6 +218,19 @@ Singleton {
     function cancelVideoSearch() {
         root._videoSearchGen++;
     }
+    // A channel's latest videos, newest first (its link, or a video's id
+    // when the feed didn't give the link): {channel: {name, url, followers},
+    // items}; only the latest asked answers.
+    property int _channelGen: 0
+    function channelVideos(urlOrVideo, count, then) {
+        const gen = ++root._channelGen;
+        root.run(["videos", "channel", String(urlOrVideo), "--count", String(count)], "", (ok, answer) => {
+            if (gen === root._channelGen && then) then(ok, answer);
+        });
+    }
+    function cancelChannel() {
+        root._channelGen++;
+    }
     // A video in mpv (the user's, with their config), started through niri
     // so it outlives the shell: `nixbook-ytmusic watch` by its full path
     // (niri's environment hasn't the shell's PATH).
@@ -231,7 +244,9 @@ Singleton {
     }
     function watch(videoId) {
         if (!/^[A-Za-z0-9_-]{11}$/.test(String(videoId ?? ""))) return false;
-        AppLaunch.spawn([root.binPath || root.bin, "watch", videoId]);
+        // At the volume the tab was last left at.
+        const volume = Math.round(Math.max(0, Math.min(1, Persistent.states.media.videoVolume ?? 1)) * 100);
+        AppLaunch.spawn([root.binPath || root.bin, "watch", videoId, "--volume", String(volume)]);
         return true;
     }
 

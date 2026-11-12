@@ -459,7 +459,7 @@ for a in "$@"; do [ "$prev" = --cookies ] && cookies=$a; prev=$a; target=$a; don
 case "$target" in
   :ytrec) cat <<'J'
 {"entries": [
- {"_type": "url", "ie_key": "Youtube", "id": "home1111111", "title": "First", "channel": "Chan A", "duration": 146, "view_count": 1200},
+ {"_type": "url", "ie_key": "Youtube", "id": "home1111111", "title": "First", "channel": "Chan A", "channel_url": "https://www.youtube.com/channel/UCaaaaaaaaaaaaaaaaaaaaaa", "duration": 146, "view_count": 1200},
  {"_type": "url", "ie_key": "Youtube", "id": "home1111111", "title": "First again"},
  {"_type": "url", "ie_key": "YoutubeTab", "id": "UCchannel00000000000000", "title": "A channel"},
  {"_type": "url", "ie_key": "Youtube", "id": "live2222222", "title": "Live", "uploader": "Chan B", "live_status": "is_live"},
@@ -468,6 +468,8 @@ J
   ;;
   :ytsubs) echo 'ERROR: [youtube:tab] Unable to download webpage: HTTP Error 500' >&2; exit 1 ;;
   ytsearch*) echo '{"entries": [{"_type": "url", "ie_key": "Youtube", "id": "found111111", "title": "Found", "channel": "C"}]}' ;;
+  https://www.youtube.com/@chan/videos | https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb/videos)
+    echo '{"channel": "Chan B", "channel_url": "https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb", "channel_follower_count": 4200, "entries": [{"_type": "url", "ie_key": "Youtube", "id": "newest11111", "title": "Newest", "duration": 60}, {"_type": "url", "ie_key": "Youtube", "id": "older111111", "title": "Older"}]}' ;;
 esac
 EOF
 chmod +x "$tmp/bin/yt-dlp-feeds"
@@ -484,7 +486,7 @@ expect "videos: a search answers signed out (no cookies given)" "found111111 yts
   "$(yv search two words --count 3 | "$py" -c 'import json,sys; print(" ".join(i["id"] for i in json.load(sys.stdin)["items"]))') $(tail -1 "$FEEDS_LOG" | sed 's/.* \(ytsearch\)/\1/')"
 printf '{"cookie": "SAPISID=x; __Secure-3PAPISID=x"}' >"$tmp/keyring/session"
 expect "videos: home, each video once, channels and other sites out" \
-  '[{"id": "home1111111", "title": "First", "channel": "Chan A", "duration": 146, "views": 1200, "live": false, "upcoming": false, "thumb": "https://i.ytimg.com/vi/home1111111/mqdefault.jpg"}, {"id": "live2222222", "title": "Live", "channel": "Chan B", "duration": 0, "views": 0, "live": true, "upcoming": false, "thumb": "https://i.ytimg.com/vi/live2222222/mqdefault.jpg"}]' \
+  '[{"id": "home1111111", "title": "First", "channel": "Chan A", "channelUrl": "https://www.youtube.com/channel/UCaaaaaaaaaaaaaaaaaaaaaa", "duration": 146, "views": 1200, "live": false, "upcoming": false, "thumb": "https://i.ytimg.com/vi/home1111111/mqdefault.jpg"}, {"id": "live2222222", "title": "Live", "channel": "Chan B", "channelUrl": "", "duration": 0, "views": 0, "live": true, "upcoming": false, "thumb": "https://i.ytimg.com/vi/live2222222/mqdefault.jpg"}]' \
   "$(yv home --count 500 | "$py" -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["items"], ensure_ascii=False))')"
 expect "videos: the session given as a cookie file, gone after; the count capped" "--playlist-end 150 :ytrec [cookies there] none left" \
   "$(tail -1 "$FEEDS_LOG" | grep -o -- '--playlist-end 150 :ytrec \[cookies there\]') $(ls "$tmp/run/nixbook-ytmusic"/videos-cookies-* >/dev/null 2>&1 && echo left || echo none left)"
@@ -503,6 +505,26 @@ expect "videos: an unknown feed refused" "1" "$(
   yv trending >/dev/null
   echo $?
 )"
+expect "videos channel: its latest videos from its Videos tab, the channel's name and link on each" \
+  'Chan B 4200 newest11111,older111111 Chan B https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb' \
+  "$(yv channel https://www.youtube.com/@chan | "$py" -c 'import json,sys; d=json.load(sys.stdin); c=d["channel"]; i=d["items"]; print(c["name"], c["followers"], ",".join(v["id"] for v in i), i[0]["channel"], i[0]["channelUrl"])')"
+expect "videos channel: not a YouTube channel's link, refused" "1" "$(
+  set +e
+  yv channel https://example.com/@chan >/dev/null
+  echo $?
+)"
+# A video's channel through oEmbed (urlopen stubbed: no network here).
+expect "videos channel: a video's channel found through oEmbed; nothing when it can't say" \
+  "https://www.youtube.com/@chan|" \
+  "$("$py" -c "
+import importlib.util, io, json
+s = importlib.util.spec_from_file_location('y', '$script'); y = importlib.util.module_from_spec(s); s.loader.exec_module(y)
+def answer(req, timeout=0):
+    if 'nobody00000' in req.full_url: raise OSError('404')
+    return io.BytesIO(json.dumps({'author_url': 'https://www.youtube.com/@chan'}).encode())
+y.urllib.request.urlopen = answer
+print(y.channel_of_video('home1111111') + '|' + y.channel_of_video('nobody00000'))
+")"
 # watch: the mpv on PATH (the user's, their config), its yt-dlp hook given
 # this yt-dlp; a bad id refused before anything starts.
 cat >"$tmp/bin/mpv" <<EOF
@@ -510,9 +532,9 @@ cat >"$tmp/bin/mpv" <<EOF
 printf '%s\n' "\$*" >"$tmp/mpv-argv"
 EOF
 chmod +x "$tmp/bin/mpv"
-PATH="$tmp/bin:$PATH" ytm watch home1111111 --start 42 >/dev/null
-expect "watch: the user's mpv, the video, from the time asked" \
-  "--script-opts-append=ytdl_hook-ytdl_path=$tmp/bin/yt-dlp --force-window=immediate --start=42 https://www.youtube.com/watch?v=home1111111" \
+PATH="$tmp/bin:$PATH" ytm watch home1111111 --start 42 --volume 35 >/dev/null
+expect "watch: the user's mpv, the video, from the time and at the volume asked" \
+  "--script-opts-append=ytdl_hook-ytdl_path=$tmp/bin/yt-dlp --force-window=immediate --start=42 --volume=35 https://www.youtube.com/watch?v=home1111111" \
   "$(cat "$tmp/mpv-argv")"
 expect "watch: not a video id, refused" "1" "$(
   set +e

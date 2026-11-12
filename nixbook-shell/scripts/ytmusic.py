@@ -56,13 +56,17 @@ friend's song with it.
                                        service)
   nixbook-ytmusic videos home|subscriptions [--count N] [--cached]
   nixbook-ytmusic videos search WORDS... [--count N]
+  nixbook-ytmusic videos channel URL|VIDEO [--count N]
                                        YouTube's videos (www.youtube.com, the
                                        same session): your home page, your
                                        subscriptions' latest, a search; JSON
                                        ({feed, items: [{id, title, channel,
-                                       duration, views, live, thumb}]});
-                                       --cached: the last copy, at once
-  nixbook-ytmusic watch VIDEO [--start SECONDS]
+                                       channelUrl, duration, views, live,
+                                       thumb}]}), a channel's latest videos
+                                       (newest first; {channel: {name, url,
+                                       followers}}); --cached: the last
+                                       copy, at once
+  nixbook-ytmusic watch VIDEO [--start SECONDS] [--volume 0-100]
                                        a YouTube video in mpv (yours: your
                                        config), the background player paused
 
@@ -1182,6 +1186,19 @@ VIDEO_FEEDS = {"home": ":ytrec", "subscriptions": ":ytsubs"}
 VIDEO_PAGE = 30
 VIDEO_MAX = 150
 YOUTUBE_WATCH = "https://www.youtube.com/watch?v={}"
+# A channel's page: its id, its @handle, or the older /c/ and /user/ names.
+CHANNEL_URL = re.compile(r"^https://(?:www\.|m\.)?youtube\.com/(?:channel/UC[A-Za-z0-9_-]{22}|@[^/?#\s]{1,100}"
+                         r"|c/[^/?#\s]{1,100}|user/[^/?#\s]{1,100})")
+
+
+def channel_url(e):
+    """The channel page of an entry (or of a list), "" when unknown."""
+    for url in (e.get("channel_url"), e.get("uploader_url")):
+        m = CHANNEL_URL.match(str(url or ""))
+        if m:
+            return m.group(0).replace("://m.", "://www.")
+    cid = str(e.get("channel_id") or "")
+    return f"https://www.youtube.com/channel/{cid}" if re.fullmatch(r"UC[A-Za-z0-9_-]{22}", cid) else ""
 
 
 def video_of(e):
@@ -1194,7 +1211,7 @@ def video_of(e):
         return None
     live = e.get("live_status") in ("is_live", "is_upcoming")
     return {"id": vid, "title": str(e.get("title") or ""),
-            "channel": str(e.get("channel") or e.get("uploader") or ""),
+            "channel": str(e.get("channel") or e.get("uploader") or ""), "channelUrl": channel_url(e),
             "duration": int(e.get("duration") or 0), "views": int(e.get("view_count") or 0),
             "live": live, "upcoming": e.get("live_status") == "is_upcoming",
             # A small picture every video has (320x180), loaded by the panel.
@@ -1205,8 +1222,21 @@ def videos_copy_path(feed):
     return os.path.join(cache_dir(), f"videos-{feed}.json")
 
 
-def run_video_feed(target, count, cookie):
-    """yt-dlp's flat list of `target` (count at most): (videos, error)."""
+def channel_of_video(vid):
+    """A video's channel page through YouTube's oEmbed (~0.1 s; yt-dlp's
+    flat lists leave it out for some videos), "" when it can't say."""
+    url = "https://www.youtube.com/oembed?format=json&url=" + urllib.parse.quote(YOUTUBE_WATCH.format(vid), safe="")
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=10) as r:
+            m = CHANNEL_URL.match(str(json.loads(r.read(65536)).get("author_url") or ""))
+    except (OSError, ValueError, AttributeError):
+        return ""
+    return m.group(0).replace("://m.", "://www.") if m else ""
+
+
+def run_video_feed(target, count, cookie, top=None):
+    """yt-dlp's flat list of `target` (count at most): (videos, error); the
+    list's own fields (a channel's name…) into `top` when given."""
     argv = [YT_DLP, "--flat-playlist", "-J", "--no-warnings", "--playlist-end", str(count), target]
     # The session as a cookie file only while yt-dlp reads it (one per run:
     # two feeds may be asked at once).
@@ -1225,9 +1255,12 @@ def run_video_feed(target, count, cookie):
         lines = [ln for ln in r.stderr.strip().splitlines() if ln.startswith("ERROR")] or r.stderr.strip().splitlines()
         return None, (lines[-1] if lines else f"yt-dlp failed ({r.returncode})").removeprefix("ERROR: ")
     try:
-        entries = json.loads(r.stdout or "{}").get("entries") or []
-    except ValueError:
+        answer = json.loads(r.stdout or "{}")
+        entries = answer.get("entries") or []
+    except (ValueError, AttributeError):
         return None, "yt-dlp's answer wasn't readable"
+    if top is not None:
+        top.update({k: v for k, v in answer.items() if k != "entries"})
     seen, items = set(), []
     for e in entries:
         v = video_of(e) if isinstance(e, dict) else None
@@ -1250,6 +1283,31 @@ def cmd_videos(args):
             out({"error": usage}, 1)
         args = args[:i] + args[i + 2:]
     feed = args[0]
+    if feed == "channel":
+        # A channel's latest videos, newest first (its Videos tab); signed
+        # in or not.
+        url = (args[1] if len(args) > 1 else "").strip()
+        # A video's id: its channel (a feed entry without the channel's link).
+        if VIDEO_ID.match(url):
+            url = channel_of_video(url)
+            if not url:
+                out({"error": "YouTube didn't say whose video it is"}, 1)
+        m = CHANNEL_URL.match(url)
+        if not m:
+            out({"error": "videos channel: a YouTube channel's link (youtube.com/channel/UC…, /@name…) or a video id"}, 1)
+        page = m.group(0).replace("://m.", "://www.")
+        top = {}
+        items, error = run_video_feed(page + "/videos", count, session(), top)
+        if error:
+            out({"error": f"YouTube didn't give this channel's videos: {error}"}, 1)
+        page = channel_url(top) or page
+        name = str(top.get("channel") or top.get("uploader") or "")
+        for v in items:
+            v["channel"] = v["channel"] or name
+            v["channelUrl"] = v["channelUrl"] or page
+        out({"feed": "channel", "channel": {"name": name, "url": page,
+                                            "followers": int(top.get("channel_follower_count") or 0)},
+             "items": items, "at": int(time.time())})
     if feed == "search":
         query = " ".join(a for a in args[1:] if a != "--cached").strip()[:200]
         if not query:
@@ -1288,13 +1346,19 @@ def cmd_watch(args):
     outlives the shell): the user's mpv first, for their configuration, its
     yt-dlp hook given this package's yt-dlp in case theirs has none."""
     if not args or not VIDEO_ID.match(args[0]):
-        out({"error": "usage: nixbook-ytmusic watch VIDEO [--start SECONDS]"}, 1)
-    vid, start = args[0], 0
+        out({"error": "usage: nixbook-ytmusic watch VIDEO [--start SECONDS] [--volume 0-100]"}, 1)
+    vid, start, volume = args[0], 0, None
     if "--start" in args:
         try:
             start = max(0, int(float(args[args.index("--start") + 1])))
         except (IndexError, ValueError):
             out({"error": "--start: seconds"}, 1)
+    if "--volume" in args:
+        # The volume the tab's slider was last left at.
+        try:
+            volume = max(0, min(100, int(float(args[args.index("--volume") + 1]))))
+        except (IndexError, ValueError):
+            out({"error": "--volume: 0 to 100"}, 1)
     # The music in the background stops for the video (not started if it
     # isn't running).
     ask_player({"cmd": "control", "action": "pause"}, start=False, timeout=3)
@@ -1302,6 +1366,8 @@ def cmd_watch(args):
     argv = [mpv, f"--script-opts-append=ytdl_hook-ytdl_path={YT_DLP}", "--force-window=immediate"]
     if start:
         argv.append(f"--start={start}")
+    if volume is not None:
+        argv.append(f"--volume={volume}")
     argv.append(YOUTUBE_WATCH.format(vid))
     sys.stdout.flush()
     os.execv(mpv, argv)
