@@ -797,6 +797,52 @@ echo 'not json' >"$ec/config/nixbook-shell/config.json"
 ec_run
 expect_contains "echo-cancel: unreadable settings, both stages" "$(cat "$ec/conf")" 'node.name = "nixbook-call-voices"'
 
+# -- echo-cancel.sh: resting while nothing records ---------------------------------
+# The unit has an idle sink no mixer lists; `rest on` points the reference
+# stream at it, `rest off` gives it back to the default output.
+expect_contains "echo-cancel: an idle sink for the reference to rest on" "$(cat "$ec/conf")" 'node.name = "nixbook-echo-cancel.idle"'
+expect_contains "echo-cancel: the idle sink isn't an output mixers list" "$(cat "$ec/conf")" 'media.class = "Audio/Sink/Internal"'
+expect_contains "echo-cancel: nor is its unconnected output a stream they list" "$(cat "$ec/conf")" 'media.class = "Stream/Output/Audio/Internal"'
+cat >"$ec/bin/pw-dump" <<'STUB'
+#!/usr/bin/env bash
+cat "$EC_NODES"
+STUB
+cat >"$ec/bin/pw-metadata" <<'STUB'
+#!/usr/bin/env bash
+# -n default ID target.object NAME | -n default -d ID target.object | -n default ID target.object
+echo "$*" >>"$EC_METADATA_LOG"
+if [ "$3" = -d ]; then
+  : >"$EC_TARGET"
+elif [ $# -eq 5 ]; then
+  echo "$5" >"$EC_TARGET"
+elif [ -s "$EC_TARGET" ]; then
+  echo "update: id:$3 key:'target.object' value:'$(cat "$EC_TARGET")' type:''"
+fi
+STUB
+chmod +x "$ec/bin/pw-dump" "$ec/bin/pw-metadata"
+ec_node() { printf '{"id": %s, "type": "PipeWire:Interface:Node", "info": {"props": {"node.name": "%s"}}}' "$1" "$2"; }
+ec_cmd() { EC_DEFAULT="$ec/default" EC_NODES="$ec/nodes" EC_METADATA_LOG="$ec/metadata.log" EC_TARGET="$ec/target" XDG_RUNTIME_DIR="$ec/run" XDG_CONFIG_HOME="$ec/config" PATH="$ec/bin:$PATH" bash "$scripts/echo-cancel.sh" "$@"; }
+: >"$ec/metadata.log"
+: >"$ec/target"
+echo "[$(ec_node 72 nixbook-echo-cancel.source), $(ec_node 161 nixbook-echo-cancel.reference), $(ec_node 140 nixbook-echo-cancel.idle)]" >"$ec/nodes"
+ec_cmd rest on
+expect_eq "echo-cancel: rest on, the reference's target is the idle sink" "-n default 161 target.object nixbook-echo-cancel.idle" "$(tail -n 1 "$ec/metadata.log")"
+expect_eq "echo-cancel: status says it rests" true "$(ec_cmd status | jq .resting)"
+ec_cmd rest off
+expect_eq "echo-cancel: rest off, the target is removed (the default output again)" "-n default -d 161 target.object" "$(tail -n 1 "$ec/metadata.log")"
+expect_eq "echo-cancel: status says it is awake" false "$(ec_cmd status | jq .resting)"
+# A unit from before the idle sink (still running across an update), or none.
+: >"$ec/metadata.log"
+echo "[$(ec_node 72 nixbook-echo-cancel.source), $(ec_node 161 nixbook-echo-cancel.reference)]" >"$ec/nodes"
+ec_cmd rest on
+expect_eq "echo-cancel: no idle sink, the reference stays where it is" "" "$(cat "$ec/metadata.log")"
+echo "[]" >"$ec/nodes"
+if ec_cmd rest on && ec_cmd rest off; then
+  expect_eq "echo-cancel: not running, rest does nothing" "" "$(cat "$ec/metadata.log")"
+else
+  fail "echo-cancel: not running, rest does nothing"
+fi
+
 # -- charge-limit.sh: the battery's charge limit ----------------------------------
 # A fake power_supply tree and a fake systemctl that knows one template unit
 # and writes the limit as the system unit would.

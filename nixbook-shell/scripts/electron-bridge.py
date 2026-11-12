@@ -863,14 +863,16 @@ def private_dir():
 
 
 def proc(pid):
-    """{pid, ppid, cmd, exe, start (seconds since boot), state}, or None."""
+    """{pid, ppid, cmd, exe, start (seconds since boot), state}, or None.
+    Another user's process is left at its first stat: most of /proc is root's
+    (kernel threads, daemons), and the watcher goes through it every POLL."""
     try:
+        if os.stat(f"/proc/{pid}").st_uid != os.getuid():
+            return None
         with open(f"/proc/{pid}/cmdline", "rb") as f:
             cmd = [a.decode(errors="replace") for a in f.read().split(b"\0") if a]
         with open(f"/proc/{pid}/stat") as f:
             stat_ = f.read()
-        if os.stat(f"/proc/{pid}").st_uid != os.getuid():
-            return None
     except OSError:
         return None
     fields = stat_[stat_.rindex(")") + 2:].split()
@@ -918,14 +920,22 @@ def bridged_by_us(p, table):
     return False
 
 
-def instances(markers):
-    """The app's main processes running unbridged (this user's), oldest first."""
+def processes():
+    """This user's live processes, {pid: proc}."""
     table = {}
     for name in os.listdir("/proc"):
         if name.isdigit() and int(name) != os.getpid():
             p = proc(int(name))
             if p and p["state"] != "Z":
                 table[p["pid"]] = p
+    return table
+
+
+def instances(markers, table=None):
+    """The app's main processes running unbridged (this user's), oldest
+    first. table: processes() read once for several apps (the watcher)."""
+    if table is None:
+        table = processes()
     found = [p for p in table.values() if matches(p, markers) and not bridged_by_us(p, table)]
     # The app's own children that also name it (a sandbox around it): the top one.
     ids = {p["pid"] for p in found}
@@ -1283,6 +1293,7 @@ class Watcher:
         unbridged = {}
         d = private_dir()
         now = uptime()
+        table = None  # /proc read once per poll, and only when an app isn't bridged
         for app, cfg in self.apps.items():
             if listening(socket_path(app)):
                 self.notified.pop(app, None)
@@ -1292,7 +1303,9 @@ class Watcher:
                 with open(w) as f:
                     if alive(int(f.read().strip())):
                         continue  # its launcher is catching a relaunch
-            found = instances(cfg["markers"])
+            if table is None:
+                table = processes()
+            found = instances(cfg["markers"], table)
             ask = os.path.join(d, f"{app}.ask")
             asked = os.path.exists(ask)
             with contextlib.suppress(OSError):
@@ -1314,6 +1327,7 @@ class Watcher:
             if age < YOUNG_LIMIT() and not call and not restarted_recently(app):
                 with self.lock:
                     restart(self.opts, app, cfg, p["pid"], "it had just started without it")
+                table = None  # processes ended and started meanwhile
                 unbridged.pop(app, None)
                 continue
             self.asked[(app, p["pid"])] = time.monotonic()

@@ -1261,7 +1261,10 @@ class Mpv:
             pass
         argv = [MPV, "--idle=yes", "--no-video", "--force-window=no", "--no-terminal", "--no-config",
                 "--input-ipc-server=" + self.path, "--ytdl-format=bestaudio/best", "--cache=yes",
-                f"--script-opts=ytdl_hook-ytdl_path={YT_DLP}", "--audio-display=no", "--keep-open=no"]
+                f"--script-opts=ytdl_hook-ytdl_path={YT_DLP}", "--audio-display=no", "--keep-open=no",
+                # No window, so no on-screen controller: its script ran on every
+                # pass of the player all the same (a quarter of mpv's CPU here).
+                "--osc=no"]
         self.proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                      stderr=subprocess.DEVNULL, start_new_session=True)
         for _ in range(100):

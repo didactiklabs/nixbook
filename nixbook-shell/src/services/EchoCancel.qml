@@ -20,6 +20,9 @@ import QtQuick
 Singleton {
     id: root
 
+    // Loaded at the shell's start (shell.qml).
+    function load() {}
+
     readonly property string unit: "nixbook-echo-cancel.service"
     readonly property string sourceName: "nixbook-echo-cancel.source"
     // The unit is installed (programs.nixbook-shell.echoCancel.enable).
@@ -138,6 +141,72 @@ Singleton {
         }
     }
 
+    // Resting while nothing records the cancelled microphone. PipeWire runs
+    // what is downstream of an output that plays, through passive links too:
+    // with its reference on the default output, the canceller, its speech
+    // stage and the microphone ran whenever a sound played, with nobody
+    // listening to the microphone (music alone: 18 % of a core, and the whole
+    // audio graph at a 5 ms period; measured on totoro). So while no stream
+    // records from it, the reference waits on the unit's idle sink
+    // (`nixbook-echo-cancel rest on`) and nothing of it runs; a recorder
+    // starts the chain by itself (its link isn't passive), and the reference
+    // goes back to the default output at once. A new unit starts awake
+    // (another reference stream): what a crash of the shell leaves is the
+    // canceller working, never a call without it.
+    readonly property string referenceName: "nixbook-echo-cancel.reference"
+    readonly property string voiceStageName: "nixbook-echo-cancel.voice"
+    readonly property int referenceId: Pipewire.nodes.values.find(n => n.name === root.referenceName)?.id ?? -1
+    // Something records it: a link from its microphone (or the canceller's
+    // own, under the voice stage) to anything but that stage.
+    readonly property bool recorded: Pipewire.linkGroups.values.some(g =>
+        (g.source?.name === root.sourceName || g.source?.name === root.aecName)
+        && g.target && g.target.name !== root.voiceStageName)
+    // What this unit's reference was last told.
+    property bool resting: false
+    property var _restQueued: null
+    function _rest(on) {
+        if (root.referenceId < 0) return;
+        if (restCtl.running) {
+            root._restQueued = on; // the latest wins
+            return;
+        }
+        root.resting = on;
+        restCtl.command = ["nixbook-echo-cancel", "rest", on ? "on" : "off"];
+        restCtl.running = true;
+    }
+    Process {
+        id: restCtl
+        onExited: {
+            if (root._restQueued === null) return;
+            const on = root._restQueued;
+            root._restQueued = null;
+            if (on !== root.resting) root._rest(on);
+        }
+    }
+    onRecordedChanged: {
+        if (root.recorded) {
+            restTimer.stop();
+            // Always said, whatever this shell believes: a call without
+            // echo cancellation is the one thing that must not happen.
+            root._rest(false);
+        } else {
+            restTimer.restart();
+        }
+    }
+    onReferenceIdChanged: {
+        root.resting = false;
+        root._restQueued = null;
+        if (root.referenceId < 0) return;
+        // Found resting by a shell that just started, while a call runs.
+        if (root.recorded) root._rest(false);
+        else restTimer.restart();
+    }
+    Timer {
+        id: restTimer
+        interval: 4000 // a recorder that reconnects (a call app switching device) keeps it awake
+        onTriggered: if (root.referenceId >= 0 && !root.recorded) root._rest(true)
+    }
+
     // Voices made clearer in calls, the unit's two speech stages
     // (scripts/echo-cancel.sh; no AI: an equalizer, a compressor, a
     // limiter), each a switch of audio.calls:
@@ -190,7 +259,7 @@ Singleton {
         }
         function status(): string {
             return JSON.stringify({ available: root.available, active: root.active, inUse: root.inUse, mic: root.mic, error: root.error,
-                clearMicrophone: root.micStage, clearVoices: root.voicesStage });
+                clearMicrophone: root.micStage, clearVoices: root.voicesStage, recorded: root.recorded, resting: root.resting });
         }
     }
 }

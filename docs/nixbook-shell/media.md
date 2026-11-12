@@ -58,6 +58,8 @@ For calls: what plays on the computer (music, a film, the other side of the call
 
 It is PipeWire's own WebRTC echo canceller (`module-echo-cancel`, with noise suppression), in the `nixbook-echo-cancel` user service: what the default output plays is the reference it removes, so nothing is rerouted, and switching to headphones keeps working. It works with EasyEffects (your microphone's effects come first). No AI. `programs.nixbook-shell.echoCancel.enable` (on by default) installs it; `nixbook-shell ipc call echoCancel on|off|toggle|status`.
 
+It **rests while nothing records the microphone**: the canceller, its voice stage and the microphone itself only run while an app (a call, a recorder, a level meter) takes sound from the Echo-cancelled microphone, and stop a few seconds after the last one left. Leaving it on costs nothing while you only listen to music (it used to run whenever any sound played: 18 % of a processor core on totoro, with the microphone powered). Nothing to set; `status` says `recorded` and `resting`.
+
 ## Clearer voices in calls
 
 While echo cancellation is on, voices in calls are made clearer in both directions, without AI: an equalizer, a compressor and a limiter. Two switches under **Settings → Sound → Echo cancellation**, both on by default; changing one restarts echo cancellation (about a second without microphone).

@@ -31,7 +31,20 @@
 #             is the default input now
 #   post      once it is up, make it the default input (ExecStartPost)
 #   restore   the previous default input again (ExecStopPost)
-#   status    {"active": bool, "source": "<node.name of the default input>"}
+#   status    {"active": bool, "source": "<node.name of the default input>",
+#             "resting": bool}
+#   rest on|off   let it rest / wake it (services/EchoCancel.qml, below)
+#
+# Resting. PipeWire runs what is downstream of an output that plays, through
+# passive links too: with the reference on the default output, the canceller
+# and the microphone ran whenever any sound played, with nobody recording
+# (music alone: 18 % of a core, the microphone powered, and the whole audio
+# graph at the canceller's 5 ms period instead of 21 ms; measured on totoro).
+# So while nothing records the cancelled microphone, the shell points the
+# reference stream at $IDLE, a sink of this unit nothing plays on: nothing of
+# the canceller runs. Something that starts recording runs the chain by itself
+# (its link isn't passive), and the shell puts the reference back on the
+# default output at once (WirePlumber links it: a stream without a target).
 #
 # Another microphone while it runs (services/EchoCancel.qml useMic): its
 # node.name into $saved, then `systemctl --user restart` the unit — restore
@@ -49,6 +62,8 @@ set -euo pipefail
 SOURCE=nixbook-echo-cancel.source
 AEC=nixbook-echo-cancel.aec
 VOICES=nixbook-call-voices
+REFERENCE=nixbook-echo-cancel.reference
+IDLE=nixbook-echo-cancel.idle
 dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/nixbook-shell"
 mkdir -p "$dir"
 chmod 700 "$dir"
@@ -244,8 +259,31 @@ context.modules = [
       }
       # Monitor mode: the reference stream, from the default output's monitor.
       sink.props = {
-        node.name = "nixbook-echo-cancel.reference"
+        node.name = "$REFERENCE"
         node.description = "Echo cancellation reference"
+        node.passive = true
+        # A new unit starts awake: a target set while it rested isn't kept.
+        state.restore-target = false
+      }
+    }
+  }
+  # Where the reference rests (see "Resting" above): a sink nothing plays on,
+  # its output connected to nothing. Neither is of a class mixers know
+  # ("Audio/Sink", "Stream/Output/Audio"): none lists them, the shell's
+  # included, and the sink is never the default output.
+  { name = libpipewire-module-loopback
+    flags = [ nofail ]
+    args = {
+      node.description = "Echo cancellation (resting)"
+      audio.position = [ FL FR ]
+      capture.props = {
+        node.name = "$IDLE"
+        media.class = "Audio/Sink/Internal"
+      }
+      playback.props = {
+        node.name = "$IDLE.out"
+        media.class = "Stream/Output/Audio/Internal"
+        node.autoconnect = false
         node.passive = true
       }
     }
@@ -280,14 +318,38 @@ restore)
     [ -z "$id" ] || wpctl set-default "$id"
   fi
   ;;
+rest)
+  # Not running, or a unit without the idle sink (it didn't load): nothing
+  # to do, the reference stays where it is.
+  reference=$(node_id "$REFERENCE")
+  [ -n "$reference" ] || exit 0
+  case "${2:-}" in
+  on)
+    [ -n "$(node_id "$IDLE")" ] || exit 0
+    pw-metadata -n default "$reference" target.object "$IDLE" >/dev/null
+    ;;
+  off)
+    pw-metadata -n default -d "$reference" target.object >/dev/null
+    ;;
+  *)
+    echo "usage: nixbook-echo-cancel rest on|off" >&2
+    exit 2
+    ;;
+  esac
+  ;;
 status)
   active=false
   [ -n "$(node_id "$SOURCE")" ] && active=true
-  jq -cn --argjson active "$active" --arg source "$(default_name @DEFAULT_AUDIO_SOURCE@)" \
-    '{active: $active, source: $source}'
+  resting=false
+  reference=$(node_id "$REFERENCE")
+  if [ -n "$reference" ] && pw-metadata -n default "$reference" target.object 2>/dev/null | grep -qF "value:'$IDLE'"; then
+    resting=true
+  fi
+  jq -cn --argjson active "$active" --argjson resting "$resting" --arg source "$(default_name @DEFAULT_AUDIO_SOURCE@)" \
+    '{active: $active, source: $source, resting: $resting}'
   ;;
 *)
-  echo "usage: nixbook-echo-cancel run|post|restore|status" >&2
+  echo "usage: nixbook-echo-cancel run|post|restore|status|rest on|off" >&2
   exit 2
   ;;
 esac
