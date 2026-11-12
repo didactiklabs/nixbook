@@ -6,6 +6,7 @@ import qs.services
 // Quickshell only serves directories that are imported, Loader sources included.
 import qs.modules.ii.sidebarRight.calendar
 import qs.modules.ii.sidebarRight.jellyfin
+import qs.modules.ii.sidebarRight.youtube
 import qs.modules.ii.sidebarRight.youtubeMusic
 import qs.modules.ii.sidebarRight.mesh
 import qs.modules.ii.sidebarRight.notifications
@@ -57,6 +58,16 @@ ColumnLayout {
                 "name": Translation.tr("YouTube Music"),
                 "icon": "queue_music",
                 "widget": "youtubeMusic/YouTubeMusicWidget.qml"
+            });
+        }
+        // YouTube's videos (home, subscriptions, a search), played in mpv:
+        // on by default, searchable signed out too.
+        if (Config.options.sidebar.youtubeTab) {
+            list.push({
+                "type": "youtube",
+                "name": Translation.tr("YouTube"),
+                "icon": "smart_display",
+                "widget": "youtube/YouTubeWidget.qml"
             });
         }
         if (Config.options.sidebar.bottomGroup) {

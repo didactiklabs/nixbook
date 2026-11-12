@@ -1291,6 +1291,7 @@ Singleton {
                 property bool bottomGroup: true
                 property bool jellyfinTab: true // A Jellyfin tab: what's next, what's new (shown once Jellyfin is signed in)
                 property bool youtubeMusicTab: true // A YouTube Music tab: your playlists, played in the background (nixbook-ytmusic)
+                property bool youtubeTab: true // A YouTube tab: your home page, subscriptions and a search, played in mpv (nixbook-ytmusic videos)
                 property bool mediaPlayer: false
                 property string bannerImage: ""
                 property bool keepRightSidebarLoaded: true

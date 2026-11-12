@@ -831,7 +831,8 @@
       "delay": 300,
       "enable": false
     },
-    "youtubeMusicTab": true
+    "youtubeMusicTab": true,
+    "youtubeTab": true
   },
   "sounds": {
     "alarmRingSeconds": 120,

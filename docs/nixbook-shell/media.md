@@ -40,6 +40,20 @@ The session (that login's YouTube cookies) is kept in your keyring, never in a f
 
 Under the hood: `nixbook-ytmusic` (`programs.nixbook-shell.ytmusic.enable`, on by default) reads the library with [ytmusicapi](https://github.com/sigma67/ytmusicapi) and plays through mpv and yt-dlp, the next song's stream resolved while the current one plays (no pause between songs); its player (the `nixbook-ytmusic` user unit) starts when something plays and is the MPRIS player "YouTube Music (background)" only while a song is loaded. `nixbook-ytmusic control next|toggle|shuffle|repeat…` drives it from a terminal or a shortcut.
 
+## YouTube videos
+
+The right sidebar's **YouTube** tab (Mod+N; Settings > Panels turns the tab off) is YouTube without a browser:
+
+- **Home**: the videos of your YouTube home page, as YouTube picks them for you.
+- **Subscriptions**: the latest videos of the channels you're subscribed to.
+- **Search YouTube**: any video; the results come once you stop typing.
+
+Click a video to play it in **mpv**, your mpv with its settings (controls, upscaling…); the music playing [in the background](#youtube-music-in-the-background) pauses. **More videos** at the end of a list loads 30 more (150 at most), and the refresh button asks YouTube again; each page otherwise shows its last copy at once and is asked again when it's more than 10 minutes old. Live streams are marked **LIVE**.
+
+Home and Subscriptions need your YouTube session: the one [YouTube Music in the background](#youtube-music-in-the-background) signs in with (the same Google login), so there is nothing more to sign in to. Searching works without it.
+
+Under the hood: `nixbook-ytmusic videos home|subscriptions|search` lists them through [yt-dlp](https://github.com/yt-dlp/yt-dlp) (its `:ytrec`, `:ytsubs` and `ytsearch` lists), which follows YouTube's pages as they change; the session is given to it as a cookie file only while it runs. `nixbook-ytmusic watch ID` starts mpv, through niri, so it keeps playing when the shell restarts.
+
 ## Equalizer
 
 The equalizer panel drives **EasyEffects**: presets or a 10-band curve with preamp, or **Auto**, which picks a curve from the song's Last.fm genre tags. Its optional **agent mode** has a small Claude Code task (Haiku by default) tune the curve for each new song (`equalizer.agent`, `equalizer.agentModel`). The curve it makes for a song is remembered (the last 500 songs, in `~/.local/state/quickshell/user/eq/agent-curves.json`): when that song plays again, the same curve comes back at once, with no new agent run.
