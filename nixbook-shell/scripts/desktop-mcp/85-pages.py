@@ -133,7 +133,8 @@ TRUST_DOWN = {"silent": "tell", "tell": "ask", "ask": "ask"}
 # only read.
 TRUST_READ_ACTIONS = {"list", "lists", "upcoming", "get", "search", "find", "show", "status", "layout", "day",
                       "events", "read", "next", "agenda", "info", "count", "check", "history", "channels", "guilds",
-                      "dms", "members", "lookup", "query", "sessions", "playlists"}
+                      "dms", "members", "lookup", "query", "sessions", "playlists", "home", "subscriptions",
+                      "channel"}
 # Another server's tool named for reading (search, list_…, …_details).
 TRUST_READ_NAME = re.compile(r"^(list|get|search|find|show|status|read|query|fetch|lookup|describe|info|check|count|"
                              r"recall|view|browse|whoami|upcoming|current|now)(_|$)|_(list|get|search|find|status|info|"

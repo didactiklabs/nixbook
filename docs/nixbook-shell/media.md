@@ -52,6 +52,8 @@ Click a video to play it in **mpv**, your mpv with its settings (controls, upsca
 
 Click a video's **channel name** to see that channel's latest videos, newest first, with **More videos** to go further back; the arrow (or Escape) goes back. **More videos** at the end of a list loads 30 more (150 at most), and the refresh button asks YouTube again; each page otherwise shows its last copy at once and is asked again when it's more than 10 minutes old. Live streams are marked **LIVE**.
 
+DAI can do all of this for you too (its `youtube_videos` tool): find or play a video, list a channel's latest, pause, seek or change the video's volume.
+
 Home and Subscriptions need your YouTube session: the one [YouTube Music in the background](#youtube-music-in-the-background) signs in with (the same Google login), so there is nothing more to sign in to. Searching works without it.
 
 Under the hood: `nixbook-ytmusic videos home|subscriptions|search` lists them through [yt-dlp](https://github.com/yt-dlp/yt-dlp) (its `:ytrec`, `:ytsubs` and `ytsearch` lists), which follows YouTube's pages as they change; the session is given to it as a cookie file only while it runs. `nixbook-ytmusic videos channels` lists your subscriptions (YouTube's channels page), `videos channel URL|VIDEO` a channel's Videos tab (a video's channel is found through YouTube's oEmbed when the list didn't give it). `nixbook-ytmusic watch ID --volume N` starts mpv, through niri, so it keeps playing when the shell restarts; the card finds it by the YouTube link mpv publishes over MPRIS and sets mpv's own MPRIS volume (`MprisController` never takes an mpv's PipeWire stream: every mpv shares the binary).

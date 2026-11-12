@@ -242,6 +242,20 @@ Singleton {
             onStreamFinished: root.binPath = this.text.trim()
         }
     }
+    // The video opened in mpv (by the YouTube tab or an agent): its MPRIS
+    // player, found by the YouTube link mpv publishes; not this background
+    // player, nor Jellyfin's. The last one when there are several.
+    readonly property MprisPlayer videoPlayer: {
+        const found = Mpris.players.values.filter(p => !String(p?.dbusName ?? "").includes("nixbook_ytmusic")
+            && /^https:\/\/(www\.|m\.)?(youtube\.com\/watch\?|youtu\.be\/)/.test(String(p?.metadata?.["xesam:url"] ?? "")));
+        return found.length ? found[found.length - 1] : null;
+    }
+    // Its own volume (mpv's), remembered for the next video.
+    function setVideoVolume(value) {
+        const v = Math.max(0, Math.min(1, value));
+        if (root.videoPlayer) MprisController.setPlayerVolume(root.videoPlayer, v);
+        Persistent.states.media.videoVolume = v;
+    }
     function watch(videoId) {
         if (!/^[A-Za-z0-9_-]{11}$/.test(String(videoId ?? ""))) return false;
         // At the volume the tab was last left at.
@@ -306,5 +320,40 @@ Singleton {
         function next(): void { root.control("next"); }
         function previous(): void { root.control("previous"); }
         function stop(): void { root.control("stop"); }
+
+        // YouTube videos in mpv, as the YouTube tab opens them (desktop-mcp's
+        // youtube_videos): a video by its id, at the tab's volume.
+        function watch(videoId: string): string {
+            return root.watch(videoId) ? "ok" : "error: not a YouTube video id";
+        }
+        function videoStatus(): string {
+            const p = root.videoPlayer;
+            if (!p) return JSON.stringify({ playing: null, volume: Math.round((Persistent.states.media.videoVolume ?? 1) * 100) });
+            const url = String(p.metadata?.["xesam:url"] ?? "");
+            return JSON.stringify({ playing: { title: p.trackTitle, videoId: (url.match(/[?&]v=([A-Za-z0-9_-]{11})/) ?? [])[1] ?? "",
+                url: url, status: p.isPlaying ? "Playing" : "Paused", position: Math.round(p.position ?? 0),
+                length: Math.round(p.length ?? 0), volume: Math.round(MprisController.playerVolume(p) * 100) } });
+        }
+        // play|pause|toggle|stop|seek SECONDS|volume 0-100.
+        function videoControl(what: string, value: string): string {
+            const p = root.videoPlayer;
+            if (what === "volume") {
+                const v = Number(value);
+                if (!(v >= 0 && v <= 100)) return "error: volume: 0 to 100";
+                root.setVideoVolume(v / 100);
+                return "ok";
+            }
+            if (!p) return "error: no YouTube video is playing in mpv";
+            if (what === "play") p.play();
+            else if (what === "pause") p.pause();
+            else if (what === "toggle") p.togglePlaying();
+            else if (what === "stop") p.stop();
+            else if (what === "seek") {
+                const s = Number(value);
+                if (!(s >= 0)) return "error: seek: seconds from the start";
+                p.position = s;
+            } else return "error: play, pause, toggle, stop, seek or volume";
+            return "ok";
+        }
     }
 }

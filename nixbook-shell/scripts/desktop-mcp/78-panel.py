@@ -146,6 +146,95 @@ def t_youtube_music_player(ctx, args):
     return [text(ytmusic_call("offline", op, as_str(args, "playlist", max_len=64, pattern=YT_PLAYLIST)))]
 
 
+YTV_ACTIONS = ("home", "subscriptions", "channel", "search", "watch", "status", "control")
+YTV_CONTROLS = ("play", "pause", "toggle", "stop", "seek", "volume")
+YT_CHANNEL = r"https://(www\.|m\.)?youtube\.com/(channel/UC[A-Za-z0-9_-]{22}|@[^/?#\s]{1,100}|c/[^/?#\s]{1,100}|user/[^/?#\s]{1,100})/?"
+
+
+def ytv_count(args, default=20):
+    n = args.get("count", default)
+    if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= 150:
+        raise ToolError("`count`: 1 to 150 videos")
+    return n
+
+
+def ytv_videos(out):
+    """A list of videos for the agent: its pictures are the panel's."""
+    for v in out.get("items") or []:
+        v.pop("thumb", None)
+    return out
+
+
+@tool(
+    "youtube_videos",
+    "shell",
+    "YouTube videos, as the right panel's YouTube tab shows them, played in the user's mpv (a window "
+    "with their mpv settings), never a browser. Reading needs the YouTube session YouTube Music signs "
+    "in with (search doesn't). home {count?}: the user's YouTube home page. subscriptions: the channels "
+    "they're subscribed to ({id, name, url, followers}). channel {channel, count?}: a channel's latest "
+    "videos, newest first (its link from subscriptions or a video's channelUrl, or a video id: its "
+    "channel). search {query, count?}. Videos come with id, title, channel, channelUrl, duration "
+    "(seconds), views, live. watch {video}: plays a video id in mpv, at the volume the user last set "
+    "for videos; the background music pauses. status: the video playing (title, videoId, Playing/"
+    "Paused, position, length, volume 0-100) or null. control {what: play|pause|toggle|stop|seek|"
+    "volume, value}: seek seconds from the start, volume 0-100 (that video's own, remembered for the "
+    "next one; not the system's).",
+    obj({
+        "action": {"type": "string", "enum": list(YTV_ACTIONS)},
+        "query": {"type": "string", "description": "search: the words"},
+        "channel": {"type": "string", "description": "channel: its youtube.com link, or a video id"},
+        "video": {"type": "string", "description": "watch: the video's id"},
+        "count": {"type": "integer", "description": "home, channel, search: how many videos (1-150, 20 by default)"},
+        "what": {"type": "string", "enum": list(YTV_CONTROLS), "description": "control: what to do"},
+        "value": {"type": "number", "description": "control: seek seconds, volume 0-100"},
+    }, ["action"]),
+    props={"action": "home|subscriptions|channel|search|watch|status|control"},
+    brief="YouTube videos played in the user's mpv (the right panel's YouTube tab): their home page, "
+          "subscribed channels, a channel's latest videos, search; watch, pause, seek, its own volume.",
+)
+def t_youtube_videos(ctx, args):
+    action = as_str(args, "action", max_len=16)
+    if action not in YTV_ACTIONS:
+        raise ToolError("`action`: " + ", ".join(YTV_ACTIONS))
+    if action == "home":
+        return [text(ytv_videos(ytmusic_call("videos", "home", "--count", str(ytv_count(args)), timeout=120)))]
+    if action == "subscriptions":
+        out = ytmusic_call("videos", "channels", timeout=120)
+        for c in out.get("channels") or []:
+            c.pop("avatar", None)
+        return [text(out)]
+    if action == "channel":
+        ref = as_str(args, "channel", max_len=200)
+        if not (re.fullmatch(YT_VIDEO, ref) or re.fullmatch(YT_CHANNEL, ref)):
+            raise ToolError("`channel`: a YouTube channel's link (youtube.com/channel/UC…, /@name) or a video id")
+        return [text(ytv_videos(ytmusic_call("videos", "channel", ref.rstrip("/"), "--count", str(ytv_count(args)),
+                                             timeout=120)))]
+    if action == "search":
+        words = as_str(args, "query", max_len=200).split()
+        if not words:
+            raise ToolError("`query`: the words to search for")
+        return [text(ytv_videos(ytmusic_call("videos", "search", *words, "--count", str(ytv_count(args)), timeout=120)))]
+    if action == "status":
+        try:
+            return [text(json.loads(widget_call("youtubeMusic", "videoStatus")))]
+        except ValueError:
+            raise ToolError("the desktop shell didn't answer about the video")
+    ctx.guard.check_rate()
+    if action == "watch":
+        widget_call("youtubeMusic", "watch", as_str(args, "video", pattern=YT_VIDEO))
+        return [text("Opening the video in mpv (it shows in a few seconds); status says when it plays.")]
+    what = as_str(args, "what", max_len=16)
+    if what not in YTV_CONTROLS:
+        raise ToolError("`what`: " + ", ".join(YTV_CONTROLS))
+    value = args.get("value")
+    if what in ("seek", "volume"):
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0 \
+                or (what == "volume" and value > 100) or value > 86400:
+            raise ToolError("`value`: seconds for seek, 0-100 for volume")
+    widget_call("youtubeMusic", "videoControl", what, f"{value:g}" if what in ("seek", "volume") else "")
+    return [text("ok")]
+
+
 MESH_MEMBER = r"[A-Za-z0-9_.@-]{1,64}"
 
 
