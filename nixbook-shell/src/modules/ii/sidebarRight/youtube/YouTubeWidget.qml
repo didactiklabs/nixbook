@@ -7,6 +7,7 @@ import qs.services
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Services.Mpris
 import Quickshell.Widgets
 
 /**
@@ -18,7 +19,10 @@ import Quickshell.Widgets
  * the search field finds any video, signed in or not. A click opens the
  * video in mpv (`nixbook-ytmusic watch`: your mpv and its configuration),
  * pausing the music playing in the background. Each feed shows its last
- * copy at once and is asked again when older than ten minutes.
+ * copy at once and is asked again when older than ten minutes. A video's
+ * channel name opens that channel's latest videos (newest first). While a
+ * video plays, a card on top shows it with its own volume (mpv's, through
+ * MPRIS), which the next video starts at too.
  */
 Item {
     id: root
@@ -32,6 +36,57 @@ Item {
     property var counts: ({})
     readonly property int page: 30
     readonly property int maxCount: 150
+
+    // The video playing in mpv (its MPRIS player: the YouTube link it plays;
+    // not the background music player, nor Jellyfin's).
+    readonly property var player: {
+        const found = Mpris.players.values.filter(p => !String(p?.dbusName ?? "").includes("nixbook_ytmusic")
+            && /^https:\/\/(www\.|m\.)?(youtube\.com\/watch\?|youtu\.be\/)/.test(String(p?.metadata?.["xesam:url"] ?? "")));
+        return found.length ? found[found.length - 1] : null;
+    }
+    function setVolume(value) {
+        MprisController.setPlayerVolume(root.player, value);
+        Persistent.states.media.videoVolume = Math.max(0, Math.min(1, value));
+    }
+
+    // A channel's latest videos: {key, name, url, followers, items}; null
+    // for your pages.
+    property var channel: null
+    property bool channelLoading: false
+    property string channelError: ""
+    function openChannel(video) {
+        const key = video.channelUrl || video.id;
+        root.channel = { key: key, name: video.channel, url: video.channelUrl, followers: 0, items: [] };
+        root.set("counts", "channel", root.page);
+        searchField.text = "";
+        root.loadChannel();
+    }
+    function loadChannel() {
+        if (!root.channel) return;
+        root.channelLoading = true;
+        root.channelError = "";
+        const key = root.channel.key;
+        YouTubeMusic.channelVideos(key, root.countOf("channel"), (ok, answer) => {
+            if (root.channel?.key !== key) return;
+            root.channelLoading = false;
+            if (!ok) {
+                root.channelError = answer?.error || Translation.tr("YouTube didn't give this channel's videos");
+                return;
+            }
+            root.channel = Object.assign({}, root.channel, {
+                name: answer.channel?.name || root.channel.name,
+                url: answer.channel?.url || root.channel.url,
+                followers: answer.channel?.followers ?? 0,
+                items: answer.items ?? []
+            });
+        });
+    }
+    function closeChannel() {
+        YouTubeMusic.cancelChannel();
+        root.channel = null;
+        root.channelLoading = false;
+        root.channelError = "";
+    }
 
     // How the last open went: { text, kind: busy|ok|error }.
     property var status: null
@@ -74,10 +129,12 @@ Item {
         });
     }
     function more() {
-        const feed = root.inSearch ? "search" : root.feed;
+        const feed = root.inSearch ? "search" : root.channel ? "channel" : root.feed;
         const n = Math.min(root.maxCount, root.countOf(feed) + root.page);
         root.set("counts", feed, n);
-        if (feed === "search") {
+        if (feed === "channel") {
+            root.loadChannel();
+        } else if (feed === "search") {
             root.results = null;
             root.search(true);
         } else {
@@ -116,11 +173,12 @@ Item {
         onTriggered: root.search(false)
     }
 
-    readonly property var shown: root.inSearch ? (root.results?.items ?? []) : (root.feeds[root.feed]?.items ?? [])
-    readonly property bool busy: root.inSearch ? root.searching : !!root.loading[root.feed]
-    readonly property string error: root.inSearch ? root.searchError : (root.errors[root.feed] ?? "")
-    readonly property bool canMore: root.shown.length >= root.countOf(root.inSearch ? "search" : root.feed)
-        && root.countOf(root.inSearch ? "search" : root.feed) < root.maxCount
+    readonly property string view: root.inSearch ? "search" : root.channel ? "channel" : root.feed
+    readonly property var shown: root.view === "search" ? (root.results?.items ?? [])
+        : root.view === "channel" ? (root.channel?.items ?? []) : (root.feeds[root.feed]?.items ?? [])
+    readonly property bool busy: root.view === "search" ? root.searching : root.view === "channel" ? root.channelLoading : !!root.loading[root.feed]
+    readonly property string error: root.view === "search" ? root.searchError : root.view === "channel" ? root.channelError : (root.errors[root.feed] ?? "")
+    readonly property bool canMore: root.shown.length >= root.countOf(root.view) && root.countOf(root.view) < root.maxCount
 
     function watch(video) {
         if (YouTubeMusic.watch(video.id)) root.say(Translation.tr("Opening “%1” in mpv…").arg(video.title), "busy");
@@ -131,10 +189,12 @@ Item {
         const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, sec = s % 60;
         return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}` : `${m}:${String(sec).padStart(2, "0")}`;
     }
+    function short(n) {
+        const t = n >= 1e9 ? `${(n / 1e9).toFixed(1)} B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)} M` : n >= 1e3 ? `${Math.round(n / 1e3)} K` : `${n}`;
+        return t.replace(".0 ", " ");
+    }
     function views(n) {
-        if (!n) return "";
-        const short = n >= 1e9 ? `${(n / 1e9).toFixed(1)} B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)} M` : n >= 1e3 ? `${Math.round(n / 1e3)} K` : `${n}`;
-        return Translation.tr("%1 views").arg(short.replace(".0 ", " "));
+        return n ? Translation.tr("%1 views").arg(root.short(n)) : "";
     }
 
     onVisibleChanged: {
@@ -143,6 +203,8 @@ Item {
         root.load(root.feed, false);
     }
     onFeedChanged: root.load(root.feed, false)
+    // Another list: from its top.
+    onViewChanged: list.positionViewAtBeginning()
     Component.onCompleted: root.load(root.feed, false)
     Connections {
         target: YouTubeMusic
@@ -273,12 +335,43 @@ Item {
                     font.pixelSize: Appearance.font.pixelSize.small
                     color: Appearance.colors.colOnLayer1
                 }
-                StyledText {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: [row.video?.channel ?? "", root.views(row.video?.views ?? 0)].filter(x => x !== "").join(" · ")
-                    elide: Text.ElideRight
-                    font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: Appearance.colors.colSubtext
+                    spacing: 0
+                    // The channel: its latest videos (not in its own list).
+                    StyledText {
+                        id: channelName
+                        Layout.maximumWidth: parent.width - viewsText.implicitWidth
+                        readonly property bool linked: root.view !== "channel" && (row.video?.channel ?? "") !== ""
+                        readonly property bool hovered: channelHover.hovered
+                        text: row.video?.channel ?? ""
+                        elide: Text.ElideRight
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        font.underline: channelName.linked && channelHover.hovered
+                        color: channelName.linked && channelHover.hovered ? Appearance.colors.colPrimary : Appearance.colors.colSubtext
+                        HoverHandler {
+                            id: channelHover
+                            enabled: channelName.linked
+                            cursorShape: Qt.PointingHandCursor
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: channelName.linked
+                            onClicked: root.openChannel(row.video)
+                        }
+                        StyledToolTip {
+                            extraVisibleCondition: channelName.linked
+                            text: Translation.tr("Their latest videos")
+                        }
+                    }
+                    StyledText {
+                        id: viewsText
+                        Layout.fillWidth: true
+                        text: (row.video?.channel && row.video?.views ? " · " : "") + root.views(row.video?.views ?? 0)
+                        elide: Text.ElideRight
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                    }
                 }
             }
         }
@@ -291,6 +384,70 @@ Item {
         anchors.fill: parent
         anchors.bottomMargin: statusBar.visible ? statusBar.height + 8 : 0
         spacing: 8
+
+        // The video playing in mpv: its title, pause, its own volume.
+        Rectangle {
+            Layout.fillWidth: true
+            visible: root.player !== null
+            implicitHeight: nowCol.implicitHeight + 16
+            radius: Appearance.rounding.small
+            color: Appearance.colors.colLayer2
+            ColumnLayout {
+                id: nowCol
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 2
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    MaterialSymbol {
+                        text: "smart_display"
+                        iconSize: Appearance.font.pixelSize.large
+                        color: Appearance.colors.colPrimary
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: root.player?.trackTitle ?? ""
+                        elide: Text.ElideRight
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        font.weight: Font.DemiBold
+                        color: Appearance.colors.colOnLayer2
+                    }
+                    IconButton {
+                        symbol: root.player?.isPlaying ? "pause" : "play_arrow"
+                        tip: root.player?.isPlaying ? Translation.tr("Pause") : Translation.tr("Play")
+                        onClicked: root.player?.togglePlaying()
+                    }
+                }
+                // mpv's own volume, not the system output's.
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    readonly property real volume: MprisController.playerVolume(root.player)
+                    readonly property bool muted: MprisController.playerMuted(root.player)
+                    IconButton {
+                        symbol: parent.muted ? "volume_off" : parent.volume < 0.5 ? "volume_down" : "volume_up"
+                        tip: parent.muted ? Translation.tr("Unmute") : Translation.tr("Mute")
+                        onClicked: MprisController.togglePlayerMute(root.player)
+                    }
+                    StyledSlider {
+                        Layout.fillWidth: true
+                        configuration: StyledSlider.Configuration.XS
+                        from: 0
+                        to: 1
+                        value: parent.volume
+                        onMoved: root.setVolume(value)
+                    }
+                    StyledText {
+                        Layout.preferredWidth: 38
+                        horizontalAlignment: Text.AlignRight
+                        text: `${Math.round(parent.volume * 100)}%`
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                    }
+                }
+            }
+        }
 
         // Searching YouTube.
         RowLayout {
@@ -309,6 +466,11 @@ Item {
                 }
                 onAccepted: root.search(false)
                 Keys.onEscapePressed: event => {
+                    if (searchField.text === "" && root.channel !== null) {
+                        root.closeChannel();
+                        event.accepted = true;
+                        return;
+                    }
                     if (searchField.text === "") {
                         event.accepted = false;
                         return;
@@ -325,10 +487,47 @@ Item {
             }
         }
 
+        // A channel's videos: back to your pages.
+        RowLayout {
+            Layout.fillWidth: true
+            visible: !root.inSearch && root.channel !== null
+            spacing: 6
+            IconButton {
+                symbol: "arrow_back"
+                tip: Translation.tr("Back")
+                onClicked: root.closeChannel()
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+                StyledText {
+                    Layout.fillWidth: true
+                    text: root.channel?.name ?? ""
+                    elide: Text.ElideRight
+                    font.pixelSize: Appearance.font.pixelSize.normal
+                    font.weight: Font.DemiBold
+                    color: Appearance.colors.colOnLayer1
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    visible: (root.channel?.followers ?? 0) > 0
+                    text: Translation.tr("%1 subscribers · latest videos").arg(root.short(root.channel?.followers ?? 0))
+                    elide: Text.ElideRight
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                }
+            }
+            MaterialLoadingIndicator {
+                implicitSize: 18
+                visible: root.channelLoading
+                loading: visible
+            }
+        }
+
         // Your pages.
         RowLayout {
             Layout.fillWidth: true
-            visible: !root.inSearch
+            visible: !root.inSearch && root.channel === null
             spacing: 6
             Chip {
                 symbol: "home"
@@ -385,7 +584,7 @@ Item {
         StyledFlickable {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: !root.inSearch && !YouTubeMusic.signedIn && root.shown.length === 0
+            visible: !root.inSearch && root.channel === null && !YouTubeMusic.signedIn && root.shown.length === 0
             contentHeight: signIn.implicitHeight + 20
             clip: true
             ColumnLayout {
@@ -410,7 +609,7 @@ Item {
             id: list
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.inSearch || YouTubeMusic.signedIn || root.shown.length > 0
+            visible: root.inSearch || root.channel !== null || YouTubeMusic.signedIn || root.shown.length > 0
             clip: true
             spacing: 2
             popin: false
