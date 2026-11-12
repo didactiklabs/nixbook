@@ -25,7 +25,7 @@ Widgets live on the desktop, behind your windows. Toggle and arrange them from t
 - Widgets can follow the wallpaper's **calm areas** so they don't cover the busy parts.
 - **Card opacity** (Background → Widgets → Canvas, 0.75 by default) makes cards translucent.
 - After login, widgets fade in one at a time once the shell has loaded.
-- The visualizer **pauses behind windows** (and cava stops), which matters a lot for GPU load.
+- The visualizer **pauses behind windows** (and cava stops), which matters a lot for GPU load. cava is started again by itself when it ends on its own (the audio output changed, PipeWire or EasyEffects restarted). If a visualizer stays flat, `nixbook-shell ipc call mediaControls visualizerStatus` says what feeds it: the player, whether it plays, whether a visualizer can be seen, and whether cava runs.
 
 AI agents can read and edit notes and tasks, set timers and alarms and arrange widgets through the [`widget` tool](./desktop-agents#what-agents-can-do).
 

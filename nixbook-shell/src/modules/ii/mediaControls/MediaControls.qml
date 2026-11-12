@@ -101,10 +101,33 @@ Scope {
         id: cavaGrace
         interval: 60000
     }
+    // Not while the screens are off (Idle): nothing shows it.
+    readonly property bool cavaShouldRun: root.playing && (root.cavaWanted || cavaGrace.running) && !Idle.screensOff
+    // cava ends on its own when its audio source goes away (PipeWire or
+    // EasyEffects restarted, another output device): nothing started it again
+    // until the music was paused and resumed or a visualizer came and went,
+    // and they all stayed flat meanwhile. Started again after a moment, for as
+    // long as it is wanted; a little later each time it ends right away.
+    property bool cavaResting: false
+    property int cavaShortRuns: 0
+    property real cavaStartedAt: 0
+    Timer {
+        id: cavaRest
+        interval: Math.min(60000, 2000 * Math.pow(2, root.cavaShortRuns))
+        onTriggered: root.cavaResting = false
+    }
     Process {
         id: cavaProc
-        // Not while the screens are off (Idle): nothing shows it.
-        running: root.playing && (root.cavaWanted || cavaGrace.running) && !Idle.screensOff
+        running: root.cavaShouldRun && !root.cavaResting
+        onStarted: root.cavaStartedAt = Date.now()
+        onExited: (exitCode, exitStatus) => {
+            // Stopped from here (nothing shows it any more): as intended.
+            if (!root.cavaShouldRun || root.cavaResting) return;
+            root.cavaShortRuns = Date.now() - root.cavaStartedAt < 30000 ? root.cavaShortRuns + 1 : 0;
+            console.log(`[MediaControls] cava ended on its own (exit ${exitCode}), starting it again in ${cavaRest.interval / 1000} s`);
+            root.cavaResting = true;
+            cavaRest.restart();
+        }
         onRunningChanged: {
             if (!cavaProc.running) {
                 GlobalStates.visualizerPoints = [];
@@ -359,6 +382,23 @@ Scope {
         function open(): void {
             GlobalStates.mediaControlsOpen = true;
             Notifications.timeoutAll();
+        }
+
+        // Why the visualizers move or stay flat (they can't be asked from
+        // outside): what feeds them, as JSON.
+        function visualizerStatus(): string {
+            return JSON.stringify({
+                player: MprisController.activePlayer?.dbusName ?? "",
+                playing: root.playing,
+                wanted: root.cavaWanted,
+                desktopVisualizers: GlobalStates.desktopVisualizersAnimating,
+                grace: cavaGrace.running,
+                screensOff: Idle.screensOff,
+                shouldRun: root.cavaShouldRun,
+                resting: root.cavaResting,
+                running: cavaProc.running,
+                points: GlobalStates.visualizerPoints.length,
+            });
         }
     }
 }

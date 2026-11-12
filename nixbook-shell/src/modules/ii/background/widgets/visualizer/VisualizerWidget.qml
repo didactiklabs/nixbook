@@ -26,18 +26,19 @@ AbstractBackgroundWidget {
     // frame and forcing niri to re-blur the windows above it — measured ~50%
     // of the GPU. It fades out/in instead of freezing.
     readonly property bool animate: !(configEntry.pauseBehindWindows ?? true) || root.desktopVisible
-    // Counted for cava: it only runs while some visualizer can be seen.
-    property bool counted: false
+    // Counted for cava: it only runs while some visualizer can be seen
+    // (GlobalStates.reportDesktopVisualizer reads `animate`, `visible`, `gone`).
+    property bool gone: false
     function recount() {
-        const want = root.animate && root.visible;
-        if (want === root.counted) return;
-        root.counted = want;
-        GlobalStates.desktopVisualizersAnimating += want ? 1 : -1;
+        GlobalStates.reportDesktopVisualizer(root);
     }
     onAnimateChanged: root.recount()
     onVisibleChanged: root.recount()
     Component.onCompleted: root.recount()
-    Component.onDestruction: if (root.counted) GlobalStates.desktopVisualizersAnimating -= 1
+    Component.onDestruction: {
+        root.gone = true;
+        root.recount();
+    }
 
     // Live size while the ring is being resized, written to the config on release
     property real ringSizeOverride: -1
