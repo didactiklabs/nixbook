@@ -46,7 +46,11 @@ The equalizer panel drives **EasyEffects**: presets or a 10-band curve with prea
 
 ## EasyEffects and the volume
 
-With EasyEffects running, every app plays into its sink (the default output) and EasyEffects plays the result on your device. nixbook-shell makes that sink's volume count, so the volume slider, the volume keys and `wpctl` set how loud it is — on their own, EasyEffects' sink ignores its volume. An app whose sound gets connected to nothing (it can happen when EasyEffects restarts) is connected back to the default output after 5 seconds, without switching the output by hand.
+With EasyEffects running, every app plays into its sink and EasyEffects plays the result on the default output, which is always a real device: the one you pick in the output list (right click the sound quick toggle), or the one WirePlumber picks when a device comes or goes. The volume slider, the volume keys and the mute are that device's, and EasyEffects' sink stays at 100 % underneath, so there is one volume.
+
+EasyEffects' sink itself is not in the output list, and it is never left as the default output. If it becomes the default (picked in another mixer such as pavucontrol; WirePlumber then also came back to it each time the chosen device went away), the shell clears WirePlumber's stored output choices a second later and a real device takes over. With the sink as the default, EasyEffects chose the device by priority alone (speakers picked, earphones plugged in: the sound went to the earphones), and the device's own volume and mute stayed hidden under the sink's.
+
+An app whose sound gets connected to nothing (it can happen when EasyEffects restarts) is connected back to the default output after 5 seconds, without switching the output by hand.
 
 ## Echo cancellation
 

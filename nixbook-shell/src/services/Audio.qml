@@ -37,9 +37,10 @@ Singleton {
             return root.correctType(node, isSink) && node.isStream
         })
     }
+    // EasyEffects' sink is not an output to pick (see leaveEeSinkTimer).
     function devices(isSink) {
         return Pipewire.nodes.values.filter(node => {
-            return root.correctType(node, isSink) && !node.isStream
+            return root.correctType(node, isSink) && !node.isStream && node.name !== "easyeffects_sink"
         })
     }
     readonly property list<var> outputAppNodes: root.appNodes(true)
@@ -199,6 +200,31 @@ Singleton {
     Connections {
         target: Pipewire
         function onDefaultAudioSinkChanged() { root.eeSinkAtUnity() }
+    }
+
+    // EasyEffects' sink is never the default output. Apps reach it because
+    // EasyEffects moves their streams there, and it plays the result on the
+    // default output. With a device as the default, the volume and the mute
+    // shown are that device's, WirePlumber picks the device (it knows what is
+    // plugged in and what was chosen before), and when EasyEffects stops the
+    // apps play on, straight to it. With EasyEffects' own sink as the default
+    // (picked once in an output list: WirePlumber then comes back to it each
+    // time the chosen device goes), EasyEffects guesses the device by
+    // priority alone, and that device's own volume and mute, left from when
+    // it was the default, stay under the sink's with nothing showing them.
+    // So when the sink is the default while a device exists, WirePlumber's
+    // stored choices are cleared (deleting the configured default empties its
+    // whole list: state-default-nodes.lua) and it picks the best device.
+    readonly property bool eeSinkIsDefault: root.eeSink !== null && Pipewire.defaultAudioSink === root.eeSink
+    onEeSinkIsDefaultChanged: if (root.eeSinkIsDefault) leaveEeSinkTimer.restart()
+    Timer {
+        id: leaveEeSinkTimer
+        interval: 1000
+        onTriggered: {
+            if (!root.eeSinkIsDefault || root.outputDevices.length === 0) return;
+            console.log("[Audio] EasyEffects' sink was the default output: the stored choices cleared, back to a device");
+            Quickshell.execDetached(["pw-metadata", "-n", "default", "-d", "0", "default.configured.audio.sink"]);
+        }
     }
 
     // An app's output connected to nothing: after EasyEffects restarts (its
