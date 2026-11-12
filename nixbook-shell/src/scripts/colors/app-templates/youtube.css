@@ -1,0 +1,271 @@
+/* nixbook-shell: YouTube in ZenPlay recoloured from the shell's palette. Put
+ * in the app by its Electron bridge (electron-bridge.py's `style`, called by
+ * apply-app-colors.sh when the palette changes) and again after each load:
+ * in ZenPlay's own window (its toolbar, its splash screen) and in the
+ * YouTube page it shows.
+ *
+ * YouTube draws with design tokens set on the page's root, most of them
+ * under hashed names: the bridge's styling script (electron/youtube.style.js)
+ * reads them from the page and gives each the --nixbook-* variable below
+ * that fits what it is for. This file is the palette as those variables,
+ * and the few things YouTube colours without a token. */
+
+html {
+  --nixbook-mode: {{mode}};
+  --nixbook-surface: {{colors.surface.default.hex}};
+  --nixbook-surface-lowest: {{colors.surface_container_lowest.default.hex}};
+  --nixbook-surface-container-low: {{colors.surface_container_low.default.hex}};
+  --nixbook-surface-container: {{colors.surface_container.default.hex}};
+  --nixbook-surface-container-high: {{colors.surface_container_high.default.hex}};
+  --nixbook-surface-container-highest: {{colors.surface_container_highest.default.hex}};
+  --nixbook-on-surface: {{colors.on_surface.default.hex}};
+  --nixbook-on-surface-variant: {{colors.on_surface_variant.default.hex}};
+  --nixbook-outline: {{colors.outline.default.hex}};
+  --nixbook-outline-variant: {{colors.outline_variant.default.hex}};
+  --nixbook-primary: {{colors.primary.default.hex}};
+  --nixbook-on-primary: {{colors.on_primary.default.hex}};
+  --nixbook-primary-container: {{colors.primary_container.default.hex}};
+  --nixbook-on-primary-container: {{colors.on_primary_container.default.hex}};
+  --nixbook-secondary-container: {{colors.secondary_container.default.hex}};
+  --nixbook-on-secondary-container: {{colors.on_secondary_container.default.hex}};
+  --nixbook-tertiary: {{colors.tertiary.default.hex}};
+  --nixbook-error: {{colors.error.default.hex}};
+  --nixbook-inverse-surface: {{colors.inverse_surface.default.hex}};
+  --nixbook-inverse-on-surface: {{colors.inverse_on_surface.default.hex}};
+  --nixbook-inverse-primary: {{colors.inverse_primary.default.hex}};
+}
+
+/* A part YouTube keeps dark on a light page (over a video, the top bar in
+ * theater mode): the palette's dark version. On a page YouTube shows dark,
+ * [dark] only repeats the page's look. */
+html:not([dark]) [dark] {
+  --nixbook-surface: {{colors.surface.dark.hex}};
+  --nixbook-surface-lowest: {{colors.surface_container_lowest.dark.hex}};
+  --nixbook-surface-container-low: {{colors.surface_container_low.dark.hex}};
+  --nixbook-surface-container: {{colors.surface_container.dark.hex}};
+  --nixbook-surface-container-high: {{colors.surface_container_high.dark.hex}};
+  --nixbook-surface-container-highest: {{colors.surface_container_highest.dark.hex}};
+  --nixbook-on-surface: {{colors.on_surface.dark.hex}};
+  --nixbook-on-surface-variant: {{colors.on_surface_variant.dark.hex}};
+  --nixbook-outline: {{colors.outline.dark.hex}};
+  --nixbook-outline-variant: {{colors.outline_variant.dark.hex}};
+  --nixbook-primary: {{colors.primary.dark.hex}};
+  --nixbook-on-primary: {{colors.on_primary.dark.hex}};
+  --nixbook-primary-container: {{colors.primary_container.dark.hex}};
+  --nixbook-on-primary-container: {{colors.on_primary_container.dark.hex}};
+  --nixbook-inverse-surface: {{colors.inverse_surface.dark.hex}};
+  --nixbook-inverse-on-surface: {{colors.inverse_on_surface.dark.hex}};
+  --nixbook-inverse-primary: {{colors.inverse_primary.dark.hex}};
+}
+
+/* ── YouTube: what it colours without a token ── */
+
+/* YouTube's own root (the attributes it carries), not another site's page
+ * shown in its place (Google's sign-in). */
+html[darker-dark-theme],
+html[system-icons],
+html[typography] {
+  color-scheme: {{mode}};
+}
+html[darker-dark-theme],
+html[system-icons],
+html[typography],
+ytd-app {
+  background: var(--nixbook-surface) !important;
+}
+
+/* The search box: literal greys, one set per look. */
+.ytSearchboxComponentInputBox {
+  background-color: var(--nixbook-surface) !important;
+  border-color: var(--nixbook-outline-variant) !important;
+  box-shadow: none !important;
+}
+.ytSearchboxComponentInputBoxHasFocus {
+  border-color: var(--nixbook-primary) !important;
+}
+.ytSearchboxComponentSearchButton {
+  background-color: var(--nixbook-surface-container-high) !important;
+  border-color: var(--nixbook-outline-variant) !important;
+}
+.ytSearchboxComponentSearchButton:hover {
+  background-color: var(--nixbook-surface-container-highest) !important;
+}
+.ytSearchboxComponentSuggestionsContainer {
+  border-color: var(--nixbook-outline-variant) !important;
+}
+
+/* Descriptions and comments: YouTube's server writes each run of text with
+ * its colour inline, for the look it thinks the page has. */
+yt-attributed-string span[style*="color"]:not(:has(a)) {
+  color: inherit !important;
+}
+yt-attributed-string span[style*="color"]:has(> a),
+yt-attributed-string a,
+a.yt-core-attributed-string__link--call-to-action-color {
+  color: var(--nixbook-primary) !important;
+}
+
+/* Its name beside the logo (black or white paths, by YouTube's own look). */
+ytd-topbar-logo-renderer svg path:not([fill="#FF0033"]):not([fill="red"]):not([fill="#FF0000"]):not([fill="white"]):not([fill="#fff"]):not([fill="#FFF"]) {
+  fill: var(--nixbook-on-surface) !important;
+}
+
+/* The video's progress, volume and settings marks: YouTube's red to magenta
+ * gradient, in the accent. */
+.ytp-play-progress,
+.ytp-swatch-background-color,
+.ytp-scrubber-button,
+.ytp-volume-slider-handle::before {
+  background: var(--nixbook-primary) !important;
+}
+.ytp-settings-button.ytp-hd-quality-badge::after,
+.ytp-menuitem[aria-checked="true"] .ytp-menuitem-toggle-checkbox {
+  background-color: var(--nixbook-primary) !important;
+}
+/* The thin progress line under a video's picture in a list. */
+#progress.ytd-thumbnail-overlay-resume-playback-renderer,
+.ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment {
+  background: var(--nixbook-primary) !important;
+}
+
+::selection {
+  color: var(--nixbook-on-primary);
+  background: var(--nixbook-primary);
+}
+
+/* ── ZenPlay's own window: the toolbar above the page ── */
+
+body:has(> #webview-container) {
+  background-color: var(--nixbook-surface) !important;
+  color: var(--nixbook-on-surface) !important;
+}
+body:has(> #webview-container) #webview-container,
+body:has(> #webview-container) webview {
+  background: var(--nixbook-surface) !important;
+}
+body:has(> #webview-container) #toolbar {
+  background: linear-gradient(
+    90deg,
+    var(--nixbook-surface-container-low) 0%,
+    var(--nixbook-surface-container-low) 70%,
+    color-mix(in srgb, var(--nixbook-primary) 22%, var(--nixbook-surface-container-low)) 100%
+  ) !important;
+  border-bottom: 1px solid var(--nixbook-outline-variant) !important;
+  box-shadow: none !important;
+}
+body:has(> #webview-container) .toolbar-button {
+  color: var(--nixbook-on-surface) !important;
+  box-shadow: none !important;
+}
+body:has(> #webview-container) #tray-btn {
+  background-color: var(--nixbook-surface-container-highest) !important;
+}
+body:has(> #webview-container) .toolbar-group:not(.window-controls) .toolbar-button:hover,
+body:has(> #webview-container) .toolbar-group:not(.window-controls) .toolbar-button:focus,
+body:has(> #webview-container) #menu-btn:hover {
+  background: color-mix(in srgb, var(--nixbook-on-surface) 12%, transparent) !important;
+  box-shadow: none !important;
+}
+body:has(> #webview-container) #back-btn:active,
+body:has(> #webview-container) #forward-btn:active,
+body:has(> #webview-container) #reload-btn:active,
+body:has(> #webview-container) .toolbar-button.heavy-press {
+  background: color-mix(in srgb, var(--nixbook-primary) 18%, transparent) !important;
+  box-shadow: none !important;
+  color: var(--nixbook-primary) !important;
+}
+/* Minimize, maximize, close. */
+body:has(> #webview-container) #minimize-btn {
+  background-color: var(--nixbook-tertiary) !important;
+}
+body:has(> #webview-container) #maximize-btn {
+  background-color: var(--nixbook-primary) !important;
+}
+body:has(> #webview-container) #close-btn {
+  background-color: var(--nixbook-error) !important;
+}
+body:has(> #webview-container) .dropdown-content {
+  background: var(--nixbook-surface-container-high) !important;
+  border-color: var(--nixbook-outline-variant) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.23) !important;
+}
+body:has(> #webview-container) .dropdown-content button {
+  background: transparent !important;
+  color: var(--nixbook-on-surface) !important;
+  box-shadow: none !important;
+}
+body:has(> #webview-container) .dropdown-content button:hover {
+  background: var(--nixbook-surface-container-highest) !important;
+  color: var(--nixbook-primary) !important;
+}
+body:has(> #webview-container) .toast-instance {
+  background: var(--nixbook-inverse-surface) !important;
+  color: var(--nixbook-inverse-on-surface) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+body:has(> #webview-container) .toast-glow-red {
+  border-left-color: var(--nixbook-error) !important;
+}
+body:has(> #webview-container) .toast-glow-green {
+  border-left-color: var(--nixbook-inverse-primary) !important;
+}
+body:has(> #webview-container) .toast-glow-neutral {
+  border-left-color: var(--nixbook-outline) !important;
+}
+body:has(> #webview-container) .restart-modal-content {
+  background: var(--nixbook-surface-container-high) !important;
+  color: var(--nixbook-on-surface) !important;
+  border-color: var(--nixbook-outline-variant) !important;
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.5) !important;
+}
+body:has(> #webview-container) .restart-modal-body {
+  color: var(--nixbook-on-surface-variant) !important;
+}
+body:has(> #webview-container) .restart-modal-actions button {
+  background: var(--nixbook-secondary-container) !important;
+  color: var(--nixbook-on-secondary-container) !important;
+  box-shadow: none !important;
+}
+body:has(> #webview-container) .restart-modal-actions button:hover {
+  background: var(--nixbook-primary) !important;
+  color: var(--nixbook-on-primary) !important;
+}
+
+/* ── ZenPlay's splash screen ── */
+
+html:has(.splash-container),
+body:has(> .splash-container) {
+  background: var(--nixbook-surface) !important;
+}
+body:has(> .splash-container) .splash-container {
+  background: linear-gradient(
+    135deg,
+    var(--nixbook-surface-lowest) 0%,
+    var(--nixbook-surface-container) 80%,
+    color-mix(in srgb, var(--nixbook-primary) 30%, var(--nixbook-surface-container)) 100%
+  ) !important;
+  box-shadow: none !important;
+}
+body:has(> .splash-container) .logo img {
+  background: var(--nixbook-surface-lowest) !important;
+  filter: drop-shadow(0 2px 12px color-mix(in srgb, var(--nixbook-primary) 80%, transparent)) !important;
+}
+body:has(> .splash-container) .split-text,
+body:has(> .splash-container) .split-text span {
+  color: var(--nixbook-on-surface) !important;
+  text-shadow: none !important;
+}
+body:has(> .splash-container) .split-text span:nth-child(5) {
+  color: var(--nixbook-primary) !important;
+}
+body:has(> .splash-container) .byline {
+  color: var(--nixbook-on-surface-variant) !important;
+}
+body:has(> .splash-container) .byline b {
+  color: var(--nixbook-on-surface) !important;
+  filter: none !important;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--nixbook-primary) 80%, transparent) !important;
+}
+body:has(> .splash-container) .lds-ring div {
+  border-color: var(--nixbook-primary) transparent transparent transparent !important;
+}

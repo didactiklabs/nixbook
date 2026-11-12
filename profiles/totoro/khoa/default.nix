@@ -11,6 +11,10 @@ let
   # Gmail's desktop app (bridged: it opens mail.google.com links itself; the
   # assistant's mail goes through Gmail's API, nixbook-accounts).
   meru = config.customHomeManagerModules.nixbookShellConfig.electronA11y pkgs.customPkgs.meru "meru";
+  # YouTube's desktop app (bridged as "youtube": the assistant's youtube tool,
+  # the shell's colours in it). YouTube links in Zen stay in Zen: its
+  # nixbookOpenLinks isn't given to zenBrowserConfig.openInApps.
+  zenplay = config.customHomeManagerModules.nixbookShellConfig.electronA11y pkgs.customPkgs.zenplay "zenplay";
 in
 {
   imports = [
@@ -28,6 +32,7 @@ in
     moonfin
     pear-desktop
     meru
+    zenplay
   ];
   # Mail links (mailto:) open a message to write in Meru.
   xdg.mimeApps.defaultApplications."x-scheme-handler/mailto" = "meru.desktop";

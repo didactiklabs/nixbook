@@ -48,18 +48,21 @@ Google Sans Flex (main text, titles, numbers), Space Grotesk (desktop clock) and
 
 Other apps can follow the palette the shell shows (the wallpaper's or the theme's), each switched on under **Settings → Appearance → Color generation → Apps**:
 
-| App            | How it gets the new colours                                                                                                                 |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Qt & KDE       | Live: `kdeglobals` and a palette-changed signal; Qt apps through qt6ct/qt5ct (`programs.nixbook-shell.appTheming.qt.enable`)                |
-| Vesktop        | Live, through its themes folder                                                                                                             |
-| YouTube Music  | Live, through its Electron bridge; always dark (the app has no light look), in the theme's colours: surfaces, text, menus, the progress bar |
-| Gmail (Meru)   | Live, through Meru's Electron bridge, in every account's Gmail page; light or dark as the palette is                                        |
-| Websites (Zen) | Live: every web page in the palette's surface, text and accent (Dark Reader's engine in nixbook's Zen extension); off by default            |
-| Zen Browser    | At startup (its `userChrome.css`); while Zen runs, a notification offers to restart it                                                      |
+| App               | How it gets the new colours                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Qt & KDE          | Live: `kdeglobals` and a palette-changed signal; Qt apps through qt6ct/qt5ct (`programs.nixbook-shell.appTheming.qt.enable`)                |
+| Vesktop           | Live, through its themes folder                                                                                                             |
+| YouTube Music     | Live, through its Electron bridge; always dark (the app has no light look), in the theme's colours: surfaces, text, menus, the progress bar |
+| Gmail (Meru)      | Live, through Meru's Electron bridge, in every account's Gmail page; light or dark as the palette is                                        |
+| YouTube (ZenPlay) | Live, through ZenPlay's Electron bridge: its window (toolbar, splash) and YouTube itself; light or dark as the palette is                   |
+| Websites (Zen)    | Live: every web page in the palette's surface, text and accent (Dark Reader's engine in nixbook's Zen extension); off by default            |
+| Zen Browser       | At startup (its `userChrome.css`); while Zen runs, a notification offers to restart it                                                      |
 
 The palette is made **readable** first: text colours get at least 4.5:1 contrast against every surface (outlines 3:1), so a pastel accent that works as a fill never becomes unreadable link or tab text. While the Qt switch is on, colour schemes that a KDE app pinned for itself are removed so it follows the shell. Slack is deliberately not themed.
 
 **Websites (Zen)** puts every page you open in Zen in the theme's colours: [Dark Reader](https://darkreader.org)'s library (MIT, pinned in `nixbook-shell/npins`) runs in nixbook's Zen extension (`zen/pages-theme.js`) on the palette's surface and text colours (a dark palette makes pages dark, a light one light), with links and focus rings in its accent. A new palette reaches open pages at once (sent through the extension's bridge); a Zen started later gets the last one from its bridge. It changes how every site looks, so it is off until you turn it on; private windows are left alone. Sites with their own dark mode may look different than with it.
+
+**YouTube (ZenPlay)** colours [ZenPlay](/packages/#zenplay)'s own window and the YouTube page it shows. YouTube draws nearly everything with design tokens set on the page's root, most of them under hashed names (`--tffc2fd3a644f6275`) that no stylesheet can name ahead of time, so the bridge runs a small script in the page (`electron/youtube.style.js`) that reads them from YouTube's own stylesheets: a token is a variable YouTube gives one value in its light look and another in its dark one, and that pair says what it is for (a surface, a text colour, an outline, a wash, the blue of links and buttons). Each gets the palette's colour for that role; what has one value in both looks (what is drawn over a video, the brand's red) and the other hues (the reds and greens of states) are left alone. A renamed token is picked up by itself. YouTube's own **Appearance** setting is set to the palette's look (light or dark) as its menu would, so what its server draws for a look (the description's text, the search box) matches too; with the switch off it goes back to following the device. The video's progress bar is the accent.
 
 Gmail's colours come from [Catppuccin's Gmail userstyle](https://github.com/catppuccin/userstyles/tree/main/styles/gmail) (MIT), which follows Gmail's pages as they change: `nixbook-shell/scripts/gmail-template.py` compiles it with each Catppuccin colour mapped to a palette role (base → surface, text → on_surface, the accent → primary…) into `app-templates/gmail.css`. Its icon filters become a grey at the text's lightness (`.gray` in the templates). When Gmail changes and their style follows, bump the script's `REV` and run it again.
 

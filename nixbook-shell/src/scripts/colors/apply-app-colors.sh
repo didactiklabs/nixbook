@@ -15,6 +15,10 @@
 #     only has a dark look, so it gets the palette's dark version.
 #   gmail: the same for Meru (Gmail's app, bridged as "gmail"), in each of
 #     its Gmail pages (one per account); light or dark as the palette is.
+#   youtube: the same for ZenPlay (YouTube's app, bridged as "youtube"): its
+#     own window (toolbar, splash) and the YouTube page, whose design tokens
+#     the bridge's styling script maps to the palette
+#     (electron/youtube.style.js); YouTube's own light/dark setting follows.
 #   zen: the CSS imported by each profile's userChrome.css (zen-theme.py);
 #     Zen only reads it at startup, so a running Zen offers a restart.
 #   zen-pages: web pages in the palette's colours (Dark Reader's library in
@@ -45,6 +49,8 @@ ytm_settings="$XDG_CONFIG_HOME/YouTube Music/config.json"
 ytm_socket="$XDG_RUNTIME_DIR/nixbook-electron/youtube-music.sock"
 gmail_css="$APPS_DIR/gmail.css"
 gmail_socket="$XDG_RUNTIME_DIR/nixbook-electron/gmail.sock"
+youtube_css="$APPS_DIR/youtube.css"
+youtube_socket="$XDG_RUNTIME_DIR/nixbook-electron/youtube.sock"
 zen_pages="$APPS_DIR/zen-pages.json"
 zen_socket="$XDG_RUNTIME_DIR/nixbook-zen/bridge.sock"
 
@@ -75,6 +81,7 @@ on qt && pairs+=("$TEMPLATES/qt-colors.conf" "$APPS_DIR/qt-colors.conf")
 on vesktop && pairs+=("$TEMPLATES/vesktop.css" "$vesktop_css")
 on youtube-music && pairs+=("$TEMPLATES/youtube-music.css" "$ytm_css")
 on gmail && pairs+=("$TEMPLATES/gmail.css" "$gmail_css")
+on youtube && pairs+=("$TEMPLATES/youtube.css" "$youtube_css")
 on zen-pages && pairs+=("$TEMPLATES/zen-pages.json" "$zen_pages")
 if on zen; then
   while IFS= read -r profile; do
@@ -116,8 +123,8 @@ if on qt; then
   [ ${#rcs[@]} -gt 0 ] && "$SCRIPT_DIR/apply-kde-colors.py" --unpin "${rcs[@]}" >/dev/null
 fi
 
-# YouTube Music (pear-desktop) and Gmail (Meru): their bridge puts the file
-# in the running app (none there: the app's own look again); a bridge
+# YouTube Music (pear-desktop), Gmail (Meru) and YouTube (ZenPlay): their
+# bridge puts the file in the running app (none there: the app's own look again); a bridge
 # starting later reads it itself. An older nixbook listed YouTube Music's
 # file in the app's own CSS themes: no longer (two copies of different ages
 # would fight).
@@ -137,6 +144,7 @@ style_app() {
 }
 style_app youtube-music "$ytm_css" "$ytm_socket"
 style_app gmail "$gmail_css" "$gmail_socket"
+style_app youtube "$youtube_css" "$youtube_socket"
 
 # Zen's web pages: the colours to the running Zen (null: pages left as they
 # are).

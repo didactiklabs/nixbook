@@ -64,7 +64,7 @@ PAGE_ACTS = ("page_go", "page_act", "browser_open", "browser_tab", "browser_act"
 PASSWORD_APP_NAMES = re.compile(r"keepass|bitwarden|vaultwarden|1password|enpass|proton-?pass|lastpass|dashlane|"
                                 r"keeper|nordpass|roboform|passbolt|seahorse|kwallet|authenticator|authy", re.I)
 APP_LABELS = {"discord": "Discord (Vesktop)", "slack": "Slack", "youtube-music": "YouTube Music",
-              "actual": "Actual Budget"}
+              "actual": "Actual Budget", "youtube": "YouTube (ZenPlay)"}
 TARGET_RE = re.compile(r"^([a-z0-9][a-z0-9-]{0,31})(?::([A-Za-z0-9]{1,40}))?$")
 
 
@@ -133,7 +133,8 @@ TRUST_DOWN = {"silent": "tell", "tell": "ask", "ask": "ask"}
 # only read.
 TRUST_READ_ACTIONS = {"list", "lists", "upcoming", "get", "search", "find", "show", "status", "layout", "day",
                       "events", "read", "next", "agenda", "info", "count", "check", "history", "channels", "guilds",
-                      "dms", "members", "lookup", "query", "sessions", "playlists"}
+                      "dms", "members", "lookup", "query", "sessions", "playlists", "playlist", "video", "channel",
+                      "home", "subscriptions", "watch_later", "liked"}
 # Another server's tool named for reading (search, list_…, …_details).
 TRUST_READ_NAME = re.compile(r"^(list|get|search|find|show|status|read|query|fetch|lookup|describe|info|check|count|"
                              r"recall|view|browse|whoami|upcoming|current|now)(_|$)|_(list|get|search|find|status|info|"

@@ -600,6 +600,7 @@ Singleton {
                         property bool gmail: true
                         property bool qt: true
                         property bool vesktop: true
+                        property bool youtube: true // YouTube in ZenPlay
                         property bool youtubeMusic: true
                         property bool zen: true
                         // Web pages in Zen (Dark Reader's library): off
