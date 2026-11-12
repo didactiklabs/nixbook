@@ -261,7 +261,10 @@ Scope {
             });
         }
 
-        Component.onCompleted: reallyVisible = GlobalStates.sidebarRightOpen
+        Component.onCompleted: {
+            reallyVisible = GlobalStates.sidebarRightOpen;
+            panelWindow.reportStrip();
+        }
 
         Connections {
             target: GlobalStates
@@ -340,6 +343,13 @@ Scope {
 
         exclusionMode: ExclusionMode.Normal
         exclusiveZone: root.pin ? sidebarWidth : 0
+        // Said to the rest of the shell (a live wallpaper pauses once the
+        // windows cover what this strip leaves of the screen).
+        readonly property string reservedOn: root.pin ? (panelWindow.screen?.name ?? "") : ""
+        function reportStrip() { GlobalStates.reserveStrip("sidebarRight", panelWindow.reservedOn, panelWindow.exclusiveZone) }
+        onReservedOnChanged: panelWindow.reportStrip()
+        onExclusiveZoneChanged: panelWindow.reportStrip()
+        Component.onDestruction: GlobalStates.reserveStrip("sidebarRight", "", 0)
         implicitWidth: sidebarWidth
         WlrLayershell.namespace: "quickshell:sidebarRight"
         // Overlay so it stays above GlobalFocusGrab's click catcher (Top).

@@ -25,6 +25,25 @@ Singleton {
     // Pinned (the header's pin, Ctrl+P): open beside the windows, its strip
     // reserved, kept across restarts (modules/ii/sidebarRight/SidebarRight).
     property bool sidebarRightPinned: false
+    // The strips the pinned side panels reserve, by panel:
+    // { screen (its name), width }. What is left of a screen's width is where
+    // its windows go (Wallpapers.desktopCovered).
+    property var reservedStrips: ({})
+    function reserveStrip(panel, screenName, width) {
+        const now = root.reservedStrips[panel];
+        const wanted = width > 0 && screenName ? { screen: screenName, width: width } : null;
+        if ((now?.screen ?? "") === (wanted?.screen ?? "") && (now?.width ?? 0) === (wanted?.width ?? 0)) return;
+        const strips = Object.assign({}, root.reservedStrips);
+        if (wanted) strips[panel] = wanted;
+        else delete strips[panel];
+        root.reservedStrips = strips;
+    }
+    function reservedWidth(screenName) {
+        let width = 0;
+        for (const panel in root.reservedStrips)
+            if (root.reservedStrips[panel].screen === screenName) width += root.reservedStrips[panel].width;
+        return width;
+    }
     // Opened by hovering its edge handle (sidebarHandles): the sidebar closes
     // again once the pointer leaves it. Cleared when it closes.
     property bool sidebarLeftPeek: false

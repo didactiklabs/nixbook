@@ -259,6 +259,7 @@ Scope { // Scope
             }
 
             Component.onCompleted: {
+                panelWindow.reportStrip();
                 panelWindow.restorePinnedScreen(); // re-attached (Ctrl+D) while pinned
                 reallyVisible = GlobalStates.sidebarLeftOpen;
             }
@@ -327,6 +328,13 @@ Scope { // Scope
 
             exclusionMode: ExclusionMode.Normal
             exclusiveZone: root.pin ? sidebarWidth : 0
+            // Said to the rest of the shell (a live wallpaper pauses once the
+            // windows cover what this strip leaves of the screen).
+            readonly property string reservedOn: root.pin ? (panelWindow.screen?.name ?? "") : ""
+            function reportStrip() { GlobalStates.reserveStrip("sidebarLeft", panelWindow.reservedOn, panelWindow.exclusiveZone) }
+            onReservedOnChanged: panelWindow.reportStrip()
+            onExclusiveZoneChanged: panelWindow.reportStrip()
+            Component.onDestruction: GlobalStates.reserveStrip("sidebarLeft", "", 0)
             implicitWidth: Appearance.sizes.sidebarWidthExtended + Appearance.sizes.elevationMargin
             WlrLayershell.namespace: "quickshell:sidebarLeft"
             // Overlay so it stays above GlobalFocusGrab's click catcher (Top).
