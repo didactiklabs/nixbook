@@ -38,11 +38,13 @@ let
   # The live wallpaper player, drawing at the output's own pixels on a
   # fractionally scaled output (patches/mpvpaper-fractional-scale.patch), and
   # started transparent until the shell has stacked its desktop above it
-  # (patches/mpvpaper-hold.patch).
+  # (patches/mpvpaper-hold.patch), and asleep while paused or hidden instead
+  # of waking 300 times a second (patches/mpvpaper-idle-wakeups.patch).
   mpvpaper = pkgs.mpvpaper.overrideAttrs (old: {
     patches = (old.patches or [ ]) ++ [
       ./patches/mpvpaper-fractional-scale.patch
       ./patches/mpvpaper-hold.patch
+      ./patches/mpvpaper-idle-wakeups.patch
     ];
   });
   fonts = import ./fonts.nix { inherit pkgs; };
@@ -278,6 +280,7 @@ let
       shell.passthru.pythonEnv
       anthropicUsage # `anthropic-usage` — AnthropicUsage bar widget
       chargeLimit # `nixbook-charge-limit` — the battery panel's charge limit (services/Battery.qml)
+      echoCancel # `nixbook-echo-cancel rest on|off` — the canceller resting while nothing records (services/EchoCancel.qml)
       desktopMcp # `nixbook-desktop-mcp` — desktop tools of the AI chat
       updateCheck # `nixbook-update-check` — the update check (services/UpdateState.qml)
       improve # `nixbook-improve` — the desktop agent's fixes to nixbook (services/SelfImprove.qml)

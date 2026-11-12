@@ -61,6 +61,9 @@ ShellRoot {
         Contacts.load()
         TimerService.load()
         EqualizerAutoService.load()
+        // Echo cancellation: on again if it was (its quick toggle may not be
+        // built), and resting while nothing records the microphone.
+        EchoCancel.load()
     }
     
     PanelFamilyLoader {

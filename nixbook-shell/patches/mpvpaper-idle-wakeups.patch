@@ -1,0 +1,70 @@
+mpvpaper: sleep while there is nothing to do
+
+Three loops woke a hundred times a second whatever the player did, a paused
+or hidden one included (about 300 wakeups a second and 0.7 % of a core for a
+wallpaper that doesn't move): the render loop polled its two descriptors with
+a 10 ms timeout, the mpv event thread asked for an event without waiting then
+slept 10 ms, and the auto-pause thread slept 10 ms at a time while hidden.
+
+Everything the render loop does comes from its two descriptors (Wayland
+events, mpv's "frame ready" eventfd), so it now waits on them (a pass a second
+as a safety net; while held, the hold's deadline keeps the 10 ms check), and
+quitting wakes it through the eventfd. The event thread waits in
+mpv_wait_event (a second at most: the slideshow timer, the loop's end). The
+auto-pause thread looks for the frame callback every 50 ms while hidden.
+
+--- a/src/main.c
++++ b/src/main.c
+@@ -139,6 +139,9 @@
+ 
+     // Give mpv a chance to finish
+     halt_info.stop_render_loop = 1;
++    // The render loop sleeps until something happens: tell it
++    uint64_t wake = 1;
++    if (wakeup_fd > 0 && write(wakeup_fd, &wake, sizeof(wake)) < 0) { /* its next pass sees it */ }
+     for (int trys=10; halt_info.stop_render_loop && trys > 0; trys--) {
+         usleep(10000);
+     }
+@@ -417,7 +420,7 @@
+             update_mpv_pause_state(&halt_info.auto_paused, true, "Frame Callback");
+ 
+             while (!halt_info.frame_ready) {
+-                pthread_usleep(10000);
++                pthread_usleep(50000);
+             }
+             if (halt_info.auto_paused)
+                 update_mpv_pause_state(&halt_info.auto_paused, false, "Frame Callback");
+@@ -464,7 +467,9 @@
+             }
+         }
+ 
+-        mpv_event *event = mpv_wait_event(mpv, 0);
++        // Sleeps until mpv has an event (a second at most, for the slideshow
++        // and the loop's end), instead of asking a hundred times a second
++        mpv_event *event = mpv_wait_event(mpv, 1);
+ 
+         if (event->event_id == MPV_EVENT_SHUTDOWN) {
+             exit_mpvpaper(EXIT_SUCCESS);
+@@ -480,8 +485,6 @@
+                 }
+             }
+         }
+-
+-        pthread_usleep(10000);
+     }
+ 
+     mpv_unobserve_property(mpv, MPV_OBSERVE_PAUSE);
+@@ -1536,8 +1539,11 @@
+         if (wl_display_flush(state.display) == -1 && errno != EAGAIN)
+             break;
+ 
+-        // Wait for a mpv callback or wl_display event within 10ms
+-        if (poll(fds, sizeof(fds) / sizeof(fds[0]), 10) == -1 && errno != EINTR)
++        // Wait for a mpv callback or wl_display event. Both wake the poll, so
++        // a paused or hidden player sleeps (a pass a second as a safety net)
++        // instead of waking a hundred times a second; held, the hold's
++        // deadline is checked as before
++        if (poll(fds, sizeof(fds) / sizeof(fds[0]), held ? 10 : 1000) == -1 && errno != EINTR)
+             break;
+ 
+         // If wl_display_prepare_read() was successful as 0
