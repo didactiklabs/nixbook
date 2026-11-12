@@ -58,6 +58,17 @@ For calls: what plays on the computer (music, a film, the other side of the call
 
 It is PipeWire's own WebRTC echo canceller (`module-echo-cancel`, with noise suppression), in the `nixbook-echo-cancel` user service: what the default output plays is the reference it removes, so nothing is rerouted, and switching to headphones keeps working. It works with EasyEffects (your microphone's effects come first). No AI. `programs.nixbook-shell.echoCancel.enable` (on by default) installs it; `nixbook-shell ipc call echoCancel on|off|toggle|status`.
 
+## Clearer voices in calls
+
+While echo cancellation is on, voices in calls are made clearer in both directions, without AI: an equalizer, a compressor and a limiter. Two switches under **Settings → Sound → Echo cancellation**, both on by default; changing one restarts echo cancellation (about a second without microphone).
+
+- **Mine, for the others** — before call apps record you, your voice is equalized for speech (nothing under 100 Hz, less of the boxy 300 Hz, more presence around 3 kHz and air above 8 kHz), then evened out: a quiet voice comes up about 13 dB, a loud one about 8, and nothing goes over −2 dB. Apps still record the **Echo-cancelled microphone**.
+- **The others', for me** — call apps play through a **Call voices** output with the same treatment tuned for listening: a quiet speaker comes up about 19 dB and a loud one about 11 (two speakers 21 dB apart end up 13 dB apart). It then plays on your output device, and has its own line in the volume mixer.
+
+Call apps are the ones whose name contains a word of `programs.nixbook-shell.echoCancel.callApps` (Vesktop, Discord, Slack, Zoom, Teams, Element, Signal, Telegram… by default). They never go through EasyEffects: its equalizer is tuned for the music playing (a different curve per song in Auto mode, with a negative preamp), not for voices. Without **Call voices** (echo cancellation or the switch off) they play straight on your output device. A change of the list applies from the next login (the rule is read when the sound server and each app start). A call in a web browser can't be told from the browser's other sound, and is left as it is.
+
+If the others find your voice too processed, turn the first switch off, or turn off the call app's own noise suppression and automatic gain: two of each in a row is often what sounds worse.
+
 ## Phone Connect
 
 The **Phone Connect** bar widget brings KDE Connect into the bar:

@@ -628,6 +628,13 @@ Singleton {
                     property real maxAllowedIncrease: 10
                     property real maxAllowed: 99
                 }
+                // Calls (services/EchoCancel.qml, scripts/echo-cancel.sh),
+                // while echo cancellation runs: your voice made clearer for
+                // the others, and theirs for you ("Call voices").
+                property JsonObject calls: JsonObject {
+                    property bool clearMicrophone: true
+                    property bool clearVoices: true
+                }
             }
 
             property JsonObject profile: JsonObject {

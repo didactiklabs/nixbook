@@ -37,10 +37,14 @@ Singleton {
             return root.correctType(node, isSink) && node.isStream
         })
     }
-    // EasyEffects' sink is not an output to pick (see leaveEeSinkTimer).
+    // Not devices to pick: the outputs sound only passes through
+    // (EasyEffects' sink, the calls' "Call voices": see leaveEeSinkTimer),
+    // and the echo canceller's microphone before its voice stage.
+    readonly property var passThroughSinks: ["easyeffects_sink", "nixbook-call-voices"]
     function devices(isSink) {
         return Pipewire.nodes.values.filter(node => {
-            return root.correctType(node, isSink) && !node.isStream && node.name !== "easyeffects_sink"
+            return root.correctType(node, isSink) && !node.isStream
+                && !root.passThroughSinks.includes(node.name) && node.name !== "nixbook-echo-cancel.aec"
         })
     }
     readonly property list<var> outputAppNodes: root.appNodes(true)
@@ -215,14 +219,16 @@ Singleton {
     // So when the sink is the default while a device exists, WirePlumber's
     // stored choices are cleared (deleting the configured default empties its
     // whole list: state-default-nodes.lua) and it picks the best device.
-    readonly property bool eeSinkIsDefault: root.eeSink !== null && Pipewire.defaultAudioSink === root.eeSink
+    // The same for "Call voices" (scripts/echo-cancel.sh), which plays on
+    // the default output: as the default it would play into itself.
+    readonly property bool eeSinkIsDefault: root.passThroughSinks.includes(Pipewire.defaultAudioSink?.name ?? "")
     onEeSinkIsDefaultChanged: if (root.eeSinkIsDefault) leaveEeSinkTimer.restart()
     Timer {
         id: leaveEeSinkTimer
         interval: 1000
         onTriggered: {
             if (!root.eeSinkIsDefault || root.outputDevices.length === 0) return;
-            console.log("[Audio] EasyEffects' sink was the default output: the stored choices cleared, back to a device");
+            console.log(`[Audio] ${Pipewire.defaultAudioSink?.name} was the default output: the stored choices cleared, back to a device`);
             Quickshell.execDetached(["pw-metadata", "-n", "default", "-d", "0", "default.configured.audio.sink"]);
         }
     }

@@ -28,6 +28,35 @@ let
     paths = pinnedPaths;
   };
 
+  # The PipeWire stream rule sending call apps (echoCancel.callApps) to "Call
+  # voices". A word in any case, as a POSIX regular expression: "Slack" is
+  # [sS][lL][aA][cC][kK]. Playback streams only: a call app's microphone
+  # stream must not get an output as its target.
+  anyCase =
+    word:
+    lib.concatMapStrings (
+      c:
+      if builtins.match "[A-Za-z]" c != null then
+        "[${lib.toLower c}${lib.toUpper c}]"
+      else if c == "." then
+        "[.]"
+      else
+        c
+    ) (lib.stringToCharacters word);
+  callAppsPattern = "~.*(${lib.concatMapStringsSep "|" anyCase cfg.echoCancel.callApps}).*";
+  callVoicesRule = ''
+    # nixbook-shell (programs.nixbook-shell.echoCancel.callApps): call apps
+    # play on "Call voices", or straight on the default output without it.
+    stream.rules = [
+      { matches = [
+          { application.name = "${callAppsPattern}" media.class = "Stream/Output/Audio" }
+          { application.process.binary = "${callAppsPattern}" media.class = "Stream/Output/Audio" }
+        ]
+        actions = { update-props = { node.dont-move = true target.object = "nixbook-call-voices" } }
+      }
+    ]
+  '';
+
   # Where the running shell renders the apps' colours (services/AppTheming.qml,
   # which apps is up to Settings > Appearance): the Qt palette qt6ct/qt5ct read.
   appsDir = "${config.xdg.stateHome}/quickshell/user/generated/apps";
@@ -362,6 +391,12 @@ let
       fr = "L'annulation d'écho garde ce que joue cet ordinateur (musique, film, l'autre côté d'un appel) hors de votre micro, et réduit le bruit de fond : pour les appels, ou pour écouter ensemble dans le Mesh tout en appelant. Elle vaut pour toutes les applications : activez-la dans Paramètres > Son > Echo cancellation, avec la tuile rapide Echo cancellation (à ajouter en mode édition des tuiles rapides), l'interrupteur de la fenêtre d'entrée audio (clic droit sur la tuile du micro), ou le bouton de la barre d'écoute partagée du Mesh. Tant qu'elle est active, le micro « Echo-cancelled microphone » est votre entrée par défaut ; désactivée, votre micro revient. Elle reste active d'une session à l'autre jusqu'à ce que vous la coupiez. Pour changer de micro pendant qu'elle est active, choisissez-le dans la fenêtre d'entrée audio : l'annulation d'écho passe dessus.";
       de = "Die Echounterdrückung hält, was auf diesem Computer spielt (Musik, ein Film, die andere Seite eines Anrufs), aus deinem Mikrofon heraus und mindert Hintergrundgeräusche: für Anrufe, oder um im Mesh zusammen zu hören und dabei zu telefonieren. Sie gilt für alle Apps: schalte sie unter Einstellungen > Ton > Echo cancellation ein, mit der Schnelleinstellung Echo cancellation (im Bearbeitungsmodus der Schnelleinstellungen hinzufügen), mit dem Schalter im Audioeingang-Dialog (Rechtsklick auf die Mikrofon-Kachel) oder mit dem Knopf in der Zusammen-hören-Leiste des Mesh. Solange sie an ist, ist das Echo-cancelled microphone dein Standardeingang; aus, kommt dein Mikrofon zurück. Sie bleibt über Anmeldungen hinweg an, bis du sie ausschaltest. Um das Mikrofon zu wechseln, während sie läuft, wähle es im Audioeingangs-Dialog: die Echounterdrückung wechselt darauf.";
       vi = "Khử tiếng vọng giữ những gì máy này đang phát (nhạc, phim, tiếng người bên kia cuộc gọi) không lọt vào micro của bạn, và giảm tiếng ồn nền: dùng khi gọi điện, hoặc khi nghe nhạc cùng nhau trong Mesh mà vẫn đang gọi. Áp dụng cho mọi ứng dụng: bật trong Cài đặt > Âm thanh > Echo cancellation, bằng ô cài đặt nhanh Echo cancellation (thêm nó trong chế độ sửa các ô cài đặt nhanh), công tắc trong hộp thoại đầu vào âm thanh (chuột phải vào ô micro), hoặc nút trong thanh nghe cùng nhau của Mesh. Khi bật, Echo-cancelled microphone là đầu vào mặc định; tắt đi thì micro của bạn quay lại. Nó vẫn bật qua các lần đăng nhập cho đến khi bạn tắt. Để đổi micro khi tính năng đang bật, chọn micro trong hộp thoại đầu vào âm thanh: bộ khử vọng sẽ chuyển sang micro đó.";
+    };
+    clearVoices = {
+      en = "Voices in calls are made clearer without AI while echo cancellation is on (Settings > Sound > Echo cancellation), by two switches there, both on by default. \"Clearer voice in calls: mine, for the others\": before call apps record you, your voice is equalized for speech (less rumble and boxiness, more presence) and evened out, a quiet voice coming up. \"Clearer voices in calls: the others', for me\": call apps (Discord or Vesktop, Slack, Zoom, Teams and the like; the list is echoCancel.callApps in the Nix configuration) play through a \"Call voices\" output with the same treatment for listening, quiet speakers brought up, and never through the music equalizer; it has its own line, Call voices, in the volume mixer. Changing a switch restarts echo cancellation, about a second without microphone. A call in a web browser is left as it is. If the others find your voice too processed, turn the first switch off, or turn off the call app's own noise suppression and automatic gain.";
+      fr = "Les voix des appels sont rendues plus claires sans IA tant que l'annulation d'écho est active (Paramètres > Son > Echo cancellation), par deux interrupteurs à cet endroit, activés par défaut. « Clearer voice in calls: mine, for the others » : avant que les applications d'appel ne vous enregistrent, votre voix est égalisée pour la parole (moins de grave sourd et d'effet de boîte, plus de présence) et nivelée, une voix faible étant remontée. « Clearer voices in calls: the others', for me » : les applications d'appel (Discord ou Vesktop, Slack, Zoom, Teams et semblables ; la liste est echoCancel.callApps dans la configuration Nix) jouent à travers une sortie « Call voices » avec le même traitement pour l'écoute, les voix faibles remontées, et jamais à travers l'égaliseur de musique ; elle a sa propre ligne, Call voices, dans le mixeur de volume. Changer un interrupteur redémarre l'annulation d'écho, environ une seconde sans micro. Un appel dans un navigateur web est laissé tel quel. Si les autres trouvent votre voix trop traitée, coupez le premier interrupteur, ou coupez la suppression de bruit et le gain automatique de l'application d'appel.";
+      de = "Stimmen in Anrufen werden ohne KI klarer gemacht, solange die Echounterdrückung an ist (Einstellungen > Ton > Echo cancellation), durch zwei Schalter dort, beide standardmäßig an. „Clearer voice in calls: mine, for the others“: bevor Anruf-Apps dich aufnehmen, wird deine Stimme für Sprache entzerrt (weniger Dröhnen und Kistenklang, mehr Präsenz) und ausgeglichen, eine leise Stimme wird angehoben. „Clearer voices in calls: the others', for me“: Anruf-Apps (Discord oder Vesktop, Slack, Zoom, Teams und ähnliche; die Liste ist echoCancel.callApps in der Nix-Konfiguration) spielen über eine Ausgabe „Call voices“ mit derselben Behandlung fürs Zuhören, leise Sprecher werden angehoben, und nie über den Musik-Equalizer; sie hat ihre eigene Zeile, Call voices, im Lautstärkemixer. Einen Schalter umzulegen startet die Echounterdrückung neu, etwa eine Sekunde ohne Mikrofon. Ein Anruf im Webbrowser bleibt, wie er ist. Finden die anderen deine Stimme zu stark bearbeitet, schalte den ersten Schalter aus, oder schalte die Rauschunterdrückung und die automatische Verstärkung der Anruf-App aus.";
+      vi = "Giọng nói trong cuộc gọi được làm rõ hơn mà không dùng AI khi khử tiếng vọng đang bật (Cài đặt > Âm thanh > Echo cancellation), bằng hai công tắc ở đó, mặc định đều bật. “Clearer voice in calls: mine, for the others”: trước khi ứng dụng gọi điện thu âm bạn, giọng bạn được cân bằng cho lời nói (bớt ù và bớt tiếng hộp, thêm độ rõ) và được làm đều, giọng nhỏ được nâng lên. “Clearer voices in calls: the others', for me”: các ứng dụng gọi điện (Discord hoặc Vesktop, Slack, Zoom, Teams và tương tự; danh sách là echoCancel.callApps trong cấu hình Nix) phát qua đầu ra “Call voices” với cùng cách xử lý cho việc nghe, người nói nhỏ được nâng lên, và không bao giờ qua bộ cân bằng nhạc; nó có dòng riêng, Call voices, trong bộ trộn âm lượng. Đổi một công tắc sẽ khởi động lại khử tiếng vọng, khoảng một giây không có micro. Cuộc gọi trong trình duyệt web được giữ nguyên. Nếu người khác thấy giọng bạn bị xử lý quá nhiều, hãy tắt công tắc thứ nhất, hoặc tắt tính năng khử ồn và tự động tăng âm của chính ứng dụng gọi điện.";
     };
     visualizer = {
       en = "The music visualizer is a desktop widget: turn it on from the desktop's right-click menu > Widgets, or in Settings > Desktop widgets > Visualizer (style: bars, aurora, ring, dots, mirror; colours from the theme or the cover; height or ring size). It moves only while music plays and it can be seen: with 'Pause while windows cover the desktop' on (the default), it fades out on a workspace that has a tiled window, or under a floating window, and the audio analyser (cava) stops with it; go to an empty workspace to see it. If it does not appear, or stays flat, while music plays on an empty workspace, run nixbook-shell ipc call mediaControls visualizerStatus: it says which player the shell follows and whether it plays, whether a visualizer can be seen, and whether cava runs (it is started again by itself when the audio output changes).";
@@ -911,6 +946,44 @@ in
         with noise suppression, an "Echo-cancelled microphone" made the
         default input while it runs, so the computer's own sound stays out
         of calls. Needs PipeWire.
+
+        The same unit makes voices clearer in calls, without AI (two
+        switches in Settings > Sound, on by default): yours for the others
+        (a speech equalizer, a compressor and a limiter before call apps
+        record you), and theirs for you (a "Call voices" output with the
+        same three, where the apps of `echoCancel.callApps` play).
+      '';
+    };
+    echoCancel.callApps = lib.mkOption {
+      type = lib.types.listOf (lib.types.strMatching "[A-Za-z0-9 ._-]+");
+      default = [
+        "vesktop"
+        "discord"
+        "webcord"
+        "slack"
+        "zoom"
+        "teams"
+        "element"
+        "signal"
+        "telegram"
+        "whatsapp"
+        "skype"
+        "jitsi"
+        "mumble"
+        "teamspeak"
+      ];
+      description = ''
+        Call apps: an app whose name or program name contains one of these
+        words (any case) plays on "Call voices" (the unit's listening stage:
+        quiet speakers brought up, speech made clearer) while it runs, and
+        straight on the default output otherwise; never through EasyEffects,
+        whose music equalizer isn't made for voices. Done by a PipeWire
+        stream rule (`pipewire/pipewire-pulse.conf.d` and `client.conf.d`
+        in the user's configuration: the target "Call voices", and
+        `node.dont-move` so EasyEffects can't take the stream back), read
+        when the sound server and each app start: a change applies from the
+        next login. Empty: no rule. A call in a web browser isn't told from
+        the browser's other sound, and is left alone.
       '';
     };
 
@@ -1403,6 +1476,15 @@ in
         # pinned leaf path. Drives the red lock icon and the disabled control in
         # the Settings menu (src/modules/common/NixManaged.qml).
         xdg.configFile."nixbook-shell/nix-managed.json".source = nixManagedFile;
+        # Call apps play on "Call voices" (scripts/echo-cancel.sh): the same
+        # rule for PulseAudio clients (Electron apps: read by pipewire-pulse)
+        # and for PipeWire's own.
+        xdg.configFile."pipewire/pipewire-pulse.conf.d/60-nixbook-call-voices.conf" = lib.mkIf (
+          cfg.echoCancel.enable && cfg.echoCancel.callApps != [ ]
+        ) { text = callVoicesRule; };
+        xdg.configFile."pipewire/client.conf.d/60-nixbook-call-voices.conf" = lib.mkIf (
+          cfg.echoCancel.enable && cfg.echoCancel.callApps != [ ]
+        ) { text = callVoicesRule; };
         xdg.configFile."nixbook-accounts/google-client.json" =
           lib.mkIf (cfg.accounts.googleClient != null)
             {
