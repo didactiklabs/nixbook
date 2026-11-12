@@ -200,6 +200,41 @@ Singleton {
         });
     }
 
+    // YouTube's videos (the YouTube tab, sidebar.youtubeTab): your home
+    // page and your subscriptions' latest with the same session, a search
+    // without one too ({feed, items: [{id, title, channel, duration, views,
+    // live, thumb}], at}); `cached`: the last copy, at once.
+    function videos(feed, count, cached, then) {
+        root.run(["videos", feed, "--count", String(count), ...(cached ? ["--cached"] : [])], "", then);
+    }
+    // Only the latest search answers (as `search`).
+    property int _videoSearchGen: 0
+    function searchVideos(query, count, then) {
+        const gen = ++root._videoSearchGen;
+        root.run(["videos", "search", ...String(query).trim().split(/\s+/), "--count", String(count)], "", (ok, answer) => {
+            if (gen === root._videoSearchGen && then) then(ok, answer);
+        });
+    }
+    function cancelVideoSearch() {
+        root._videoSearchGen++;
+    }
+    // A video in mpv (the user's, with their config), started through niri
+    // so it outlives the shell: `nixbook-ytmusic watch` by its full path
+    // (niri's environment hasn't the shell's PATH).
+    property string binPath: ""
+    Process {
+        running: true
+        command: ["sh", "-c", `command -v ${root.bin}`]
+        stdout: StdioCollector {
+            onStreamFinished: root.binPath = this.text.trim()
+        }
+    }
+    function watch(videoId) {
+        if (!/^[A-Za-z0-9_-]{11}$/.test(String(videoId ?? ""))) return false;
+        AppLaunch.spawn([root.binPath || root.bin, "watch", videoId]);
+        return true;
+    }
+
     // `nixbook-ytmusic ARGS`, `input` on stdin; then(ok, answer).
     function run(args, input, then) {
         runner.createObject(root, { input: input ?? "", then: then ?? null, command: [root.bin, ...args] });

@@ -108,6 +108,14 @@ check("where is my music visualizer", howTos.visualizer);
 check("the visualizer doesn't appear anymore", howTos.visualizer);
 check("pourquoi le visualiseur ne s'affiche plus", howTos.visualizer);
 check("wo ist die Musik-Visualisierung", howTos.visualizer);
+check("how do I watch youtube videos", howTos.youtubeVideos);
+check("where are my youtube subscriptions", howTos.youtubeVideos);
+check(
+  "comment regarder les vidéos youtube de mes abonnements",
+  howTos.youtubeVideos,
+);
+check("wo sehe ich meine YouTube Abos", howTos.youtubeVideos);
+check("xem video youtube ở đâu", howTos.youtubeVideos);
 check("trình hiển thị nhạc không hiện", howTos.visualizer);
 check("how do I set a charge limit for the battery", howTos.batteryPanel);
 check("how do I stop charging at 80%", howTos.batteryPanel);

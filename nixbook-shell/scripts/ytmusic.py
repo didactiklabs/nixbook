@@ -54,6 +54,17 @@ friend's song with it.
                                        (pear-desktop) own Last.fm sign-in
   nixbook-ytmusic serve                the player (the nixbook-ytmusic user
                                        service)
+  nixbook-ytmusic videos home|subscriptions [--count N] [--cached]
+  nixbook-ytmusic videos search WORDS... [--count N]
+                                       YouTube's videos (www.youtube.com, the
+                                       same session): your home page, your
+                                       subscriptions' latest, a search; JSON
+                                       ({feed, items: [{id, title, channel,
+                                       duration, views, live, thumb}]});
+                                       --cached: the last copy, at once
+  nixbook-ytmusic watch VIDEO [--start SECONDS]
+                                       a YouTube video in mpv (yours: your
+                                       config), the background player paused
 
 Secrets live in the keyring (secret-tool, service=nixbook-ytmusic, kind
 session|lastfm), never in a file but the cookie file yt-dlp reads while the
@@ -63,6 +74,7 @@ socket ($XDG_RUNTIME_DIR/nixbook-ytmusic/player.sock) is this user's only
 """
 
 import concurrent.futures
+import contextlib
 import glob
 import hashlib
 import json
@@ -1157,6 +1169,143 @@ def cmd_control(args):
     reply(ask_player(req, start=args[0] in ("play", "toggle")))
 
 
+
+# -- YouTube's videos: the side panel's YouTube tab -------------------------
+# The same YouTube session as the music (Google's cookies are youtube.com's,
+# music. and www. alike), read through yt-dlp: it follows YouTube's pages as
+# they change, so nothing here names YouTube's own structures. Home is
+# yt-dlp's :ytrec (the recommendations of your home page), Subscriptions its
+# :ytsubs (your subscriptions' latest videos), a search ytsearchN:. Each
+# answer is kept (videos-<feed>.json in the cache) so the tab shows the last
+# one at once while the next comes (2-3 s for 30 videos).
+VIDEO_FEEDS = {"home": ":ytrec", "subscriptions": ":ytsubs"}
+VIDEO_PAGE = 30
+VIDEO_MAX = 150
+YOUTUBE_WATCH = "https://www.youtube.com/watch?v={}"
+
+
+def video_of(e):
+    """A video as the tab shows it, or None (a channel, a playlist, a short
+    without an id)."""
+    vid = str(e.get("id") or "")
+    if not VIDEO_ID.match(vid) or e.get("_type") not in (None, "url", "video"):
+        return None
+    if e.get("ie_key") not in (None, "Youtube"):
+        return None
+    live = e.get("live_status") in ("is_live", "is_upcoming")
+    return {"id": vid, "title": str(e.get("title") or ""),
+            "channel": str(e.get("channel") or e.get("uploader") or ""),
+            "duration": int(e.get("duration") or 0), "views": int(e.get("view_count") or 0),
+            "live": live, "upcoming": e.get("live_status") == "is_upcoming",
+            # A small picture every video has (320x180), loaded by the panel.
+            "thumb": f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg"}
+
+
+def videos_copy_path(feed):
+    return os.path.join(cache_dir(), f"videos-{feed}.json")
+
+
+def run_video_feed(target, count, cookie):
+    """yt-dlp's flat list of `target` (count at most): (videos, error)."""
+    argv = [YT_DLP, "--flat-playlist", "-J", "--no-warnings", "--playlist-end", str(count), target]
+    # The session as a cookie file only while yt-dlp reads it (one per run:
+    # two feeds may be asked at once).
+    cookies = write_cookies_file(cookie, f"videos-cookies-{os.getpid()}.txt") if cookie else None
+    if cookies:
+        argv[1:1] = ["--cookies", cookies]
+    try:
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=90)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, f"yt-dlp didn't answer ({exc})"
+    finally:
+        if cookies:
+            with contextlib.suppress(OSError):
+                os.unlink(cookies)
+    if r.returncode != 0:
+        lines = [ln for ln in r.stderr.strip().splitlines() if ln.startswith("ERROR")] or r.stderr.strip().splitlines()
+        return None, (lines[-1] if lines else f"yt-dlp failed ({r.returncode})").removeprefix("ERROR: ")
+    try:
+        entries = json.loads(r.stdout or "{}").get("entries") or []
+    except ValueError:
+        return None, "yt-dlp's answer wasn't readable"
+    seen, items = set(), []
+    for e in entries:
+        v = video_of(e) if isinstance(e, dict) else None
+        if v and v["id"] not in seen:
+            seen.add(v["id"])
+            items.append(v)
+    return items, None
+
+
+def cmd_videos(args):
+    usage = "usage: nixbook-ytmusic videos home|subscriptions [--count N] [--cached] | videos search WORDS... [--count N]"
+    if not args:
+        out({"error": usage}, 1)
+    count = VIDEO_PAGE
+    if "--count" in args:
+        i = args.index("--count")
+        try:
+            count = max(1, min(VIDEO_MAX, int(args[i + 1])))
+        except (IndexError, ValueError):
+            out({"error": usage}, 1)
+        args = args[:i] + args[i + 2:]
+    feed = args[0]
+    if feed == "search":
+        query = " ".join(a for a in args[1:] if a != "--cached").strip()[:200]
+        if not query:
+            out({"error": usage}, 1)
+        # Signed in or not: a search answers either way (signed in, as on
+        # youtube.com: what you watch counts).
+        items, error = run_video_feed(f"ytsearch{count}:{query}", count, session())
+        if error:
+            out({"error": f"YouTube didn't answer the search: {error}"}, 1)
+        out({"feed": "search", "query": query, "items": items, "at": int(time.time())})
+    if feed not in VIDEO_FEEDS:
+        out({"error": usage}, 1)
+    if "--cached" in args:
+        copy = read_json(videos_copy_path(feed), None)
+        out(copy if isinstance(copy, dict) else {"feed": feed, "items": [], "at": 0, "none": True})
+    cookie = session()
+    if not cookie:
+        out({"error": "not signed in: Settings > Apps & accounts > YouTube Music > Use my browser's session",
+             "signedOut": True}, 1)
+    items, error = run_video_feed(VIDEO_FEEDS[feed], count, cookie)
+    # Google rotates a browser's cookies: the copy kept here can stop
+    # working (refused, or an empty feed); renewed once from the browser.
+    if (error and REFUSED.search(error)) or (not error and not items):
+        renewed = renew_session()
+        if renewed:
+            items, error = run_video_feed(VIDEO_FEEDS[feed], count, renewed)
+    if error:
+        out({"error": f"YouTube didn't give your {feed} page: {error}"}, 1)
+    answer = {"feed": feed, "items": items, "at": int(time.time())}
+    write_private(videos_copy_path(feed), answer)
+    out(answer)
+
+
+def cmd_watch(args):
+    """A video in mpv, on its own (the shell starts this through niri, so it
+    outlives the shell): the user's mpv first, for their configuration, its
+    yt-dlp hook given this package's yt-dlp in case theirs has none."""
+    if not args or not VIDEO_ID.match(args[0]):
+        out({"error": "usage: nixbook-ytmusic watch VIDEO [--start SECONDS]"}, 1)
+    vid, start = args[0], 0
+    if "--start" in args:
+        try:
+            start = max(0, int(float(args[args.index("--start") + 1])))
+        except (IndexError, ValueError):
+            out({"error": "--start: seconds"}, 1)
+    # The music in the background stops for the video (not started if it
+    # isn't running).
+    ask_player({"cmd": "control", "action": "pause"}, start=False, timeout=3)
+    mpv = shutil.which("mpv") or MPV
+    argv = [mpv, f"--script-opts-append=ytdl_hook-ytdl_path={YT_DLP}", "--force-window=immediate"]
+    if start:
+        argv.append(f"--start={start}")
+    argv.append(YOUTUBE_WATCH.format(vid))
+    sys.stdout.flush()
+    os.execv(mpv, argv)
+
 # -- Last.fm ----------------------------------------------------------------
 def lastfm_sign(params, secret):
     text = "".join(f"{k}{params[k]}" for k in sorted(params) if k not in ("format", "callback")) + secret
@@ -1528,9 +1677,9 @@ class Downloader:
         self.say(downloading=None, left=0, full=full)
 
 
-def write_cookies_file(cookie):
+def write_cookies_file(cookie, name="cookies.txt"):
     """The session as a Netscape cookie file for yt-dlp (0600, runtime dir)."""
-    path = os.path.join(runtime_dir(), "cookies.txt")
+    path = os.path.join(runtime_dir(), name)
     lines = ["# Netscape HTTP Cookie File"]
     for part in cookie.split("; "):
         if "=" in part:
@@ -2088,7 +2237,8 @@ def serve(_args):
 COMMANDS = {"browsers": cmd_browsers, "login-from-browser": cmd_login, "forget": cmd_forget, "status": cmd_status,
             "playlists": cmd_playlists, "playlist": cmd_playlist, "search": cmd_search, "add": cmd_add, "remove": cmd_remove, "create": cmd_create, "play": cmd_play,
             "play-tracks": cmd_play_tracks, "play-id": cmd_play_id, "control": cmd_control,
-            "lastfm": cmd_lastfm, "offline": cmd_offline, "serve": serve}
+            "lastfm": cmd_lastfm, "offline": cmd_offline, "serve": serve, "videos": cmd_videos,
+            "watch": cmd_watch}
 
 
 def main(argv):

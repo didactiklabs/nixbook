@@ -177,6 +177,17 @@ ContentPage {
                 }
 
                 ConfigSwitch {
+                    configKey: "sidebar.youtubeTab";
+                    enabled: !nixManaged;
+                    buttonIcon: "smart_display"
+                    text: Translation.tr('YouTube tab: your home page, subscriptions and a search, played in mpv')
+                    checked: Config.options.sidebar.youtubeTab
+                    onCheckedChanged: {
+                        Config.options.sidebar.youtubeTab = checked;
+                    }
+                }
+
+                ConfigSwitch {
                     configKey: "sidebar.mediaPlayer";
                     enabled: !nixManaged;
                     buttonIcon: "music_note"
