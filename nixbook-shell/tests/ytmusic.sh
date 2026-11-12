@@ -520,6 +520,26 @@ expect "videos channels: the channels you're subscribed to, their picture's larg
   "$(yv channels | "$py" -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["channels"]))')"
 expect "videos channels: --cached, the last copy at once" "1" \
   "$(NIXBOOK_YTMUSIC_YT_DLP=/nonexistent ytm videos channels --cached | "$py" -c 'import json,sys; print(len(json.load(sys.stdin)["channels"]))')"
+# One video (a pasted link) through oEmbed (urlopen stubbed: no network here).
+expect "videos video: a pasted link's title and channel through oEmbed; its id alone when unknown" \
+  "Found It|Chan B|https://www.youtube.com/@chan|True |False" \
+  "$("$py" -c "
+import importlib.util, io, json, sys, contextlib
+s = importlib.util.spec_from_file_location('y', '$script'); y = importlib.util.module_from_spec(s); s.loader.exec_module(y)
+def answer(req, timeout=0):
+    if 'nobody00000' in req.full_url: raise OSError('404')
+    return io.BytesIO(json.dumps({'title': 'Found It', 'author_name': 'Chan B', 'author_url': 'https://www.youtube.com/@chan'}).encode())
+y.urllib.request.urlopen = answer
+res = []
+for vid in ('home1111111', 'nobody00000'):
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        try: y.cmd_videos(['video', vid])
+        except SystemExit: pass
+    d = json.loads(buf.getvalue()); i = d['items'][0]
+    res.append(f\"{i['title']}|{i['channel']}|{i['channelUrl']}|{d['found']}\" if i['title'] else f\"|{d['found']}\")
+print(' '.join(res))
+")"
 # A video's channel through oEmbed (urlopen stubbed: no network here).
 expect "videos channel: a video's channel found through oEmbed; nothing when it can't say" \
   "https://www.youtube.com/@chan|" \
