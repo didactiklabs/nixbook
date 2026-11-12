@@ -88,6 +88,13 @@ let
     exec ${pkgs.bash}/bin/bash ${./scripts/echo-cancel.sh} "$@"
   '';
 
+  # The battery's charge limit, read and set for the bar's battery panel
+  # (scripts/charge-limit.sh, services/Battery.qml). systemctl comes from the
+  # system: it must be the one that talks to the running systemd.
+  chargeLimit = pkgs.writeShellScriptBin "nixbook-charge-limit" ''
+    exec ${pkgs.bash}/bin/bash ${./scripts/charge-limit.sh} "$@"
+  '';
+
   # Claude usage reader for the AnthropicUsage bar widget (OpenCode OAuth).
   anthropicUsage = pkgs.writeShellScriptBin "anthropic-usage" (
     builtins.readFile ./scripts/anthropic-usage.sh
@@ -270,6 +277,7 @@ let
       ytmusic # `nixbook-ytmusic` — YouTube Music in the background (services/YouTubeMusic.qml)
       shell.passthru.pythonEnv
       anthropicUsage # `anthropic-usage` — AnthropicUsage bar widget
+      chargeLimit # `nixbook-charge-limit` — the battery panel's charge limit (services/Battery.qml)
       desktopMcp # `nixbook-desktop-mcp` — desktop tools of the AI chat
       updateCheck # `nixbook-update-check` — the update check (services/UpdateState.qml)
       improve # `nixbook-improve` — the desktop agent's fixes to nixbook (services/SelfImprove.qml)

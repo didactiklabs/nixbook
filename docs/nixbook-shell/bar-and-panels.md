@@ -20,7 +20,7 @@ The bar's layout (left, centre, right) is edited in **Settings → Bar** (or pin
 | Resources           | CPU, memory, temperatures                                                                                 |
 | Network speed       | Up/down throughput                                                                                        |
 | System icons        | Volume, microphone, network, Bluetooth, unread notifications — each with a hover card                     |
-| Battery             | Charge and state                                                                                          |
+| [Battery](#battery) | Charge and state; its panel sets the power profile and the charge limit                                   |
 | Bluetooth           | Connected devices                                                                                         |
 | Keyboard layout     | The active layout / input method                                                                          |
 | Tray                | System tray                                                                                               |
@@ -40,6 +40,15 @@ The bar tells you what the pointer can do while you hover a widget: an **accent 
 ### Updates
 
 The _Updates_ widget compares `/etc/nixos/version` with the repository (`updates.repoUrl`; nixbook sets its own). Hover for the deployed revision and branch, whether it was deployed from a dirty tree, the latest revision and the last run's result. Click for a panel with **Check**, **Execute** (runs the update service, passwordless through polkit), the changelog and a live, copyable journal of the run; right-click re-checks. The same controls are in **Settings → Services**.
+
+### Battery
+
+Hover or click the _Battery_ widget for its panel: charge, time left, health and power draw, and two things to choose (the panel stays open while the pointer is on it):
+
+- **Power profile** — Power saver, Balanced or Performance, the profiles of power-profiles-daemon (also on the power profile quick toggle).
+- **Charge limit** — 60 %, 80 % or 100 %: the level at which the battery stops charging. A lithium battery kept at 100 % on the charger ages much faster than one kept at 80 %, so keep 80 % day to day and pick 100 % before a trip. The choice survives reboots. While the charger is plugged in and the limit is reached, the panel says "Plugged in · held at 80%".
+
+The charge limit shows on laptops whose firmware has one (the kernel's `charge_control_end_threshold`: ASUS, Framework, ThinkPad…). Setting it goes through a system unit of [`laptopProfile`](/system/hardware#laptops), without a password for the person at the computer; where that unit is missing and the file isn't writable, the panel shows the limit without letting you change it.
 
 ### VPN
 

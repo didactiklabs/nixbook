@@ -6,7 +6,8 @@
 #   - theme-palettes.py + greeter-theme.sh: what the login screen gets;
 #   - render-app-colors.py, zen-theme.py, apply-app-colors.sh: the app colours;
 #   - applycolor.sh: the terminal colours (kitty's theme, escape sequences);
-#   - least_busy_region.py: background widget placement and its cache.
+#   - least_busy_region.py: background widget placement and its cache;
+#   - charge-limit.sh: the battery's charge limit, read and set.
 # Needs bash, jq, python3, nix-instantiate and nix-build (the shell's Python
 # environment, with OpenCV). Run: bash tests/scripts.sh
 # The jq programs are single-quoted on purpose: `$n`, `$a`, ... are jq variables.
@@ -795,6 +796,64 @@ expect_contains "echo-cancel: clearVoices off, the voice stage stays" "$(cat "$e
 echo 'not json' >"$ec/config/nixbook-shell/config.json"
 ec_run
 expect_contains "echo-cancel: unreadable settings, both stages" "$(cat "$ec/conf")" 'node.name = "nixbook-call-voices"'
+
+# -- charge-limit.sh: the battery's charge limit ----------------------------------
+# A fake power_supply tree and a fake systemctl that knows one template unit
+# and writes the limit as the system unit would.
+
+cl="$tmp/charge-limit"
+mkdir -p "$cl/bin" "$cl/ps/AC0" "$cl/ps/BAT0"
+echo 100 >"$cl/ps/BAT0/charge_control_end_threshold"
+cat >"$cl/bin/systemctl" <<EOF
+#!/usr/bin/env bash
+echo "\$*" >>"$cl/systemctl.log"
+[ -e "$cl/unit" ] || exit 1
+case "\$1 \$2" in
+  "cat battery-charge-limit@.service") exit 0 ;;
+  "start battery-charge-limit@"*)
+    [ ! -e "$cl/refuse" ] || { echo "Access denied" >&2; exit 4; }
+    n=\${2#battery-charge-limit@}
+    chmod u+w "$cl/ps/BAT0/charge_control_end_threshold"
+    echo "\${n%.service}" >"$cl/ps/BAT0/charge_control_end_threshold"
+    chmod a-w "$cl/ps/BAT0/charge_control_end_threshold"
+    exit 0 ;;
+esac
+exit 1
+EOF
+chmod +x "$cl/bin/systemctl"
+cl_run() { NIXBOOK_POWER_SUPPLY_DIR="$cl/ps" PATH="$cl/bin:$PATH" bash "$scripts/charge-limit.sh" "$@"; }
+
+expect_eq "charge-limit: a writable limit can be set" '{"limit": 100, "canSet": true, "error": ""}' "$(cl_run status)"
+expect_eq "charge-limit: set writes it" '{"limit": 80, "canSet": true, "error": ""}' "$(cl_run set 80)"
+expect_eq "charge-limit: the file has it" 80 "$(cat "$cl/ps/BAT0/charge_control_end_threshold")"
+for bad in 19 101 abc 8O "" 0080 -5 "80; reboot"; do
+  if out="$(cl_run set "$bad")"; then
+    fail "charge-limit: \"$bad\" is refused" "$out"
+  else
+    expect_eq "charge-limit: \"$bad\" is refused, the limit unchanged" 80 "$(jq -r .limit <<<"$out")"
+  fi
+done
+expect_eq "charge-limit: a refusal says why" "a charge limit is between 20 and 100" "$(cl_run set 101 | jq -r .error)"
+
+# Read-only (root's file, as on a real computer): only through the unit.
+chmod a-w "$cl/ps/BAT0/charge_control_end_threshold"
+expect_eq "charge-limit: read-only and no unit, shown but not changeable" '{"limit": 80, "canSet": false, "error": ""}' "$(cl_run status)"
+if out="$(cl_run set 60)"; then fail "charge-limit: read-only and no unit, set fails" "$out"; else pass "charge-limit: read-only and no unit, set fails"; fi
+touch "$cl/unit"
+expect_eq "charge-limit: read-only with the system unit, changeable" '{"limit": 80, "canSet": true, "error": ""}' "$(cl_run status)"
+expect_eq "charge-limit: set goes through the unit" '{"limit": 60, "canSet": true, "error": ""}' "$(cl_run set 060)"
+expect_contains "charge-limit: the unit is started with the number alone" "$(cat "$cl/systemctl.log")" "start battery-charge-limit@60.service"
+touch "$cl/refuse"
+if out="$(cl_run set 90)"; then
+  fail "charge-limit: a refused start fails" "$out"
+else
+  expect_eq "charge-limit: a refused start gives systemctl's reason, the limit as it is" '{"limit": 60, "canSet": true, "error": "Access denied"}' "$out"
+fi
+
+# No battery with a limit (a desktop, a laptop whose firmware has none).
+rm "$cl/ps/BAT0/charge_control_end_threshold"
+expect_eq "charge-limit: no limit on this battery" '{"limit": 0, "canSet": false, "error": ""}' "$(cl_run status)"
+if out="$(cl_run set 80)"; then fail "charge-limit: no limit, set fails" "$out"; else pass "charge-limit: no limit, set fails"; fi
 
 if [ "$failures" -ne 0 ]; then
   echo "$failures nixbook-shell test(s) failed" >&2
