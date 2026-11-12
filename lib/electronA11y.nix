@@ -51,12 +51,6 @@ let
     {
       youtube-music = [ "music.youtube.com" ];
       gmail = [ "mail.google.com" ];
-      youtube = [
-        "www.youtube.com"
-        "youtube.com"
-        "m.youtube.com"
-        "youtu.be"
-      ];
     }
     .${app} or [ ];
   # What the app's processes name (its store paths, and the ones its package

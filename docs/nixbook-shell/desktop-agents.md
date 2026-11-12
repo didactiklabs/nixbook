@@ -241,42 +241,6 @@ automated. Turn it off with `nixbookShellConfig.electronBridge.enable = false`
 or drop an app from `electronBridge.apps`.
 :::
 
-### YouTube
-
-With [ZenPlay](/packages/#zenplay) (YouTube's desktop app, bridged as
-`youtube`), agents use YouTube through the `youtube` tool: the page's own
-player and the API the page itself calls, never a click or a key. The window
-can be on another workspace or hidden in the tray.
-
-| What                  | Actions                                                                                                                                                                          |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Look                  | `status` (the page shown and what plays), `search` (videos, channels, playlists), `video` (its details and what comes next), `channel` (its latest videos)                       |
-| Yours, once signed in | `home`, `subscriptions`, `history`, `watch_later`, `liked`, `playlists`, `playlist`                                                                                              |
-| Play                  | `play` (a video's id or link, the first video found for a `query`, or a playlist; `at` seconds), `open` (a page or a YouTube link, shown without playing)                        |
-| The player            | `pause`, `resume`, `toggle`, `seek` (`to` / `by`), `volume` (the player's own), `mute`, `unmute`, `speed`, `next`, `previous`, `captions` (`on`, `language`)                     |
-| Your account          | `like` / `dislike` / `unlike`, `subscribe` / `unsubscribe`, `watch_later_add` / `watch_later_remove`, `playlist_create` / `playlist_add` / `playlist_remove` / `playlist_delete` |
-| Anything else         | `innertube` (`endpoint`, `body`): another call of the page's own API, never the account's settings                                                                               |
-
-"Play the Blender open movie on YouTube" is one call: `play` with a `query`
-starts ZenPlay when it isn't running (from its launcher entry, through the
-bridge), goes to the video as a click on a link of YouTube's would (no page
-load) and starts it. Deleting a playlist asks you first in a notification;
-the rest follows the [trust ladder](#trust-ladder). What changes the account
-is rate-limited and written to the bridge's audit log; nothing returns a
-cookie or a header. The `page_*` tools reach the same page as the target
-`youtube` for anything the tool doesn't cover.
-
-Sign in to YouTube in ZenPlay itself (its **Sign in** button): the tool uses
-that session, in ZenPlay's own profile, never your browser's.
-
-::: details A `<webview>` is a new page each time it loads
-ZenPlay shows YouTube in an Electron `<webview>`, whose DevTools target is
-replaced whenever it loads another document (a reload, a link to another
-site). The bridge follows it: the page keeps its id for the agents, `back`,
-`forward`, `reload` and `open` answer once the new page has loaded, and the
-shell's colours are put in the new page as soon as it has a document.
-:::
-
 ### Jellyfin
 
 DAI in the side panel (and its speech bubble) reaches your Jellyfin

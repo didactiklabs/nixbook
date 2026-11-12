@@ -30,7 +30,6 @@
 | [jellyfin-mcp](#jellyfin-mcp)                 | MCP server for your Jellyfin library, played in mpv through jellyfin-mpv-shim   | `nixbookShellConfig`           |
 | [moonfin](#moonfin)                           | Jellyfin & Emby media client (AppImage)                                         | profiles                       |
 | [meru](#meru)                                 | Gmail as a desktop app (AppImage), its Pro features on                          | profiles                       |
-| [zenplay](#zenplay)                           | YouTube as a desktop app with an ad blocker (ZenPlay, on nixpkgs' Electron)     | profiles                       |
 | [cerbos](#cerbos)                             | Stateless authorization policy decision point (PDP)                             | profiles                       |
 
 ## ginx
@@ -108,17 +107,6 @@ A k9s-style TUI to create, attach, edit and tear down isolated OpenCode / Claude
 ## meru
 
 [Meru](https://meru.so) ([zoidsh/meru](https://github.com/zoidsh/meru), AGPL-3.0), Gmail as a desktop app (Electron), packaged from its release AppImage with **its Pro features on**: several accounts, Google apps, phishing protection, the ad and tracking blocker, reverse conversation, Gmail user styles, the default mail app setting. Every Pro feature checks one licence flag; `customPkgs/meru/unlock.py` patches the unpacked app at build time: the licence is valid without asking Meru's server (a placeholder key, which the settings window reads), the trial is never checked (no banner, no upgrade dialogs), Meru's own updater is off (npins bumps the release), the settings' License and Updates pages are gone, and two Electron fuses that only load an untouched `app.asar` are switched off (the app runs unpacked). Each change must match Meru's code exactly once: a release that moves it fails the build, naming what to update. Where nixbook-shell runs, totoro starts it through the [Electron bridge](/nixbook-shell/desktop-agents#mail) as `gmail`: it opens `mail.google.com` and `mailto:` links, and its Gmail pages can take the shell's colours. The desktop agents' mail goes through Gmail's API, not through Meru.
-
-## zenplay
-
-[ZenPlay](https://github.com/AX3ON/ZenPlay) (ISC), YouTube as a desktop app: a small Electron window around youtube.com with an ad blocker (Ghostery's engine with the uBlock Origin, AdGuard and Brave lists, fetched at the first start and cached). Upstream only releases a `.deb`; the app in it (`resources/app.asar`, plain JavaScript) is unpacked and run on nixpkgs' Electron, a native Wayland client with GPU compositing, instead of the Electron 41 bundled in the `.deb` (end-of-life, marked insecure in nixpkgs). The release is a `url` pin (`npins/sources.json`, `zenplay`).
-
-`customPkgs/zenplay/nixbook.py` adjusts two things at build time, each a pattern that must match once (a release that moves the code fails the build):
-
-- **one instance**: closing the window only hides it in the tray, and upstream takes no single-instance lock, so starting it again ran a second copy beside the hidden one. A second start now shows the first one's window.
-- **hardware acceleration on** unless you turn it off in the app's ☰ menu (upstream starts with `--disable-gpu`).
-
-Installed on totoro. Where nixbook-shell runs it is started through the desktop agents' [Electron bridge](/nixbook-shell/desktop-agents#youtube) as `youtube`: DAI's `youtube` tool, and the [theme's colours](/nixbook-shell/themes#app-colours) in its window and in YouTube. niri keeps its window opaque (`app-id` `zenplay`). YouTube links in Zen stay in Zen (its `nixbookOpenLinks` isn't given to `zenBrowserConfig.openInApps`).
 
 ## pear-desktop
 
