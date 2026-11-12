@@ -57,6 +57,7 @@ friend's song with it.
   nixbook-ytmusic videos home|subscriptions [--count N] [--cached]
   nixbook-ytmusic videos search WORDS... [--count N]
   nixbook-ytmusic videos channel URL|VIDEO [--count N]
+  nixbook-ytmusic videos channels [--cached]
                                        YouTube's videos (www.youtube.com, the
                                        same session): your home page, your
                                        subscriptions' latest, a search; JSON
@@ -64,8 +65,10 @@ friend's song with it.
                                        channelUrl, duration, views, live,
                                        thumb}]}), a channel's latest videos
                                        (newest first; {channel: {name, url,
-                                       followers}}); --cached: the last
-                                       copy, at once
+                                       followers}}), the channels you're
+                                       subscribed to ({channels: [{id, name,
+                                       url, followers, avatar}]}); --cached:
+                                       the last copy, at once
   nixbook-ytmusic watch VIDEO [--start SECONDS] [--volume 0-100]
                                        a YouTube video in mpv (yours: your
                                        config), the background player paused
@@ -1218,6 +1221,21 @@ def video_of(e):
             "thumb": f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg"}
 
 
+def subscribed_channel(e):
+    """A channel of your subscriptions list, or None."""
+    cid = str(e.get("channel_id") or e.get("id") or "")
+    if not re.fullmatch(r"UC[A-Za-z0-9_-]{22}", cid):
+        return None
+    pics = [t for t in (e.get("thumbnails") or []) if isinstance(t, dict) and t.get("url")]
+    avatar = str(max(pics, key=lambda t: t.get("width") or 0)["url"]) if pics else ""
+    if avatar.startswith("//"):
+        avatar = "https:" + avatar
+    return {"id": cid, "name": str(e.get("title") or e.get("channel") or ""),
+            "url": channel_url(e) or f"https://www.youtube.com/channel/{cid}",
+            "followers": int(e.get("channel_follower_count") or 0),
+            "avatar": avatar if avatar.startswith("https://") else ""}
+
+
 def videos_copy_path(feed):
     return os.path.join(cache_dir(), f"videos-{feed}.json")
 
@@ -1234,9 +1252,11 @@ def channel_of_video(vid):
     return m.group(0).replace("://m.", "://www.") if m else ""
 
 
-def run_video_feed(target, count, cookie, top=None):
-    """yt-dlp's flat list of `target` (count at most): (videos, error); the
-    list's own fields (a channel's name…) into `top` when given."""
+def run_video_feed(target, count, cookie, top=None, parse=None):
+    """yt-dlp's flat list of `target` (count at most): (videos, error), each
+    entry read by `parse` (video_of); the list's own fields (a channel's
+    name…) into `top` when given."""
+    parse = parse or video_of
     argv = [YT_DLP, "--flat-playlist", "-J", "--no-warnings", "--playlist-end", str(count), target]
     # The session as a cookie file only while yt-dlp reads it (one per run:
     # two feeds may be asked at once).
@@ -1263,7 +1283,7 @@ def run_video_feed(target, count, cookie, top=None):
         top.update({k: v for k, v in answer.items() if k != "entries"})
     seen, items = set(), []
     for e in entries:
-        v = video_of(e) if isinstance(e, dict) else None
+        v = parse(e) if isinstance(e, dict) else None
         if v and v["id"] not in seen:
             seen.add(v["id"])
             items.append(v)
@@ -1271,7 +1291,8 @@ def run_video_feed(target, count, cookie, top=None):
 
 
 def cmd_videos(args):
-    usage = "usage: nixbook-ytmusic videos home|subscriptions [--count N] [--cached] | videos search WORDS... [--count N]"
+    usage = ("usage: nixbook-ytmusic videos home|subscriptions [--count N] [--cached] | videos search WORDS... [--count N]"
+             " | videos channel URL|VIDEO [--count N] | videos channels [--cached]")
     if not args:
         out({"error": usage}, 1)
     count = VIDEO_PAGE
@@ -1283,6 +1304,26 @@ def cmd_videos(args):
             out({"error": usage}, 1)
         args = args[:i] + args[i + 2:]
     feed = args[0]
+    if feed == "channels":
+        # The channels you're subscribed to (YouTube's feed/channels page).
+        if "--cached" in args:
+            copy = read_json(videos_copy_path("channels"), None)
+            out(copy if isinstance(copy, dict) else {"feed": "channels", "channels": [], "at": 0, "none": True})
+        cookie = session()
+        if not cookie:
+            out({"error": "not signed in: Settings > Apps & accounts > YouTube Music > Use my browser's session",
+                 "signedOut": True}, 1)
+        target, most = "https://www.youtube.com/feed/channels", 2000
+        channels, error = run_video_feed(target, most, cookie, parse=subscribed_channel)
+        if (error and REFUSED.search(error)) or (not error and not channels):
+            renewed = renew_session()
+            if renewed:
+                channels, error = run_video_feed(target, most, renewed, parse=subscribed_channel)
+        if error:
+            out({"error": f"YouTube didn't give your subscriptions: {error}"}, 1)
+        answer = {"feed": "channels", "channels": channels, "at": int(time.time())}
+        write_private(videos_copy_path("channels"), answer)
+        out(answer)
     if feed == "channel":
         # A channel's latest videos, newest first (its Videos tab); signed
         # in or not.

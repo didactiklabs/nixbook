@@ -468,6 +468,8 @@ J
   ;;
   :ytsubs) echo 'ERROR: [youtube:tab] Unable to download webpage: HTTP Error 500' >&2; exit 1 ;;
   ytsearch*) echo '{"entries": [{"_type": "url", "ie_key": "Youtube", "id": "found111111", "title": "Found", "channel": "C"}]}' ;;
+  https://www.youtube.com/feed/channels)
+    echo '{"entries": [{"_type": "url", "ie_key": "YoutubeTab", "id": "UCbbbbbbbbbbbbbbbbbbbbbb", "title": "Chan B", "channel_url": "https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb", "channel_follower_count": 4200, "thumbnails": [{"url": "//yt3.example/b=s88", "width": 88}, {"url": "//yt3.example/b=s176", "width": 176}]}, {"_type": "url", "id": "not-a-channel", "title": "Odd"}]}' ;;
   https://www.youtube.com/@chan/videos | https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb/videos)
     echo '{"channel": "Chan B", "channel_url": "https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb", "channel_follower_count": 4200, "entries": [{"_type": "url", "ie_key": "Youtube", "id": "newest11111", "title": "Newest", "duration": 60}, {"_type": "url", "ie_key": "Youtube", "id": "older111111", "title": "Older"}]}' ;;
 esac
@@ -513,6 +515,11 @@ expect "videos channel: not a YouTube channel's link, refused" "1" "$(
   yv channel https://example.com/@chan >/dev/null
   echo $?
 )"
+expect "videos channels: the channels you're subscribed to, their picture's largest size" \
+  '[{"id": "UCbbbbbbbbbbbbbbbbbbbbbb", "name": "Chan B", "url": "https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb", "followers": 4200, "avatar": "https://yt3.example/b=s176"}]' \
+  "$(yv channels | "$py" -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["channels"]))')"
+expect "videos channels: --cached, the last copy at once" "1" \
+  "$(NIXBOOK_YTMUSIC_YT_DLP=/nonexistent ytm videos channels --cached | "$py" -c 'import json,sys; print(len(json.load(sys.stdin)["channels"]))')"
 # A video's channel through oEmbed (urlopen stubbed: no network here).
 expect "videos channel: a video's channel found through oEmbed; nothing when it can't say" \
   "https://www.youtube.com/@chan|" \

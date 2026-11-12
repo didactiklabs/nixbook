@@ -16,6 +16,8 @@ import Quickshell.Widgets
  * your home page's recommendations, Subscriptions your subscriptions'
  * latest videos, both with the YouTube session YouTube Music signs in
  * (services/YouTubeMusic.qml, `nixbook-ytmusic videos`, through yt-dlp);
+ * Subscriptions lists the channels you're subscribed to, each opening its
+ * latest videos;
  * the search field finds any video, signed in or not. A click opens the
  * video in mpv (`nixbook-ytmusic watch`: your mpv and its configuration),
  * pausing the music playing in the background. Each feed shows its last
@@ -108,21 +110,25 @@ Item {
     function countOf(feed) {
         return root.counts[feed] ?? root.page;
     }
+    // Subscriptions is the list of your channels (`videos channels`).
+    function command(feed) {
+        return feed === "subscriptions" ? "channels" : feed;
+    }
     function load(feed, force) {
         if (feed !== "home" && feed !== "subscriptions") return;
         if (root.loading[feed]) return;
         const have = root.feeds[feed];
         // The last copy first, at once.
         if (!have) {
-            YouTubeMusic.videos(feed, root.countOf(feed), true, (ok, answer) => {
-                if (ok && !root.feeds[feed] && (answer?.items ?? []).length)
+            YouTubeMusic.videos(root.command(feed), root.countOf(feed), true, (ok, answer) => {
+                if (ok && !root.feeds[feed] && (answer?.items ?? answer?.channels ?? []).length)
                     root.set("feeds", feed, answer);
             });
         }
         if (!YouTubeMusic.signedIn) return;
         if (!force && have && Date.now() / 1000 - (have.at ?? 0) < 10 * 60) return;
         root.set("loading", feed, true);
-        YouTubeMusic.videos(feed, root.countOf(feed), false, (ok, answer) => {
+        YouTubeMusic.videos(root.command(feed), root.countOf(feed), false, (ok, answer) => {
             root.set("loading", feed, false);
             root.set("errors", feed, ok ? "" : (answer?.error || Translation.tr("YouTube didn't answer")));
             if (ok) root.set("feeds", feed, answer);
@@ -175,10 +181,11 @@ Item {
 
     readonly property string view: root.inSearch ? "search" : root.channel ? "channel" : root.feed
     readonly property var shown: root.view === "search" ? (root.results?.items ?? [])
-        : root.view === "channel" ? (root.channel?.items ?? []) : (root.feeds[root.feed]?.items ?? [])
+        : root.view === "channel" ? (root.channel?.items ?? [])
+        : root.view === "subscriptions" ? (root.feeds.subscriptions?.channels ?? []) : (root.feeds[root.feed]?.items ?? [])
     readonly property bool busy: root.view === "search" ? root.searching : root.view === "channel" ? root.channelLoading : !!root.loading[root.feed]
     readonly property string error: root.view === "search" ? root.searchError : root.view === "channel" ? root.channelError : (root.errors[root.feed] ?? "")
-    readonly property bool canMore: root.shown.length >= root.countOf(root.view) && root.countOf(root.view) < root.maxCount
+    readonly property bool canMore: root.view !== "subscriptions" && root.shown.length >= root.countOf(root.view) && root.countOf(root.view) < root.maxCount
 
     function watch(video) {
         if (YouTubeMusic.watch(video.id)) root.say(Translation.tr("Opening “%1” in mpv…").arg(video.title), "busy");
@@ -261,6 +268,74 @@ Item {
         }
         StyledToolTip {
             text: ib.tip
+        }
+    }
+
+    // A channel you're subscribed to: its picture, name, subscribers; a
+    // click shows its latest videos.
+    component ChannelRow: RippleButton {
+        id: crow
+        property var channelData
+        implicitHeight: 60
+        buttonRadius: Appearance.rounding.small
+        colBackground: ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 1)
+        onClicked: root.openChannel({ channel: crow.channelData?.name ?? "", channelUrl: crow.channelData?.url ?? "", id: "" })
+        contentItem: RowLayout {
+            spacing: 12
+            Rectangle {
+                implicitWidth: 44
+                implicitHeight: 44
+                radius: width / 2
+                color: Appearance.colors.colLayer2
+                StyledText {
+                    anchors.centerIn: parent
+                    visible: avatar.status !== Image.Ready
+                    text: (crow.channelData?.name ?? "?").slice(0, 1).toUpperCase()
+                    font.pixelSize: Appearance.font.pixelSize.large
+                    color: Appearance.colors.colSubtext
+                }
+                ClippingRectangle {
+                    anchors.fill: parent
+                    radius: width / 2
+                    color: "transparent"
+                    visible: avatar.status === Image.Ready
+                    Image {
+                        id: avatar
+                        anchors.fill: parent
+                        source: crow.channelData?.avatar ?? ""
+                        sourceSize.width: 88
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                    }
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+                StyledText {
+                    Layout.fillWidth: true
+                    text: crow.channelData?.name ?? ""
+                    elide: Text.ElideRight
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    color: Appearance.colors.colOnLayer1
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    visible: (crow.channelData?.followers ?? 0) > 0
+                    text: Translation.tr("%1 subscribers").arg(root.short(crow.channelData?.followers ?? 0))
+                    elide: Text.ElideRight
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                }
+            }
+            MaterialSymbol {
+                text: "chevron_right"
+                iconSize: Appearance.font.pixelSize.huge
+                color: Appearance.colors.colSubtext
+            }
+        }
+        StyledToolTip {
+            text: Translation.tr("Their latest videos")
         }
     }
 
@@ -617,10 +692,24 @@ Item {
                 values: root.shown
                 objectProp: "id"
             }
-            delegate: VideoRow {
+            // Your channels on Subscriptions, videos everywhere else.
+            delegate: Loader {
+                id: rowLoader
                 required property var modelData
                 width: ListView.view.width
-                video: modelData
+                sourceComponent: root.view === "subscriptions" ? channelRowComponent : videoRowComponent
+                Component {
+                    id: videoRowComponent
+                    VideoRow {
+                        video: rowLoader.modelData
+                    }
+                }
+                Component {
+                    id: channelRowComponent
+                    ChannelRow {
+                        channelData: rowLoader.modelData
+                    }
+                }
             }
             footer: Item {
                 width: list.width

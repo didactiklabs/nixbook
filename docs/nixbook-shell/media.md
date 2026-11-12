@@ -45,7 +45,7 @@ Under the hood: `nixbook-ytmusic` (`programs.nixbook-shell.ytmusic.enable`, on b
 The right sidebar's **YouTube** tab (Mod+N; Settings > Panels turns the tab off) is YouTube without a browser:
 
 - **Home**: the videos of your YouTube home page, as YouTube picks them for you.
-- **Subscriptions**: the latest videos of the channels you're subscribed to.
+- **Subscriptions**: the channels you're subscribed to (picture, name, subscribers); click one for its latest videos.
 - **Search YouTube**: any video; the results come once you stop typing.
 
 Click a video to play it in **mpv**, your mpv with its settings (controls, upscaling…); the music playing [in the background](#youtube-music-in-the-background) pauses. While it plays, a card at the top of the tab shows it with **play/pause** and **its own volume** (mpv's, not the system's); the next video starts at the volume you left there.
@@ -54,7 +54,7 @@ Click a video's **channel name** to see that channel's latest videos, newest fir
 
 Home and Subscriptions need your YouTube session: the one [YouTube Music in the background](#youtube-music-in-the-background) signs in with (the same Google login), so there is nothing more to sign in to. Searching works without it.
 
-Under the hood: `nixbook-ytmusic videos home|subscriptions|search` lists them through [yt-dlp](https://github.com/yt-dlp/yt-dlp) (its `:ytrec`, `:ytsubs` and `ytsearch` lists), which follows YouTube's pages as they change; the session is given to it as a cookie file only while it runs. `nixbook-ytmusic videos channel URL|VIDEO` lists a channel's Videos tab (a video's channel is found through YouTube's oEmbed when the list didn't give it). `nixbook-ytmusic watch ID --volume N` starts mpv, through niri, so it keeps playing when the shell restarts; the card finds it by the YouTube link mpv publishes over MPRIS and sets mpv's own MPRIS volume (`MprisController` never takes an mpv's PipeWire stream: every mpv shares the binary).
+Under the hood: `nixbook-ytmusic videos home|subscriptions|search` lists them through [yt-dlp](https://github.com/yt-dlp/yt-dlp) (its `:ytrec`, `:ytsubs` and `ytsearch` lists), which follows YouTube's pages as they change; the session is given to it as a cookie file only while it runs. `nixbook-ytmusic videos channels` lists your subscriptions (YouTube's channels page), `videos channel URL|VIDEO` a channel's Videos tab (a video's channel is found through YouTube's oEmbed when the list didn't give it). `nixbook-ytmusic watch ID --volume N` starts mpv, through niri, so it keeps playing when the shell restarts; the card finds it by the YouTube link mpv publishes over MPRIS and sets mpv's own MPRIS volume (`MprisController` never takes an mpv's PipeWire stream: every mpv shares the binary).
 
 ## Equalizer
 
