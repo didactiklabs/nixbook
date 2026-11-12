@@ -6,10 +6,12 @@
 # Both answer one JSON line: {"limit": N, "canSet": bool, "error": "…"}
 # (limit 0: this battery has no such limit), and `set` exits 1 when it failed.
 #
-# The limit is the kernel's charge_control_end_threshold. Where that file is
-# writable it is written directly; otherwise through the system unit
-# battery-charge-limit@N.service (nixbook's laptopProfile, which also puts it
-# back at each boot), started without a password where polkit allows it.
+# The limit is the kernel's charge_control_end_threshold, set through the
+# system unit battery-charge-limit@N.service where there is one (nixbook's
+# laptopProfile: it remembers the choice and puts it back at each boot,
+# resume and system switch), started without a password where polkit allows
+# it; written directly only without that unit (a write it doesn't know of
+# would be undone by its next restore).
 set -u
 
 dir=${NIXBOOK_POWER_SUPPLY_DIR:-/sys/class/power_supply}
@@ -59,14 +61,14 @@ set)
     answer "this battery has no charge limit"
     exit 1
   fi
-  if [ -w "$file" ]; then
-    if ! out=$({ echo "$want" >"$file"; } 2>&1); then
-      answer "${out:-the limit could not be written}"
-      exit 1
-    fi
-  elif has_unit; then
+  if has_unit; then
     if ! out=$(systemctl start "$unit$want.service" 2>&1); then
       answer "${out:-the limit could not be set}"
+      exit 1
+    fi
+  elif [ -w "$file" ]; then
+    if ! out=$({ echo "$want" >"$file"; } 2>&1); then
+      answer "${out:-the limit could not be written}"
       exit 1
     fi
   else
