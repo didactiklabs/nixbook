@@ -1,4 +1,5 @@
 pragma ComponentBehavior: Bound
+import qs
 import qs.modules.common
 import qs.modules.common.utils
 import qs.modules.common.functions
@@ -110,7 +111,17 @@ PanelWindow {
         const screens = bar.screenList ?? [];
         const barHere = screens.length === 0 || screens.includes(root.screen.name);
         const side = barHere && bar.vertical ? Appearance.sizes.verticalBarWidth : 0;
-        return { left: bar.bottom ? 0 : side, right: bar.bottom ? side : 0, bottom: barHere && !bar.vertical && bar.bottom };
+        // The pinned side panels reserve their strip too: the windows are laid
+        // out in what is left between them.
+        const strip = panel => {
+            const reserved = GlobalStates.reservedStrips[panel];
+            return reserved?.screen === root.screen.name ? reserved.width : 0;
+        };
+        return {
+            left: (bar.bottom ? 0 : side) + strip("sidebarLeft"),
+            right: (bar.bottom ? side : 0) + strip("sidebarRight"),
+            bottom: barHere && !bar.vertical && bar.bottom
+        };
     }
     readonly property var hoverTarget: {
         if (!root.isTargetSelection || !mouseArea.containsMouse) return null;
