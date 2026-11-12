@@ -23,7 +23,8 @@
 #   clearVoices      the others' voices, as you hear them: a "Call voices"
 #                    output ($VOICES) where call apps play instead of the
 #                    music equalizer (a PipeWire stream rule gives them that
-#                    target: hm-module.nix, echoCancel.callApps): the same
+#                    target: hm-module.nix, echoCancel.callApps and
+#                    callSites): the same
 #                    three, tuned for listening, then the default output.
 #
 #   run       the canceller (the unit's ExecStart): for the microphone that

@@ -145,7 +145,8 @@ Singleton {
     //   the canceller's own microphone (aecName) and the one apps record;
     // - clearVoices, the others' voices for you: the "Call voices" output
     //   (voicesName), where call apps play: a PipeWire stream rule gives
-    //   them that target (hm-module.nix, echoCancel.callApps), and without
+    //   them that target (hm-module.nix, echoCancel.callApps, and callSites
+    //   for a browser's call tabs), and without
     //   it they play straight on the default output, never through
     //   EasyEffects (the music equalizer's curve and preamp, on voices).
     // The unit reads the switches from the settings file when it starts: one
