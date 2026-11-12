@@ -355,9 +355,14 @@ Singleton {
     // of its active workspace span its width (the gaps between them aside),
     // or a floating (or fullscreen) window covers most of it. Windows show
     // the video's blurred still frame (NiriBackdrop), never the video itself.
+    // The width is what the pinned side panels leave (GlobalStates
+    // .reservedStrips): a window that fills the room beside a pinned panel
+    // was 73 % of the screen, and the video played on behind it all day.
+    // Through the panel, which is translucent, it then shows held still.
     function desktopCovered(screen) {
         const niri = WM.backend;
         if (!niri || !screen) return false;
+        const room = Math.max(1, screen.width - GlobalStates.reservedWidth(screen.name));
         niri.tiledLayoutRevision; // a column resized (sizes updated in place)
         niri.floatingLayoutRevision;
         const ws = niri.activeWorkspaceForMonitor(screen.name);
@@ -367,14 +372,14 @@ Singleton {
             if (w.workspaceId !== ws.id) continue;
             const width = w.tileWidth || w.width;
             if (w.floating) {
-                if (width * (w.tileHeight || w.height) >= 0.9 * screen.width * screen.height) return true;
+                if (width * (w.tileHeight || w.height) >= 0.9 * room * screen.height) return true;
                 continue;
             }
             columns[w.column ?? 0] = Math.max(columns[w.column ?? 0] ?? 0, width);
         }
         let span = 0;
         for (const c in columns) span += columns[c];
-        return span >= 0.9 * screen.width;
+        return span >= 0.9 * room;
     }
     // Each output's video plays only while its desktop can be seen and no
     // power is being saved: paused behind windows, while locked, with the
