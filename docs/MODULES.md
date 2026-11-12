@@ -291,9 +291,9 @@ Whether to enable laptop-specific power and display optimisations. Configures: -
 ### `customNixOSModules.laptopProfile.powerProfileOnBoot`
 
 - **Type:** `null or one of "power-saver", "balanced", "performance"`
-- **Default:** `"balanced"`
+- **Default:** `null`
 
-Power profile set at every boot. power-profiles-daemon otherwise keeps the last one chosen across reboots, so a single click on the bar's power button left a laptop in performance (on totoro: 23 W instead of 6-11 W at the same light load, ~10 °C hotter) until changed back. null keeps the saved profile.
+Power profile set at every boot, whatever was chosen before. null (the default): power-profiles-daemon keeps the last profile chosen (the bar's battery panel, the power button) across reboots and deploys. Set one to start each boot from it instead (performance left on by a single click cost totoro 23 W instead of 6-11 W at the same light load).
 
 ---
 
