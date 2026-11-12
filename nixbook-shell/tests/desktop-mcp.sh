@@ -280,6 +280,10 @@ case "$*" in
   *"audio setVolume"*) echo "ok: volume ${*: -1}%" ;;
   *"audio outputMute true"*) echo "ok: muted" ;;
   *"audio mic"* | *"echoCancel o"*) ;;
+  *"youtubeMusic videoStatus"*) echo '{"playing":{"title":"A video","videoId":"vid11111111","status":"Playing","position":12,"length":300,"volume":40}}' ;;
+  *"youtubeMusic watch bad"*) echo "error: not a YouTube video id" ;;
+  *"youtubeMusic videoControl pause"*) [ -e "$STUB_CALLS.novideo" ] && echo "error: no YouTube video is playing in mpv" || echo ok ;;
+  *"youtubeMusic "*) echo ok ;;
   *"mesh listenStatus"*) echo '{"hosting":null,"track":null,"following":"","status":"","sessions":[{"sid":"s1","host":"bob","track":{"title":"One More Time"}}],"notice":""}' ;;
   *"mesh listenJoin nobody"*) echo "error: nobody isn't sharing music" ;;
   *"mesh listenJoin "*) echo "ok: listening along with ${*: -1}" ;;
@@ -312,6 +316,11 @@ case "$1" in
   status) echo '{"signedIn":true,"account":"Khoa","player":{"status":"Playing","volume":60}}' ;;
   search) echo "{\"query\":\"${*:2}\",\"songs\":[{\"videoId\":\"song1111111\",\"title\":\"One\",\"kind\":\"song\"}],\"videos\":[]}" ;;
   playlists) echo '{"playlists":[{"id":"LM","title":"Liked Music","own":true,"thumb":"/home/x/.cache/t.jpg"}]}' ;;
+  videos)
+    case "$2" in
+      channels) echo '{"feed":"channels","channels":[{"id":"UCbbbbbbbbbbbbbbbbbbbbbb","name":"Chan B","url":"https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb","followers":4200,"avatar":"https://yt3.example/b"}]}' ;;
+      *) echo '{"feed":"'"$2"'","items":[{"id":"vid11111111","title":"A video","channel":"Chan B","channelUrl":"https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb","duration":300,"views":12,"live":false,"thumb":"https://i.ytimg.com/vi/vid11111111/mqdefault.jpg"}]}' ;;
+    esac ;;
   add) [ "$2" = PLtheirs ] && { echo '{"error":"YouTube Music didn'"'"'t add it (is the playlist yours?)"}'; exit 1; }
     echo "{\"ok\":true,\"playlist\":\"$2\",\"videoId\":\"$3\",\"status\":\"added\"}" ;;
   *) echo '{"ok":true}' ;;
@@ -457,7 +466,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 75 tools" 75 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 76 tools" 76 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -3487,6 +3496,33 @@ call youtube_music_player '{"action":"create","title":"From Bob","video":"song11
 expect_eq "youtube_music_player create" "nixbook-ytmusic create From Bob song1111111" "$(last_call)"
 call youtube_music_player '{"action":"offline","op":"keep","playlist":"LM"}' >/dev/null
 expect_eq "youtube_music_player offline keep" "nixbook-ytmusic offline keep LM" "$(last_call)"
+
+expect_eq "youtube_videos home: through nixbook-ytmusic, no picture links" "vid11111111 null" \
+  "$(call youtube_videos '{"action":"home"}' | jq -r '.items[0] | "\(.id) \(.thumb)"')"
+expect_eq "youtube_videos home: 20 by default" "nixbook-ytmusic videos home --count 20" "$(last_call)"
+expect_eq "youtube_videos subscriptions: the channels, no avatars" "Chan B null" \
+  "$(call youtube_videos '{"action":"subscriptions"}' | jq -r '.channels[0] | "\(.name) \(.avatar)"')"
+expect_eq "youtube_videos subscriptions: the channels list" "nixbook-ytmusic videos channels" "$(last_call)"
+call youtube_videos '{"action":"channel","channel":"https://www.youtube.com/@chan/","count":5}' >/dev/null
+expect_eq "youtube_videos channel: by its link" "nixbook-ytmusic videos channel https://www.youtube.com/@chan --count 5" "$(last_call)"
+expect_contains "youtube_videos channel: only a YouTube channel or a video id" \
+  "$(call youtube_videos '{"action":"channel","channel":"https://evil.example/@chan"}')" "channel's link"
+call youtube_videos '{"action":"search","query":"lofi girl","count":3}' >/dev/null
+expect_eq "youtube_videos search" "nixbook-ytmusic videos search lofi girl --count 3" "$(last_call)"
+expect_contains "youtube_videos count: checked" "$(call youtube_videos '{"action":"search","query":"x","count":900}')" "1 to 150"
+call youtube_videos '{"action":"watch","video":"vid11111111"}' >/dev/null
+expect_eq "youtube_videos watch: through the shell (the tab's mpv, its volume)" "qs -c nixbook-shell ipc call -- youtubeMusic watch vid11111111" "$(last_call)"
+expect_contains "youtube_videos watch: ids checked" "$(call youtube_videos '{"action":"watch","video":"x; rm -rf"}')" "invalid value"
+expect_eq "youtube_videos status: the video playing" "A video Playing 40" \
+  "$(call youtube_videos '{"action":"status"}' | jq -r '.playing | "\(.title) \(.status) \(.volume)"')"
+call youtube_videos '{"action":"control","what":"volume","value":35}' >/dev/null
+expect_eq "youtube_videos control: its own volume" "qs -c nixbook-shell ipc call -- youtubeMusic videoControl volume 35" "$(last_call)"
+call youtube_videos '{"action":"control","what":"seek","value":90.5}' >/dev/null
+expect_eq "youtube_videos control: seek" "qs -c nixbook-shell ipc call -- youtubeMusic videoControl seek 90.5" "$(last_call)"
+expect_contains "youtube_videos control: volume checked" "$(call youtube_videos '{"action":"control","what":"volume","value":300}')" "0-100 for volume"
+touch "$STUB_CALLS.novideo"
+expect_contains "youtube_videos control: the shell's refusal said" "$(call youtube_videos '{"action":"control","what":"pause"}')" "no YouTube video is playing"
+rm -f "$STUB_CALLS.novideo"
 
 expect_eq "listen_along status: the sessions shared" "bob" "$(call listen_along '{"action":"status"}' | jq -r '.sessions[0].host')"
 expect_contains "listen_along join" "$(call listen_along '{"action":"join","member":"bob"}')" "listening along with bob"

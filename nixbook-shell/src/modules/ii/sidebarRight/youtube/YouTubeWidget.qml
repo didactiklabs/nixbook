@@ -39,16 +39,10 @@ Item {
     readonly property int page: 30
     readonly property int maxCount: 150
 
-    // The video playing in mpv (its MPRIS player: the YouTube link it plays;
-    // not the background music player, nor Jellyfin's).
-    readonly property var player: {
-        const found = Mpris.players.values.filter(p => !String(p?.dbusName ?? "").includes("nixbook_ytmusic")
-            && /^https:\/\/(www\.|m\.)?(youtube\.com\/watch\?|youtu\.be\/)/.test(String(p?.metadata?.["xesam:url"] ?? "")));
-        return found.length ? found[found.length - 1] : null;
-    }
+    // The video playing in mpv (services/YouTubeMusic.qml finds it).
+    readonly property var player: YouTubeMusic.videoPlayer
     function setVolume(value) {
-        MprisController.setPlayerVolume(root.player, value);
-        Persistent.states.media.videoVolume = Math.max(0, Math.min(1, value));
+        YouTubeMusic.setVideoVolume(value);
     }
 
     // A channel's latest videos: {key, name, url, followers, items}; null
