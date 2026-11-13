@@ -92,10 +92,6 @@ in
     gamingConfig.gpu = "amd";
     simracing.enable = true;
     sunshine.enable = true;
-    wolf = {
-      enable = true;
-      hostAppsStateFolder = "/data/wolf";
-    };
     sway.enable = true;
     tailscale.enable = false;
     netbird-tools.enable = false;

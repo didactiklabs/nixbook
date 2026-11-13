@@ -26,7 +26,6 @@
 - [tailscale](#tailscale)
 - [tools](#tools)
 - [vmSupport](#vmsupport)
-- [wolf](#wolf)
 
 ### Home Manager Modules
 
@@ -414,31 +413,6 @@ Whether to enable the tools NixOS module. Provides system-level tooling and serv
 - **Default:** `false`
 
 Whether to enable VirtIO paravirtual driver support in the initrd. Adds the following kernel modules to boot.initrd.availableKernelModules so the system can boot inside a QEMU/KVM or other virtio-based hypervisor: - virtio_pci — VirtIO PCI bus driver - virtio_blk — VirtIO block device (virtual disk) - virtio_scsi — VirtIO SCSI host controller - virtio_net — VirtIO network interface Enable this when building a VM image (e.g. via nixos-generators) or when testing the configuration with `test-iso` in QEMU. Not needed on bare-metal.
-
----
-
-## wolf
-
-### `customNixOSModules.wolf.den.port`
-
-- **Type:** `16 bit unsigned integer; between 0 and 65535 (both inclusive)`
-- **Default:** `8080`
-
-The port on which wolf-den web UI listens.
-
-### `customNixOSModules.wolf.enable`
-
-- **Type:** `boolean`
-- **Default:** `false`
-
-whether to enable wolf globally or not
-
-### `customNixOSModules.wolf.hostAppsStateFolder`
-
-- **Type:** `string`
-- **Default:** `"/etc/wolf"`
-
-The path to the Wolf application state folder on the host.
 
 ---
 

@@ -42,7 +42,6 @@ let
           "sway"
           "tailscale"
           "vmSupport"
-          "wolf"
         ]
         (_: {
           enable = lib.mkForce true;
