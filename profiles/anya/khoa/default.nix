@@ -1,7 +1,6 @@
 {
   pkgs,
   config,
-  lib,
   ...
 }:
 let
@@ -40,30 +39,12 @@ in
     moonfin
     (config.customHomeManagerModules.nixbookShellConfig.electronA11y pear-desktop "pear-desktop")
   ];
-  systemd.user.services.opencode-web = {
-    Unit = {
-      Description = "OpenCode Web Server";
-      After = [ "network-online.target" ];
-    };
-    Install = {
-      WantedBy = [ "default.target" ];
-    };
-    Service = {
-      ExecStart = "${lib.getExe config.programs.opencode.package} web";
-      Restart = "always";
-      RestartSec = 5;
-    };
-  };
   programs.opencode.settings = {
     mcp = {
       trek = {
         type = "remote";
         url = "https://trek.bealv.io/mcp";
       };
-    };
-    server = {
-      hostname = "0.0.0.0";
-      port = 4096;
     };
     permission = {
       # bash = "deny";
