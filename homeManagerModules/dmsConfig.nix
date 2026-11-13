@@ -11,12 +11,8 @@ let
   };
   quickshellPkg = (quickshellOverlay pkgs pkgs).quickshell;
   dankcalendarFlake = import sources.flake-compat { src = sources.dankcalendar; };
-  # Upstream's flake.nix carries a stale vendorHash (go.sum changed without it
-  # being bumped); override it until upstream fixes it.
   dankcalendarPkg = {
-    dankcalendar = (dankcalendarFlake.defaultNix.lib.mkDcal pkgs).overrideAttrs {
-      vendorHash = "sha256-JT6mHK52mIJh4lzVWYVpqNY2S2oeinSWBIKaI3TiY34=";
-    };
+    dankcalendar = dankcalendarFlake.defaultNix.lib.mkDcal pkgs;
   };
 in
 {
@@ -113,10 +109,9 @@ in
       # The module's default package: dms-shell built with this nixpkgs. The
       # flake's `packages.<system>.default` would be built with DMS's own
       # locked nixpkgs, a second nixpkgs to evaluate and a second Qt/Go
-      # closure on disk.
-      quickshell = {
-        package = quickshellPkg;
-      };
+      # closure on disk. Its Quickshell runtime is embedded (dux-qt-base,
+      # `duxQtBase.package`, left at the module's default): the former
+      # `quickshell.package` option no longer has any effect.
       systemd = {
         enable = true; # Systemd service for auto-start
         restartIfChanged = true; # Auto-restart dms.service when dms-shell changes
