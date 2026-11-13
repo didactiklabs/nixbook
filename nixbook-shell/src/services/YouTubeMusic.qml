@@ -262,7 +262,7 @@ Singleton {
     // A channel's latest videos, newest first (its link, or a video's id
     // when the feed didn't give the link): {channel: {name, url, followers},
     // items}; only the latest asked answers.
-    // `tab`: latest|popular|shorts|live|playlists; `query`: a search in it.
+    // `tab`: latest|sections|popular|shorts|live|playlists; `query`: a search in it.
     property int _channelGen: 0
     function channelVideos(urlOrVideo, count, then, tab, query) {
         const gen = ++root._channelGen;
