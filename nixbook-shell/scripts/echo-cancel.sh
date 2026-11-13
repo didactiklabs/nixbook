@@ -23,8 +23,8 @@
 #   clearVoices      the others' voices, as you hear them: a "Call voices"
 #                    output ($VOICES) where call apps play instead of the
 #                    music equalizer (a PipeWire stream rule gives them that
-#                    target: hm-module.nix, echoCancel.callApps and
-#                    callSites): the same
+#                    target: `call-rules` below, from audio.calls.apps and
+#                    .sites): the same
 #                    three, tuned for listening, then the default output.
 #
 #   run       the canceller (the unit's ExecStart): for the microphone that
@@ -34,6 +34,20 @@
 #   status    {"active": bool, "source": "<node.name of the default input>",
 #             "resting": bool}
 #   rest on|off   let it rest / wake it (services/EchoCancel.qml, below)
+#   call-rules [--restart]   the call apps' stream rule (below), from the
+#             settings; {"changed": bool}; --restart: pipewire-pulse
+#             restarted when it changed
+#
+# Call apps (audio.calls.apps: a word of an app's name or program name, any
+# case) and calls in a Firefox-family browser (audio.calls.sites: the whole
+# tab title, which those browsers give each tab's sound stream; Chromium names
+# them all "Playback") play on "Call voices": a PipeWire stream rule giving
+# them that target, and node.dont-move so EasyEffects can't take them back,
+# in the user's pipewire-pulse.conf.d (PulseAudio clients: Electron apps) and
+# client.conf.d (PipeWire's own). Read when the sound server and each app
+# start: pipewire-pulse is restarted for a change (services/EchoCancel.qml,
+# a few seconds after the last edit). Without "Call voices" they play on the
+# default output. Both lists empty: no rule.
 #
 # Resting. PipeWire runs what is downstream of an output that plays, through
 # passive links too: with the reference on the default output, the canceller
@@ -167,7 +181,83 @@ speech_stage() {
 EOF
 }
 
+# A word in any case, as a POSIX regular expression: "Slack" is
+# [sS][lL][aA][cC][kK], "." is [.].
+any_case() {
+  local word=$1 out="" c i
+  for ((i = 0; i < ${#word}; i++)); do
+    c=${word:i:1}
+    case "$c" in
+    [A-Za-z]) out+="[${c,,}${c^^}]" ;;
+    .) out+="[.]" ;;
+    *) out+="$c" ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+DEFAULT_CALL_APPS='["vesktop","discord","webcord","slack","zoom","teams","element","signal","telegram","whatsapp","skype","jitsi","mumble","teamspeak"]'
+DEFAULT_CALL_SITES='["Meet( (-|–|—) .*)?","Google Meet.*",".* [|] Jitsi Meet",".* [|] Microsoft Teams"]'
+# The rule's text from the settings ("" when it has nothing to match). Words
+# with other characters, and sites with a quote or a backslash, are left out.
+call_rule() {
+  local apps sites word pattern="" site_pattern="" browsers=""
+  apps=$(jq -r --argjson d "$DEFAULT_CALL_APPS" '(.audio.calls.apps // $d)[]? | select(type == "string")' "$settings" 2>/dev/null ||
+    jq -rn --argjson d "$DEFAULT_CALL_APPS" '$d[]')
+  sites=$(jq -r --argjson d "$DEFAULT_CALL_SITES" '(.audio.calls.sites // $d)[]? | select(type == "string")' "$settings" 2>/dev/null ||
+    jq -rn --argjson d "$DEFAULT_CALL_SITES" '$d[]')
+  while IFS= read -r word; do
+    [[ $word =~ ^[A-Za-z0-9\ ._-]+$ ]] || continue
+    pattern+="${pattern:+|}$(any_case "$word")"
+  done <<<"$apps"
+  while IFS= read -r word; do
+    [ -n "$word" ] && [[ $word != *[\"\\]* ]] || continue
+    site_pattern+="${site_pattern:+|}$word"
+  done <<<"$sites"
+  for word in twilight zen firefox librewolf floorp waterfox; do
+    browsers+="${browsers:+|}$(any_case "$word")"
+  done
+  [ -n "$pattern$site_pattern" ] || return 0
+  printf '%s\n' '# nixbook-shell (audio.calls.apps and .sites, Settings > Sound): call apps' \
+    '# and calls in a browser play on "Call voices", or straight on the default' \
+    '# output without it. Written by nixbook-echo-cancel call-rules.' \
+    'stream.rules = [' '  { matches = ['
+  if [ -n "$pattern" ]; then
+    printf '      { application.name = "~.*(%s).*" media.class = "Stream/Output/Audio" }\n' "$pattern"
+    printf '      { application.process.binary = "~.*(%s).*" media.class = "Stream/Output/Audio" }\n' "$pattern"
+  fi
+  if [ -n "$site_pattern" ]; then
+    printf '      { application.name = "~.*(%s).*" media.name = "~^(%s)$" media.class = "Stream/Output/Audio" }\n' \
+      "$browsers" "$site_pattern"
+  fi
+  printf '%s\n' '    ]' '    actions = { update-props = { node.dont-move = true target.object = "'"$VOICES"'" } }' '  }' ']'
+}
+
 case "${1:-}" in
+call-rules)
+  rule=$(call_rule)
+  changed=false
+  for sub in pipewire-pulse.conf.d client.conf.d; do
+    file="${XDG_CONFIG_HOME:-$HOME/.config}/pipewire/$sub/60-nixbook-call-voices.conf"
+    if [ -z "$rule" ]; then
+      if [ -e "$file" ] || [ -L "$file" ]; then
+        rm -f "$file"
+        changed=true
+      fi
+      continue
+    fi
+    [ ! -L "$file" ] && [ "$(cat "$file" 2>/dev/null)" = "$rule" ] && continue
+    mkdir -p "${file%/*}"
+    # A link left by an older Home Manager generation is replaced too.
+    rm -f "$file"
+    printf '%s\n' "$rule" >"$file.tmp"
+    mv -f "$file.tmp" "$file"
+    changed=true
+  done
+  if [ "$changed" = true ] && [ "${2:-}" = --restart ]; then
+    systemctl --user try-restart pipewire-pulse.service || true
+  fi
+  printf '{"changed": %s}\n' "$changed"
+  ;;
 run)
   mic=$(default_name @DEFAULT_AUDIO_SOURCE@)
   # Already ours (a canceller that didn't stop cleanly): the one before it.
@@ -349,7 +439,7 @@ status)
     '{active: $active, source: $source, resting: $resting}'
   ;;
 *)
-  echo "usage: nixbook-echo-cancel run|post|restore|status|rest on|off" >&2
+  echo "usage: nixbook-echo-cancel run|post|restore|status|rest on|off|call-rules [--restart]" >&2
   exit 2
   ;;
 esac

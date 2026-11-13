@@ -107,6 +107,64 @@ ContentPage {
         buttonRadius: Appearance.rounding.small
     }
 
+    // The desktop agents' preferences (ai.agents: nixbook-desktop-mcp reads
+    // them; set in Nix, locked here), one control per key.
+    component ConfigAgentSpin: ConfigSpinBox {
+        required property string key
+        configKey: `ai.agents.${key}`
+        enabled: !nixManaged
+        value: Config.options.ai.agents[key] ?? 0
+        onValueChanged: if (Config.options.ai.agents[key] !== value) Config.options.ai.agents[key] = value
+    }
+    component ConfigAgentSwitch: ConfigSwitch {
+        required property string key
+        configKey: `ai.agents.${key}`
+        enabled: !nixManaged
+        checked: Config.options.ai.agents[key] ?? false
+        onCheckedChanged: if (Config.options.ai.agents[key] !== checked) Config.options.ai.agents[key] = checked
+    }
+    component ConfigAgentChoice: ConfigComboBox {
+        required property string key
+        configKey: `ai.agents.${key}`
+        enabled: !nixManaged
+        fieldWidth: 120
+        currentValue: Config.options.ai.agents[key]
+        onSelected: newValue => Config.options.ai.agents[key] = newValue
+    }
+    // Saved when editing ends.
+    component ConfigAgentText: ConfigTextArea {
+        id: agentText
+        required property string key
+        configKey: `ai.agents.${key}`
+        enabled: !nixManaged
+        Layout.fillWidth: true
+        fieldWidth: 200
+        value: Config.options.ai.agents[key] ?? ""
+        Connections {
+            target: agentText.textArea
+            function onEditingFinished() {
+                Config.options.ai.agents[agentText.key] = agentText.value.trim();
+            }
+        }
+    }
+    // A tool group in or out of ai.agents.tools.
+    component ConfigToolGroup: ConfigSwitch {
+        required property string group
+        configKey: "ai.agents.tools"
+        enabled: !nixManaged
+        checked: (Config.options.ai.agents.tools ?? []).includes(group)
+        onCheckedChanged: {
+            const tools = Array.from(Config.options.ai.agents.tools ?? []);
+            if (checked === tools.includes(group)) return;
+            Config.options.ai.agents.tools = checked ? tools.concat([group]) : tools.filter(g => g !== group);
+        }
+    }
+    readonly property var modelChoices: [
+        { displayName: "Haiku", value: "haiku" },
+        { displayName: "Sonnet", value: "sonnet" },
+        { displayName: "Opus", value: "opus" }
+    ]
+
     ColumnLayout {
         id: mainLayout
         Layout.fillWidth: true
@@ -572,6 +630,42 @@ ContentPage {
                     }
                 }
             }
+
+            ContentSubsection {
+                title: Translation.tr("How often")
+                ConfigRow {
+                    uniform: true
+                    ConfigAgentSpin {
+                        key: "initiativeMaxPerDay"
+                        icon: "forum"
+                        text: Translation.tr("Messages a day, at most")
+                        from: 1
+                        to: 50
+                    }
+                    ConfigAgentSpin {
+                        key: "initiativeGapMinutes"
+                        icon: "timer"
+                        text: Translation.tr("Minutes between them")
+                        from: 1
+                        to: 240
+                        stepSize: 5
+                    }
+                }
+                ConfigAgentText {
+                    key: "initiativeQuietHours"
+                    buttonIcon: "bedtime"
+                    text: Translation.tr("Quiet hours (from-to, e.g. 22-8)")
+                    placeholderText: "22-8"
+                }
+                ConfigAgentSpin {
+                    key: "initiativeCallsPerDay"
+                    icon: "neurology"
+                    text: Translation.tr("Small-model reads of notifications a day, at most")
+                    from: 1
+                    to: 500
+                    stepSize: 5
+                }
+            }
         }
 
         // The smart clipboard (services/SmartClipboard.qml): what was copied
@@ -801,6 +895,66 @@ ContentPage {
                     onClicked: Trust.refresh()
                 }
             }
+
+            ContentSubsection {
+                title: Translation.tr("What agents can use")
+                StyledText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: Appearance.colors.colSubtext
+                    text: Translation.tr("Every agent using the desktop tools (DAI, Claude Code, any MCP client): the kinds of tools it is given. The rules keeping them out of password managers, terminals, banks and the like are in the Nix configuration only.")
+                }
+                ConfigToolGroup {
+                    group: "observe"
+                    buttonIcon: "visibility"
+                    text: Translation.tr("See the windows, workspaces and apps")
+                }
+                ConfigToolGroup {
+                    group: "screen"
+                    buttonIcon: "screenshot_monitor"
+                    text: Translation.tr("Screenshots, the clipboard and recent notifications")
+                }
+                ConfigToolGroup {
+                    group: "windows"
+                    buttonIcon: "select_window"
+                    text: Translation.tr("Focus, move and close windows, start apps")
+                }
+                ConfigToolGroup {
+                    group: "input"
+                    buttonIcon: "keyboard"
+                    text: Translation.tr("Type, click and scroll, write the clipboard")
+                }
+                ConfigToolGroup {
+                    group: "shell"
+                    buttonIcon: "dock_to_right"
+                    text: Translation.tr("Drive the shell (themes, timers, notifications…)")
+                }
+                ConfigToolGroup {
+                    group: "memory"
+                    buttonIcon: "psychology"
+                    text: Translation.tr("Keep notes about this desktop")
+                }
+                ConfigToolGroup {
+                    group: "personal"
+                    buttonIcon: "person_book"
+                    text: Translation.tr("Remember what you tell them about your life")
+                }
+                ConfigToolGroup {
+                    group: "ui"
+                    buttonIcon: "account_tree"
+                    text: Translation.tr("Read and use apps through their accessibility tree")
+                }
+                ConfigToolGroup {
+                    group: "pages"
+                    buttonIcon: "web"
+                    text: Translation.tr("Use web pages and bridged apps through the page (Zen, Discord, Slack…)")
+                }
+                ConfigAgentSwitch {
+                    key: "askBeforeSending"
+                    buttonIcon: "front_hand"
+                    text: Translation.tr("Ask me before anything is sent, paid or deleted in my name (off only for clients that ask you themselves)")
+                }
+            }
         }
 
         ContentSection {
@@ -902,6 +1056,23 @@ ContentPage {
                         mainText: Translation.tr("Delete")
                         onClicked: DesktopControl.routineCommand("remove", routineRow.modelData.id)
                     }
+                }
+            }
+
+            ContentSubsection {
+                title: Translation.tr("Routines that take judgment")
+                ConfigAgentSpin {
+                    key: "routineAgentPerDay"
+                    icon: "bolt"
+                    text: Translation.tr("Claude runs a day, at most")
+                    from: 1
+                    to: 200
+                }
+                ConfigAgentChoice {
+                    key: "routineModel"
+                    buttonIcon: "neurology"
+                    text: Translation.tr("Model")
+                    model: page.modelChoices
                 }
             }
         }
@@ -1463,6 +1634,49 @@ ContentPage {
                 }
             }
 
+
+            ContentSubsection {
+                title: Translation.tr("What agents see")
+                ConfigAgentSpin {
+                    key: "screenshotMaxEdge"
+                    icon: "photo_size_select_large"
+                    text: Translation.tr("Screenshot size (longest edge, px)")
+                    from: 480
+                    to: 4096
+                    stepSize: 64
+                }
+                ConfigAgentSpin {
+                    key: "screenshotQuality"
+                    icon: "high_quality"
+                    text: Translation.tr("JPEG quality")
+                    from: 30
+                    to: 100
+                    stepSize: 5
+                }
+                ConfigAgentChoice {
+                    key: "screenshotFormat"
+                    buttonIcon: "image"
+                    text: Translation.tr("Screenshot format (JPEG reaches the model sooner)")
+                    model: [
+                        { displayName: "JPEG", value: "jpeg" },
+                        { displayName: "PNG", value: "png" }
+                    ]
+                }
+                ConfigAgentText {
+                    key: "ocrLanguages"
+                    buttonIcon: "translate"
+                    text: Translation.tr("Languages read on screen (tesseract: eng, eng+fra…)")
+                    placeholderText: "eng+fra"
+                }
+                ConfigAgentSpin {
+                    key: "actionsPerMinute"
+                    icon: "speed"
+                    text: Translation.tr("Actions a minute, at most")
+                    from: 10
+                    to: 600
+                    stepSize: 10
+                }
+            }
         }
 
         ContentSection {
@@ -2513,6 +2727,37 @@ ContentPage {
                     onClicked: DesktopControl.refreshMemory()
                 }
             }
+
+            ContentSubsection {
+                title: Translation.tr("Limits")
+                ConfigAgentSpin {
+                    key: "memoryPromptChars"
+                    icon: "short_text"
+                    text: Translation.tr("Sent when an agent connects (characters)")
+                    from: 200
+                    to: 10000
+                    stepSize: 100
+                }
+                ConfigAgentSpin {
+                    key: "memoryMaxNotes"
+                    icon: "sticky_note_2"
+                    text: Translation.tr("Notes kept")
+                    from: 10
+                    to: 1000
+                    stepSize: 10
+                }
+                ConfigAgentSwitch {
+                    key: "memoryLearn"
+                    buttonIcon: "school"
+                    text: Translation.tr("Learn from agents' tasks (a small model, in the background, for a task new to the memory that took work)")
+                }
+                ConfigAgentChoice {
+                    key: "memoryModel"
+                    buttonIcon: "neurology"
+                    text: Translation.tr("Model for learning")
+                    model: page.modelChoices
+                }
+            }
         }
 
         ContentSection {
@@ -2611,6 +2856,76 @@ ContentPage {
                     materialIcon: "refresh"
                     mainText: Translation.tr("Refresh")
                     onClicked: DesktopControl.refreshHabits()
+                }
+            }
+
+            ContentSubsection {
+                title: Translation.tr("How it is used")
+                ConfigRow {
+                    uniform: true
+                    ConfigAgentSpin {
+                        key: "habitsKeepDays"
+                        icon: "calendar_month"
+                        text: Translation.tr("Days kept")
+                        from: 1
+                        to: 365
+                    }
+                    ConfigAgentSpin {
+                        key: "habitsMusicKeepDays"
+                        icon: "music_note"
+                        text: Translation.tr("Music: days kept")
+                        from: 1
+                        to: 3650
+                        stepSize: 5
+                    }
+                }
+                ConfigAgentChoice {
+                    key: "habitsAgents"
+                    buttonIcon: "smart_toy"
+                    text: Translation.tr("What agents get of it")
+                    model: [
+                        { displayName: Translation.tr("A summary"), value: "digest" },
+                        { displayName: Translation.tr("A summary and the day"), value: "timeline" },
+                        { displayName: Translation.tr("Nothing"), value: "off" }
+                    ]
+                }
+                ConfigAgentChoice {
+                    key: "habitsTheme"
+                    buttonIcon: "palette"
+                    text: Translation.tr("A theme used at the same hour on several days")
+                    model: [
+                        { displayName: Translation.tr("Suggest it"), value: "suggest" },
+                        { displayName: Translation.tr("Switch to it"), value: "auto" },
+                        { displayName: Translation.tr("Nothing"), value: "off" }
+                    ]
+                }
+                ConfigAgentSwitch {
+                    key: "habitsWeeklyReport"
+                    buttonIcon: "summarize"
+                    text: Translation.tr("A weekly report")
+                }
+                ConfigAgentSwitch {
+                    key: "habitsMusic"
+                    buttonIcon: "library_music"
+                    text: Translation.tr("Learn my music taste (artist, title and album of what plays)")
+                }
+                ConfigTextArea {
+                    id: usualAppsField
+                    configKey: "ai.agents.habitsOpenAtUsualTime"
+                    enabled: !nixManaged
+                    Layout.fillWidth: true
+                    fieldWidth: 200
+                    buttonIcon: "schedule"
+                    text: Translation.tr("Apps opened by themselves at the time I usually open them (desktop ids)")
+                    placeholderText: "org.kde.dolphin, vesktop"
+                    value: (Config.options.ai.agents.habitsOpenAtUsualTime ?? []).join(", ")
+                    Connections {
+                        target: usualAppsField.textArea
+                        function onEditingFinished() {
+                            Config.options.ai.agents.habitsOpenAtUsualTime = usualAppsField.value.split(",")
+                                .map(f => f.trim()).filter(f => f.length > 0)
+                        }
+                    }
                 }
             }
         }
@@ -2715,6 +3030,36 @@ ContentPage {
                     materialIcon: "refresh"
                     mainText: Translation.tr("Refresh")
                     onClicked: DesktopControl.refreshPersonal()
+                }
+            }
+
+            ContentSubsection {
+                title: Translation.tr("Limits")
+                ConfigAgentSpin {
+                    key: "personalPromptChars"
+                    icon: "short_text"
+                    text: Translation.tr("Sent when an agent connects (characters)")
+                    from: 100
+                    to: 10000
+                    stepSize: 100
+                }
+                ConfigAgentSpin {
+                    key: "personalMaxEntries"
+                    icon: "list"
+                    text: Translation.tr("Entries kept")
+                    from: 10
+                    to: 2000
+                    stepSize: 10
+                }
+                ConfigAgentSwitch {
+                    key: "personalContacts"
+                    buttonIcon: "contacts"
+                    text: Translation.tr("Also write what it learns about a person in the notes of their contact")
+                }
+                ConfigAgentText {
+                    key: "personalContactsAccount"
+                    buttonIcon: "account_circle"
+                    text: Translation.tr("In this account (an id, name or email; empty: the first)")
                 }
             }
         }

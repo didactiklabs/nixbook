@@ -219,8 +219,7 @@ send and where, with **Allow** and **No**; no answer in two minutes is a no,
 and a no is told to the agent, nothing done. The server asks itself, whatever
 the agent's client allows, so the side panel's DAI (whose desktop tools
 are all allowed) is asked too. Both tools are also marked `destructiveHint`
-for clients that ask on their own; for such a client `askBeforeSending =
-false` in `desktopMcp.settings` avoids being asked twice.
+for clients that ask on their own; for such a client, turning off **Ask me before anything is sent, paid or deleted in my name** (Settings → Privacy & trust → What agents can use; `ai.agents.askBeforeSending`) avoids being asked twice.
 
 **Always allow.** The notification also has **Always allow**, for that one
 thing only: sending (or reacting) in that Discord channel, that button on
@@ -290,8 +289,7 @@ anything. jellyfin-mpv-shim itself limits a server it doesn't see on the
 local network (a public address, a reverse proxy, a VPN: `100.64.0.0/10`
 isn't local to it) to 10 Mbit/s, which made the server transcode most 1080p
 and every 4K file (`TranscodeReasons=ContainerBitrateExceedsLimit` in its
-log); nixbook lifts that limit. Set
-`nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps` on a slow link. The
+log); nixbook lifts that limit. On a slow link, set **Streaming limit away from home** in Settings → Apps & accounts → Jellyfin (Mbit/s; 0 = none; `ai.jellyfin.maxBitrateMbps`): the player restarts with it. The
 server's own limits still apply (**Dashboard → Users →** the user →
 **Internet streaming bitrate limit**, **Dashboard → Playback → Streaming**).
 Ask DAI "why is it transcoding?": the `sessions` tool gives each player's
@@ -498,7 +496,7 @@ It costs little and learns what you value:
 
 While **Find news now** (Settings) runs, the button says so with a bar moving under it; then a line tells what came of it: said in the bubble, waiting in the bar, or nothing worth saying. Under it, **Lately** lists its last decisions: what it said, or why it kept quiet ("nothing to say", "the user is busy"…).
 
-Keys in `desktop-mcp.json` (`programs.nixbook-shell.desktopMcp.settings`): `initiativeMaxPerDay` (8), `initiativeGapMinutes` (20), `initiativeQuietHours` (`"22-8"`), `initiativeCallsPerDay` (30), `initiativeNewsTopics` (`[]`), `newsModel` (the memory model), `privateIgnoreApps`, `privateIgnoreTitles`. The switches are `ai.initiative.enable`, `ai.initiative.readNotifications`, `ai.initiative.curious`, `ai.initiative.reactions` and `ai.initiative.news` in the shell's settings. State lives in `~/.local/state/nixbook-shell/initiative.json` (private); `nixbook-desktop-mcp initiative show|pending|news|unmute|clear`.
+How often (Settings → On its own → How often; `ai.agents` in the shell's settings): `initiativeMaxPerDay` (8), `initiativeGapMinutes` (20), `initiativeQuietHours` (`"22-8"`), `initiativeCallsPerDay` (30). Keys in `desktop-mcp.json` (`programs.nixbook-shell.desktopMcp.settings`): `initiativeNewsTopics` (`[]`), `newsModel` (the memory model), `privateIgnoreApps`, `privateIgnoreTitles`. The switches are `ai.initiative.enable`, `ai.initiative.readNotifications`, `ai.initiative.curious`, `ai.initiative.reactions` and `ai.initiative.news` in the shell's settings. State lives in `~/.local/state/nixbook-shell/initiative.json` (private); `nixbook-desktop-mcp initiative show|pending|news|unmute|clear`.
 
 ## Routines
 
@@ -655,15 +653,25 @@ Over stdio nothing listens anywhere. For an agent that can only reach a URL, `pr
 
 ## Configuration
 
+What agents may use and how much is set in the shell, like any other setting: **Settings → Privacy & trust → What agents can use** (each tool group, and asking before anything is sent, paid or deleted in your name), **Assistant → Desktop control → What agents see** (screenshot size, format and quality, the languages read on screen, actions a minute), **On its own** (how often it speaks, routines' Claude runs and model) and **Memory** (what is sent when an agent connects, notes and entries kept, learning, usage habits). In Nix they are `ai.agents` in the shell's settings, which locks them in the menu:
+
 ```nix
-programs.nixbook-shell.desktopMcp.settings = {
+customHomeManagerModules.nixbookShellConfig.settings.ai.agents = {
   tools = [ "observe" "screen" "windows" "ui" ];  # tool groups (default: all)
   actionsPerMinute = 60;
-  inputDenyApps = [ "^org\\.keepassxc\\.KeePassXC$" ];
-  ocrLanguages = [ "eng" "fra" ];
+  ocrLanguages = "eng+fra";
 };
 ```
 
-Written to `~/.config/nixbook-shell/desktop-mcp.json`; `nixbook-desktop-mcp config` prints what applies. Other keys tune screenshots (`screenshotFormat`, `screenshotQuality`, `screenshotMaxEdge`) and memory (`memoryPromptChars`, `memoryMaxNotes`, `memoryLearn`, `memoryModel`, `memoryClaude`, `personalPromptChars`, `personalMaxEntries`, `personalContacts`, `personalContactsAccount`).
+The safety rules are Nix-only, so nothing that can change the shell's settings can loosen them, in `desktop-mcp.json`:
+
+```nix
+programs.nixbook-shell.desktopMcp.settings = {
+  inputDenyApps = [ "^org\\.keepassxc\\.KeePassXC$" ];
+  browser.blockedSites = [ "://([^/]*\\.)?mybank\\." ];
+};
+```
+
+`inputDenyApps`, `inputDenyTitles`, `shellIpcDenyTargets`, `allowSuperKey`, `maxTextLength`, `maxNoteLength`, `browser.*`, `pages.blockedApps`, `habitsIgnoreApps`, `habitsIgnoreTitles`, `habitsMusicIgnorePlayers`, `privateIgnoreApps`, `privateIgnoreTitles`, `memoryClaude`. Setting a moved preference there (`tools`, `askBeforeSending`…) fails evaluation with where it went. `nixbook-desktop-mcp config` prints what applies: the shell's `ai.agents` over `desktop-mcp.json` over the defaults.
 
 The `ui` group needs the accessibility bus (`customNixOSModules.niri.accessibility`, on by default); the module sets the variables that make Firefox-based and Chromium/Electron apps publish their tree (apps started before need a restart).

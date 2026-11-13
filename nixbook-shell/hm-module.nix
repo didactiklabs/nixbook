@@ -18,6 +18,65 @@ let
 
   jsonFormat = pkgs.formats.json { };
 
+  # Options that became shell settings (editable in the menu too): set in
+  # Nix, they are forwarded to `settings`, with a warning.
+  renamedToSettings = [
+    {
+      from = "splash.enable";
+      to = "appearance.loadingScreen.early";
+      value = cfg.splash.enable;
+    }
+    {
+      from = "echoCancel.callApps";
+      to = "audio.calls.apps";
+      value = cfg.echoCancel.callApps;
+    }
+    {
+      from = "echoCancel.callSites";
+      to = "audio.calls.sites";
+      value = cfg.echoCancel.callSites;
+    }
+  ];
+  splashCondition = pkgs.writeShellScript "nixbook-shell-splash-condition" ''
+    ! ${pkgs.systemd}/bin/systemctl --user is-active --quiet nixbook-shell.service || exit 1
+    settings="''${XDG_CONFIG_HOME:-$HOME/.config}/nixbook-shell/config.json"
+    [ ! -s "$settings" ] && exit 0
+    # Off only when the setting says so (an unreadable file: shown).
+    [ "$(${lib.getExe pkgs.jq} -r '.appearance.loadingScreen.early' "$settings" 2>/dev/null)" != false ]
+  '';
+  # The agents' preferences moved from desktopMcp.settings to the shell's
+  # settings (ai.agents; scripts/desktop-mcp/00-core.py SHELL_PREFERENCES).
+  movedAgentKeys = lib.intersectLists (lib.attrNames cfg.desktopMcp.settings) [
+    "tools"
+    "askBeforeSending"
+    "actionsPerMinute"
+    "screenshotMaxEdge"
+    "screenshotFormat"
+    "screenshotQuality"
+    "ocrLanguages"
+    "memoryPromptChars"
+    "memoryMaxNotes"
+    "memoryLearn"
+    "memoryModel"
+    "personalPromptChars"
+    "personalMaxEntries"
+    "personalContacts"
+    "personalContactsAccount"
+    "initiativeMaxPerDay"
+    "initiativeGapMinutes"
+    "initiativeQuietHours"
+    "initiativeCallsPerDay"
+    "routineAgentPerDay"
+    "routineModel"
+    "habitsKeepDays"
+    "habitsAgents"
+    "habitsWeeklyReport"
+    "habitsTheme"
+    "habitsOpenAtUsualTime"
+    "habitsMusic"
+    "habitsMusicKeepDays"
+  ];
+
   # Everything set in Nix: applied on every activation with Nix winning, and
   # locked in the Settings menu. Keys Nix doesn't set are never touched: they
   # keep the shell's built-in default or the value chosen from the menu.
@@ -27,59 +86,6 @@ let
   nixManagedFile = jsonFormat.generate "nix-managed.json" {
     paths = pinnedPaths;
   };
-
-  # The PipeWire stream rule sending call apps (echoCancel.callApps) to "Call
-  # voices". A word in any case, as a POSIX regular expression: "Slack" is
-  # [sS][lL][aA][cC][kK]. Playback streams only: a call app's microphone
-  # stream must not get an output as its target.
-  anyCase =
-    word:
-    lib.concatMapStrings (
-      c:
-      if builtins.match "[A-Za-z]" c != null then
-        "[${lib.toLower c}${lib.toUpper c}]"
-      else if c == "." then
-        "[.]"
-      else
-        c
-    ) (lib.stringToCharacters word);
-  callAppsPattern = "~.*(${lib.concatMapStringsSep "|" anyCase cfg.echoCancel.callApps}).*";
-  # Calls in a web browser (echoCancel.callSites): Firefox and the browsers
-  # built on it (Zen is "Twilight" or "Zen") name each tab's sound stream
-  # after the tab's title, so a call site is known by its title while a video
-  # site's tab isn't touched. Chromium names every stream "Playback": its
-  # calls can't be told apart, and never match.
-  callBrowsersPattern = "~.*(${
-    lib.concatMapStringsSep "|" anyCase [
-      "twilight"
-      "zen"
-      "firefox"
-      "librewolf"
-      "floorp"
-      "waterfox"
-    ]
-  }).*";
-  callSitesPattern = "~^(${lib.concatStringsSep "|" cfg.echoCancel.callSites})$";
-  callVoicesMatches =
-    lib.optionals (cfg.echoCancel.callApps != [ ]) [
-      ''{ application.name = "${callAppsPattern}" media.class = "Stream/Output/Audio" }''
-      ''{ application.process.binary = "${callAppsPattern}" media.class = "Stream/Output/Audio" }''
-    ]
-    ++
-      lib.optional (cfg.echoCancel.callSites != [ ])
-        ''{ application.name = "${callBrowsersPattern}" media.name = "${callSitesPattern}" media.class = "Stream/Output/Audio" }'';
-  callVoicesRule = ''
-    # nixbook-shell (programs.nixbook-shell.echoCancel.callApps and
-    # callSites): call apps and calls in a browser play on "Call voices", or
-    # straight on the default output without it.
-    stream.rules = [
-      { matches = [
-          ${lib.concatStringsSep "\n      " callVoicesMatches}
-        ]
-        actions = { update-props = { node.dont-move = true target.object = "nixbook-call-voices" } }
-      }
-    ]
-  '';
 
   # Where the running shell renders the apps' colours (services/AppTheming.qml,
   # which apps is up to Settings > Appearance): the Qt palette qt6ct/qt5ct read.
@@ -423,10 +429,10 @@ let
       vi = "Khử tiếng vọng giữ những gì máy này đang phát (nhạc, phim, tiếng người bên kia cuộc gọi) không lọt vào micro của bạn, và giảm tiếng ồn nền: dùng khi gọi điện, hoặc khi nghe nhạc cùng nhau trong Mesh mà vẫn đang gọi. Áp dụng cho mọi ứng dụng: bật trong Cài đặt > Âm thanh > Echo cancellation, bằng ô cài đặt nhanh Echo cancellation (thêm nó trong chế độ sửa các ô cài đặt nhanh), công tắc trong hộp thoại đầu vào âm thanh (chuột phải vào ô micro), hoặc nút trong thanh nghe cùng nhau của Mesh. Khi bật, Echo-cancelled microphone là đầu vào mặc định; tắt đi thì micro của bạn quay lại. Nó vẫn bật qua các lần đăng nhập cho đến khi bạn tắt. Để đổi micro khi tính năng đang bật, chọn micro trong hộp thoại đầu vào âm thanh: bộ khử vọng sẽ chuyển sang micro đó. Nó nghỉ khi không có gì đang thu micro (chỉ chạy trong cuộc gọi hoặc khi ghi âm), nên để nó bật không tốn pin khi bạn chỉ nghe nhạc.";
     };
     clearVoices = {
-      en = "Voices in calls are made clearer without AI while echo cancellation is on (Settings > Sound > Echo cancellation), by two switches there, both on by default. \"Clearer voice in calls: mine, for the others\": before call apps record you, your voice is equalized for speech (less rumble and boxiness, more presence) and evened out, a quiet voice coming up. \"Clearer voices in calls: the others', for me\": call apps (Discord or Vesktop, Slack, Zoom, Teams and the like; the list is echoCancel.callApps in the Nix configuration) play through a \"Call voices\" output with the same treatment for listening, quiet speakers brought up, and never through the music equalizer; it has its own line, Call voices, in the volume mixer. Changing a switch restarts echo cancellation, about a second without microphone. Calls in the web browser count too in Zen and other Firefox-based browsers: a tab titled like a call site (Google Meet, Jitsi Meet, Microsoft Teams; the list is echoCancel.callSites) plays on Call voices, while a YouTube or music tab isn't touched. If the others find your voice too processed, turn the first switch off, or turn off the call app's own noise suppression and automatic gain.";
-      fr = "Les voix des appels sont rendues plus claires sans IA tant que l'annulation d'écho est active (Paramètres > Son > Echo cancellation), par deux interrupteurs à cet endroit, activés par défaut. « Clearer voice in calls: mine, for the others » : avant que les applications d'appel ne vous enregistrent, votre voix est égalisée pour la parole (moins de grave sourd et d'effet de boîte, plus de présence) et nivelée, une voix faible étant remontée. « Clearer voices in calls: the others', for me » : les applications d'appel (Discord ou Vesktop, Slack, Zoom, Teams et semblables ; la liste est echoCancel.callApps dans la configuration Nix) jouent à travers une sortie « Call voices » avec le même traitement pour l'écoute, les voix faibles remontées, et jamais à travers l'égaliseur de musique ; elle a sa propre ligne, Call voices, dans le mixeur de volume. Changer un interrupteur redémarre l'annulation d'écho, environ une seconde sans micro. Les appels dans le navigateur web comptent aussi dans Zen et les autres navigateurs basés sur Firefox : un onglet dont le titre est celui d'un site d'appel (Google Meet, Jitsi Meet, Microsoft Teams ; la liste est echoCancel.callSites) joue sur Call voices, alors qu'un onglet YouTube ou de musique n'est pas touché. Si les autres trouvent votre voix trop traitée, coupez le premier interrupteur, ou coupez la suppression de bruit et le gain automatique de l'application d'appel.";
-      de = "Stimmen in Anrufen werden ohne KI klarer gemacht, solange die Echounterdrückung an ist (Einstellungen > Ton > Echo cancellation), durch zwei Schalter dort, beide standardmäßig an. „Clearer voice in calls: mine, for the others“: bevor Anruf-Apps dich aufnehmen, wird deine Stimme für Sprache entzerrt (weniger Dröhnen und Kistenklang, mehr Präsenz) und ausgeglichen, eine leise Stimme wird angehoben. „Clearer voices in calls: the others', for me“: Anruf-Apps (Discord oder Vesktop, Slack, Zoom, Teams und ähnliche; die Liste ist echoCancel.callApps in der Nix-Konfiguration) spielen über eine Ausgabe „Call voices“ mit derselben Behandlung fürs Zuhören, leise Sprecher werden angehoben, und nie über den Musik-Equalizer; sie hat ihre eigene Zeile, Call voices, im Lautstärkemixer. Einen Schalter umzulegen startet die Echounterdrückung neu, etwa eine Sekunde ohne Mikrofon. Anrufe im Webbrowser zählen in Zen und anderen Firefox-basierten Browsern auch: ein Tab, dessen Titel der einer Anrufseite ist (Google Meet, Jitsi Meet, Microsoft Teams; die Liste ist echoCancel.callSites), spielt über Call voices, während ein YouTube- oder Musik-Tab unberührt bleibt. Finden die anderen deine Stimme zu stark bearbeitet, schalte den ersten Schalter aus, oder schalte die Rauschunterdrückung und die automatische Verstärkung der Anruf-App aus.";
-      vi = "Giọng nói trong cuộc gọi được làm rõ hơn mà không dùng AI khi khử tiếng vọng đang bật (Cài đặt > Âm thanh > Echo cancellation), bằng hai công tắc ở đó, mặc định đều bật. “Clearer voice in calls: mine, for the others”: trước khi ứng dụng gọi điện thu âm bạn, giọng bạn được cân bằng cho lời nói (bớt ù và bớt tiếng hộp, thêm độ rõ) và được làm đều, giọng nhỏ được nâng lên. “Clearer voices in calls: the others', for me”: các ứng dụng gọi điện (Discord hoặc Vesktop, Slack, Zoom, Teams và tương tự; danh sách là echoCancel.callApps trong cấu hình Nix) phát qua đầu ra “Call voices” với cùng cách xử lý cho việc nghe, người nói nhỏ được nâng lên, và không bao giờ qua bộ cân bằng nhạc; nó có dòng riêng, Call voices, trong bộ trộn âm lượng. Đổi một công tắc sẽ khởi động lại khử tiếng vọng, khoảng một giây không có micro. Cuộc gọi trong trình duyệt web cũng được tính trong Zen và các trình duyệt dựa trên Firefox khác: một thẻ có tiêu đề của trang gọi điện (Google Meet, Jitsi Meet, Microsoft Teams; danh sách là echoCancel.callSites) sẽ phát qua Call voices, còn thẻ YouTube hay thẻ nhạc thì không bị đụng tới. Nếu người khác thấy giọng bạn bị xử lý quá nhiều, hãy tắt công tắc thứ nhất, hoặc tắt tính năng khử ồn và tự động tăng âm của chính ứng dụng gọi điện.";
+      en = "Voices in calls are made clearer without AI while echo cancellation is on (Settings > Sound > Echo cancellation), by two switches there, both on by default. \"Clearer voice in calls: mine, for the others\": before call apps record you, your voice is equalized for speech (less rumble and boxiness, more presence) and evened out, a quiet voice coming up. \"Clearer voices in calls: the others', for me\": call apps (Discord or Vesktop, Slack, Zoom, Teams and the like; the list is in Settings > Sound > Echo cancellation, Call apps) play through a \"Call voices\" output with the same treatment for listening, quiet speakers brought up, and never through the music equalizer; it has its own line, Call voices, in the volume mixer. Changing a switch restarts echo cancellation, about a second without microphone. Calls in the web browser count too in Zen and other Firefox-based browsers: a tab titled like a call site (Google Meet, Jitsi Meet, Microsoft Teams; the list is Call sites, there too) plays on Call voices, while a YouTube or music tab isn't touched. If the others find your voice too processed, turn the first switch off, or turn off the call app's own noise suppression and automatic gain.";
+      fr = "Les voix des appels sont rendues plus claires sans IA tant que l'annulation d'écho est active (Paramètres > Son > Echo cancellation), par deux interrupteurs à cet endroit, activés par défaut. « Clearer voice in calls: mine, for the others » : avant que les applications d'appel ne vous enregistrent, votre voix est égalisée pour la parole (moins de grave sourd et d'effet de boîte, plus de présence) et nivelée, une voix faible étant remontée. « Clearer voices in calls: the others', for me » : les applications d'appel (Discord ou Vesktop, Slack, Zoom, Teams et semblables ; la liste est dans Paramètres > Son > Echo cancellation, Call apps) jouent à travers une sortie « Call voices » avec le même traitement pour l'écoute, les voix faibles remontées, et jamais à travers l'égaliseur de musique ; elle a sa propre ligne, Call voices, dans le mixeur de volume. Changer un interrupteur redémarre l'annulation d'écho, environ une seconde sans micro. Les appels dans le navigateur web comptent aussi dans Zen et les autres navigateurs basés sur Firefox : un onglet dont le titre est celui d'un site d'appel (Google Meet, Jitsi Meet, Microsoft Teams ; la liste est Call sites, au même endroit) joue sur Call voices, alors qu'un onglet YouTube ou de musique n'est pas touché. Si les autres trouvent votre voix trop traitée, coupez le premier interrupteur, ou coupez la suppression de bruit et le gain automatique de l'application d'appel.";
+      de = "Stimmen in Anrufen werden ohne KI klarer gemacht, solange die Echounterdrückung an ist (Einstellungen > Ton > Echo cancellation), durch zwei Schalter dort, beide standardmäßig an. „Clearer voice in calls: mine, for the others“: bevor Anruf-Apps dich aufnehmen, wird deine Stimme für Sprache entzerrt (weniger Dröhnen und Kistenklang, mehr Präsenz) und ausgeglichen, eine leise Stimme wird angehoben. „Clearer voices in calls: the others', for me“: Anruf-Apps (Discord oder Vesktop, Slack, Zoom, Teams und ähnliche; die Liste steht unter Einstellungen > Ton > Echo cancellation, Call apps) spielen über eine Ausgabe „Call voices“ mit derselben Behandlung fürs Zuhören, leise Sprecher werden angehoben, und nie über den Musik-Equalizer; sie hat ihre eigene Zeile, Call voices, im Lautstärkemixer. Einen Schalter umzulegen startet die Echounterdrückung neu, etwa eine Sekunde ohne Mikrofon. Anrufe im Webbrowser zählen in Zen und anderen Firefox-basierten Browsern auch: ein Tab, dessen Titel der einer Anrufseite ist (Google Meet, Jitsi Meet, Microsoft Teams; die Liste ist Call sites, ebenda), spielt über Call voices, während ein YouTube- oder Musik-Tab unberührt bleibt. Finden die anderen deine Stimme zu stark bearbeitet, schalte den ersten Schalter aus, oder schalte die Rauschunterdrückung und die automatische Verstärkung der Anruf-App aus.";
+      vi = "Giọng nói trong cuộc gọi được làm rõ hơn mà không dùng AI khi khử tiếng vọng đang bật (Cài đặt > Âm thanh > Echo cancellation), bằng hai công tắc ở đó, mặc định đều bật. “Clearer voice in calls: mine, for the others”: trước khi ứng dụng gọi điện thu âm bạn, giọng bạn được cân bằng cho lời nói (bớt ù và bớt tiếng hộp, thêm độ rõ) và được làm đều, giọng nhỏ được nâng lên. “Clearer voices in calls: the others', for me”: các ứng dụng gọi điện (Discord hoặc Vesktop, Slack, Zoom, Teams và tương tự; danh sách ở Cài đặt > Âm thanh > Echo cancellation, Call apps) phát qua đầu ra “Call voices” với cùng cách xử lý cho việc nghe, người nói nhỏ được nâng lên, và không bao giờ qua bộ cân bằng nhạc; nó có dòng riêng, Call voices, trong bộ trộn âm lượng. Đổi một công tắc sẽ khởi động lại khử tiếng vọng, khoảng một giây không có micro. Cuộc gọi trong trình duyệt web cũng được tính trong Zen và các trình duyệt dựa trên Firefox khác: một thẻ có tiêu đề của trang gọi điện (Google Meet, Jitsi Meet, Microsoft Teams; danh sách là Call sites, cũng ở đó) sẽ phát qua Call voices, còn thẻ YouTube hay thẻ nhạc thì không bị đụng tới. Nếu người khác thấy giọng bạn bị xử lý quá nhiều, hãy tắt công tắc thứ nhất, hoặc tắt tính năng khử ồn và tự động tăng âm của chính ứng dụng gọi điện.";
     };
     visualizer = {
       en = "The music visualizer is a desktop widget: turn it on from the desktop's right-click menu > Widgets, or in Settings > Desktop widgets > Visualizer (style: bars, aurora, ring, dots, mirror; colours from the theme or the cover; height or ring size). It moves only while music plays and it can be seen: with 'Pause while windows cover the desktop' on (the default), it fades out on a workspace that has a tiled window, or under a floating window, and the audio analyser (cava) stops with it; go to an empty workspace to see it. If it does not appear, or stays flat, while music plays on an empty workspace, run nixbook-shell ipc call mediaControls visualizerStatus: it says which player the shell follows and whether it plays, whether a visualizer can be seen, and whether cava runs (it is started again by itself when the audio output changes).";
@@ -489,10 +495,10 @@ let
       vi = "Để tìm lại thứ bạn đã thấy hay đã giữ mà không nhớ ở đâu (\"tệp PDF bài phát biểu tôi tải về hôm thứ hai\", \"đường dẫn Alex gửi về bữa tối\", \"hôm qua tôi đã hỏi DAI gì\"), Tìm lại: gõ ~ trong trình khởi chạy (Mod+D) rồi gõ lời của bạn. Việc tìm diễn ra trên máy này, không dùng mô hình AI nào, trong các tệp gần đây (Tải về, Tài liệu, Màn hình nền và ảnh chụp màn hình: tên tệp, và chữ trong các tệp văn bản nhỏ và PDF), các trang và dấu trang của Zen, lịch sử bộ nhớ tạm, các thông báo cũ (tin nhắn và đường dẫn trong đó) và các cuộc trò chuyện cũ với DAI. Từ chỉ thời gian thu hẹp kết quả: hôm nay, hôm qua, thứ hai, tuần trước, 3 ngày trước, tháng này (cả tiếng Anh, Pháp và Đức). Enter mở thứ tìm được (tệp bằng ứng dụng của nó, đường dẫn trong trình duyệt, cuộc trò chuyện trong bảng bên); các nút của nó sao chép hoặc mở thư mục chứa tệp. Hoặc chỉ cần hỏi DAI \"tìm…\", \"… ở đâu\": nó dùng cùng cách tìm này. Bí mật (mã, khóa, trình quản lý mật khẩu, ngân hàng), thư mục ẩn và các trang cấm tác nhân không bao giờ hiện ra. Tiền tố nằm trong Cài đặt > Dịch vụ > Tìm kiếm > Tiền tố; không tìm gì khi các tính năng AI bị tắt.";
     };
     readDocument = {
-      en = "DAI can read and summarize documents: PDFs of any size (scanned ones through OCR, in the languages set by programs.nixbook-shell.desktopMcp.settings.ocrLanguages), Word, OpenDocument, PowerPoint, EPUB and text files in your home. Ask \"summarize this PDF\" with its path, or click Summarize it on the bubble when a document lands in Downloads. Long documents are read 30 pages at a time (10 scanned pages), DAI asks for the rest; files in hidden folders or named like keys or passwords are refused.";
-      fr = "DAI sait lire et résumer des documents : des PDF de toute taille (les scannés par OCR, dans les langues de programs.nixbook-shell.desktopMcp.settings.ocrLanguages), Word, OpenDocument, PowerPoint, EPUB et fichiers texte de votre dossier personnel. Demandez « résume ce PDF » avec son chemin, ou cliquez sur Summarize it dans la bulle quand un document arrive dans Téléchargements. Les longs documents se lisent 30 pages à la fois (10 pages scannées), DAI demande la suite ; les fichiers des dossiers cachés ou nommés comme des clés ou des mots de passe sont refusés.";
-      de = "DAI kann Dokumente lesen und zusammenfassen: PDFs jeder Größe (gescannte per OCR, in den Sprachen aus programs.nixbook-shell.desktopMcp.settings.ocrLanguages), Word, OpenDocument, PowerPoint, EPUB und Textdateien in deinem Home-Ordner. Frag „fasse dieses PDF zusammen“ mit seinem Pfad, oder klick in der Blase auf Summarize it, wenn ein Dokument in Downloads landet. Lange Dokumente werden 30 Seiten auf einmal gelesen (10 gescannte Seiten), DAI holt den Rest; Dateien in versteckten Ordnern oder mit Namen wie Schlüssel oder Passwörter werden abgelehnt.";
-      vi = "DAI có thể đọc và tóm tắt tài liệu: PDF mọi kích cỡ (bản quét qua OCR, theo các ngôn ngữ đặt ở programs.nixbook-shell.desktopMcp.settings.ocrLanguages), Word, OpenDocument, PowerPoint, EPUB và tệp văn bản trong thư mục nhà. Hãy hỏi \"tóm tắt tệp PDF này\" kèm đường dẫn, hoặc bấm Summarize it trên bong bóng khi một tài liệu vừa tải về Downloads. Tài liệu dài được đọc 30 trang mỗi lần (10 trang quét), DAI sẽ đọc tiếp phần còn lại; tệp trong thư mục ẩn hoặc có tên như khóa hay mật khẩu bị từ chối.";
+      en = "DAI can read and summarize documents: PDFs of any size (scanned ones through OCR, in the languages set in Settings > Assistant > Desktop control > What agents see), Word, OpenDocument, PowerPoint, EPUB and text files in your home. Ask \"summarize this PDF\" with its path, or click Summarize it on the bubble when a document lands in Downloads. Long documents are read 30 pages at a time (10 scanned pages), DAI asks for the rest; files in hidden folders or named like keys or passwords are refused.";
+      fr = "DAI sait lire et résumer des documents : des PDF de toute taille (les scannés par OCR, dans les langues réglées dans Paramètres > Assistant > Desktop control > What agents see), Word, OpenDocument, PowerPoint, EPUB et fichiers texte de votre dossier personnel. Demandez « résume ce PDF » avec son chemin, ou cliquez sur Summarize it dans la bulle quand un document arrive dans Téléchargements. Les longs documents se lisent 30 pages à la fois (10 pages scannées), DAI demande la suite ; les fichiers des dossiers cachés ou nommés comme des clés ou des mots de passe sont refusés.";
+      de = "DAI kann Dokumente lesen und zusammenfassen: PDFs jeder Größe (gescannte per OCR, in den Sprachen aus Einstellungen > Assistent > Desktop control > What agents see), Word, OpenDocument, PowerPoint, EPUB und Textdateien in deinem Home-Ordner. Frag „fasse dieses PDF zusammen“ mit seinem Pfad, oder klick in der Blase auf Summarize it, wenn ein Dokument in Downloads landet. Lange Dokumente werden 30 Seiten auf einmal gelesen (10 gescannte Seiten), DAI holt den Rest; Dateien in versteckten Ordnern oder mit Namen wie Schlüssel oder Passwörter werden abgelehnt.";
+      vi = "DAI có thể đọc và tóm tắt tài liệu: PDF mọi kích cỡ (bản quét qua OCR, theo các ngôn ngữ đặt ở Cài đặt > Trợ lý > Desktop control > What agents see), Word, OpenDocument, PowerPoint, EPUB và tệp văn bản trong thư mục nhà. Hãy hỏi \"tóm tắt tệp PDF này\" kèm đường dẫn, hoặc bấm Summarize it trên bong bóng khi một tài liệu vừa tải về Downloads. Tài liệu dài được đọc 30 trang mỗi lần (10 trang quét), DAI sẽ đọc tiếp phần còn lại; tệp trong thư mục ẩn hoặc có tên như khóa hay mật khẩu bị từ chối.";
     };
     daiEfficiency = {
       en = "Why DAI answers fast and uses few tokens: its prompt carries only a short summary of this machine (host, shell, enabled modules, key bindings). When you ask how something works on this computer, the matching part of the machine's reference (how-tos, packages, Neovim keymaps) is sent with your message, so it answers at once; anything else it looks up with its machine_help tool. The desktop tools used most are ready up front; the others and your connectors' are loaded when a request needs them. It is just as capable: what it knows is sent when it matters, not with every message.";
@@ -626,6 +632,18 @@ let
       de = "YouTube-Videos: Der Tab YouTube der rechten Seitenleiste (Mod+N) zeigt deine YouTube-Startseite (Startseite) und die Kanäle, die du abonniert hast (Abos: einen anklicken zeigt seine neuesten Videos), und sein Suchfeld findet jedes Video (oder dort einen YouTube-Link einfügen, dann Enter: das Video startet, ab der Zeit im Link). Neu zeigt die Videos deiner Abos, die du noch nicht gesehen hast, die neuesten zuerst (die letzten 30 Tage), ihre Anzahl auf dem Chip und bei jedem Kanal unter Abos („2 new“): ein Video verschwindet aus Neu, sobald es in deinem YouTube-Verlauf ist, sobald du es aus dem Tab abspielst, oder wenn du darüberfährst und auf den Haken klickst (Als gesehen markieren); der Doppelhaken markiert alle als gesehen. Ein Video anklicken spielt es in mpv ab, mit deinen mpv-Einstellungen; die Musik im Hintergrund pausiert. Während es läuft, zeigt eine Karte oben im Tab das Video mit Play/Pause und seiner eigenen Lautstärke (das nächste Video startet mit dieser Lautstärke). Den Kanalnamen eines Videos anklicken öffnet seine Seite: Tabs Neueste, Beliebt (die meistgesehenen), Shorts, Live und Playlists (eine Playlist zeigt ihre Videos), und das Suchfeld sucht in diesem Kanal, solange er offen ist (der Pfeil geht zurück); die Seite eines Kanals hat Abonnieren oder Abonniert (zweimal klicken, um das Abo zu beenden). Über einem Video oder Kanal erscheint ein Knopf, der seinen Link kopiert; die Karte des laufenden Videos kopiert seinen Link an der aktuellen Stelle. Startseite und Abos nutzen die YouTube-Sitzung, mit der YouTube Music angemeldet ist (Einstellungen > Apps & Konten > YouTube Music > Sitzung meines Browsers verwenden); die Suche geht auch ohne. Mehr Videos am Ende der Liste lädt 30 weitere; der Aktualisieren-Knopf fragt YouTube erneut. Der Tab lässt sich unter Einstellungen > Panels ausschalten. DAI kann das auch für dich (sein Werkzeug youtube_videos): bitte es, ein Video zu finden oder abzuspielen, die neuesten Videos eines Kanals zu zeigen, zu pausieren oder die Lautstärke des Videos zu ändern.";
       vi = "Video YouTube: thẻ YouTube của thanh bên phải (Mod+N) hiện trang chủ YouTube của bạn (Trang chủ) và các kênh bạn đăng ký (Kênh đăng ký: bấm một kênh để xem video mới nhất của kênh), ô tìm kiếm của nó tìm được mọi video (hoặc dán một liên kết YouTube vào đó rồi Enter: video phát, từ thời điểm trong liên kết). Mục Mới hiện các video của những kênh bạn đăng ký mà bạn chưa xem, mới nhất trước (30 ngày gần đây), số lượng hiện trên nút và trên từng kênh trong Kênh đăng ký (\"2 new\"): một video rời khỏi Mới khi nó có trong lịch sử xem YouTube của bạn, khi bạn phát nó từ thẻ, hoặc khi bạn rê chuột lên rồi bấm dấu tích (Đánh dấu đã xem); dấu tích kép đánh dấu tất cả là đã xem. Bấm một video để phát trong mpv, với cài đặt mpv của bạn; nhạc đang phát nền sẽ tạm dừng. Khi đang phát, một thẻ ở đầu tab hiện video với phát/tạm dừng và thanh âm lượng riêng (video tiếp theo bắt đầu ở mức âm lượng đó). Bấm tên kênh của một video để mở trang kênh: các thẻ Mới nhất, Phổ biến (xem nhiều nhất), Shorts, Trực tiếp và Danh sách phát (một danh sách mở các video của nó), ô tìm kiếm sẽ tìm trong kênh đó khi kênh đang mở (mũi tên để quay lại); trang của kênh có Đăng ký, hoặc Đã đăng ký (bấm hai lần để hủy đăng ký). Rê chuột lên một video hoặc kênh để có nút sao chép liên kết; thẻ video đang phát sao chép liên kết ở thời điểm hiện tại. Trang chủ và Kênh đăng ký dùng phiên YouTube mà YouTube Music đăng nhập (Cài đặt > Ứng dụng & tài khoản > YouTube Music > Dùng phiên của trình duyệt); tìm kiếm thì không cần. Thêm video ở cuối danh sách tải thêm 30 video; nút làm mới hỏi lại YouTube. Tắt thẻ trong Cài đặt > Bảng điều khiển. DAI cũng làm được giúp bạn (công cụ youtube_videos): nhờ nó tìm hoặc phát video, hiện video mới nhất của một kênh, tạm dừng hoặc chỉnh âm lượng video.";
     };
+    agentTools = {
+      en = "Which tools the agents can use: Settings > Privacy & trust > What agents can use, for DAI, Claude Code and any agent using nixbook-desktop-mcp. It lists each kind of tool: seeing windows, screenshots, moving windows, typing and clicking, the shell, notes, personal memory, apps' accessibility, web pages; and asking you before anything is sent, paid or deleted in your name. How much they do: Settings > Assistant > Desktop control > What agents see (screenshot size, format and quality, the languages read on screen, actions a minute), On its own (messages a day, minutes apart, quiet hours; routines' Claude runs and model), Memory (what is sent when an agent connects, notes and entries kept, learning, usage habits: days kept, what agents get, the weekly report, theme suggestions, music taste). All of them can also be set in Nix (nixbookShellConfig.settings.ai.agents), which locks them in the menu. The rules keeping agents out of password managers, terminals, banks and private windows are in the Nix configuration only (programs.nixbook-shell.desktopMcp.settings).";
+      fr = "Ce que les agents du bureau (DAI, Claude Code, tout agent utilisant nixbook-desktop-mcp) peuvent utiliser et dans quelle mesure : Paramètres > Confidentialité et confiance > What agents can use (chaque type d'outil : voir les fenêtres, captures d'écran, déplacer les fenêtres, taper et cliquer, le shell, les notes, la mémoire personnelle, l'accessibilité des applications, les pages web ; et vous demander avant tout envoi, paiement ou suppression en votre nom), Paramètres > Assistant > Desktop control > What agents see (taille, format et qualité des captures, langues lues à l'écran, actions par minute), De lui-même (messages par jour, minutes d'écart, heures calmes ; exécutions Claude des routines et modèle), Mémoire (ce qui est envoyé à la connexion d'un agent, notes et entrées gardées, apprentissage, habitudes : jours gardés, ce que les agents en reçoivent, le rapport hebdomadaire, les suggestions de thème, les goûts musicaux). Tout cela peut aussi être réglé en Nix (nixbookShellConfig.settings.ai.agents), ce qui le verrouille dans le menu. Les règles qui tiennent les agents à l'écart des gestionnaires de mots de passe, terminaux, banques et fenêtres privées sont dans la configuration Nix seulement (programs.nixbook-shell.desktopMcp.settings).";
+      de = "Welche Werkzeuge die Agenten nutzen dürfen: Einstellungen > Datenschutz & Vertrauen > What agents can use, für DAI, Claude Code und jeden Agenten mit nixbook-desktop-mcp. Dort steht jede Art von Werkzeug: Fenster sehen, Bildschirmfotos, Fenster bewegen, tippen und klicken, die Shell, Notizen, persönliches Gedächtnis, die Barrierefreiheit der Apps, Webseiten; und dich fragen, bevor in deinem Namen etwas gesendet, bezahlt oder gelöscht wird. Wie viel sie tun: Einstellungen > Assistent > Desktop control > What agents see (Größe, Format und Qualität der Bildschirmfotos, auf dem Bildschirm gelesene Sprachen, Aktionen pro Minute), Von selbst (Nachrichten pro Tag, Minuten Abstand, Ruhezeiten; Claude-Läufe der Routinen und Modell), Gedächtnis (was beim Verbinden eines Agenten gesendet wird, behaltene Notizen und Einträge, Lernen, Nutzungsgewohnheiten: Tage behalten, was Agenten bekommen, der Wochenbericht, Themenvorschläge, Musikgeschmack). Alles lässt sich auch in Nix setzen (nixbookShellConfig.settings.ai.agents), was es im Menü sperrt. Die Regeln, die Agenten von Passwortmanagern, Terminals, Banken und privaten Fenstern fernhalten, stehen nur in der Nix-Konfiguration (programs.nixbook-shell.desktopMcp.settings).";
+      vi = "Những gì các tác tử trên máy (DAI, Claude Code, mọi tác tử dùng nixbook-desktop-mcp) được dùng và bao nhiêu: Cài đặt > Riêng tư & tin cậy > What agents can use (từng loại công cụ: xem cửa sổ, chụp màn hình, di chuyển cửa sổ, gõ và bấm, shell, ghi chú, bộ nhớ cá nhân, trợ năng của ứng dụng, trang web; và hỏi bạn trước khi gửi, trả tiền hay xóa gì thay bạn), Cài đặt > Trợ lý > Desktop control > What agents see (kích thước, định dạng và chất lượng ảnh chụp, các ngôn ngữ đọc trên màn hình, số thao tác mỗi phút), Tự hoạt động (số tin nhắn mỗi ngày, số phút cách nhau, giờ yên lặng; số lần chạy Claude của các thói quen và mô hình), Bộ nhớ (những gì gửi khi tác tử kết nối, số ghi chú và mục giữ lại, việc học, thói quen sử dụng: số ngày giữ, tác tử nhận được gì, báo cáo hằng tuần, gợi ý giao diện, gu âm nhạc). Tất cả cũng đặt được bằng Nix (nixbookShellConfig.settings.ai.agents), khi đó bị khóa trong menu. Các quy tắc giữ tác tử tránh xa trình quản lý mật khẩu, terminal, ngân hàng và cửa sổ riêng tư chỉ nằm trong cấu hình Nix (programs.nixbook-shell.desktopMcp.settings).";
+    };
+    loadingScreen = {
+      en = "The loading screen shown from the moment you log in until the shell is up: Settings > Appearance > Loading screen turns it on or off (from the next login), or appearance.loadingScreen.early in the shell's Nix settings, which locks it in the menu. Off, the screen after the login screen stays the compositor's colour while the desktop draws itself, until the shell's own loading screen shows.";
+      fr = "L'écran de chargement affiché dès la connexion jusqu'à ce que le shell soit prêt : Paramètres > Apparence > Loading screen l'active ou le désactive (à la prochaine connexion), ou appearance.loadingScreen.early dans les réglages Nix du shell, qui le verrouille dans le menu. Désactivé, l'écran après la connexion garde la couleur du compositeur pendant que le bureau se dessine, jusqu'à l'écran de chargement du shell lui-même.";
+      de = "Der Ladebildschirm ab der Anmeldung, bis die Shell bereit ist: Einstellungen > Darstellung > Loading screen schaltet ihn ein oder aus (ab der nächsten Anmeldung), oder appearance.loadingScreen.early in den Nix-Einstellungen der Shell, was ihn im Menü sperrt. Aus bleibt der Bildschirm nach der Anmeldung in der Farbe des Compositors, während sich der Desktop aufbaut, bis der eigene Ladebildschirm der Shell erscheint.";
+      vi = "Màn hình tải hiện từ lúc bạn đăng nhập đến khi shell sẵn sàng: Cài đặt > Giao diện > Loading screen bật hoặc tắt nó (từ lần đăng nhập sau), hoặc appearance.loadingScreen.early trong cài đặt Nix của shell, khi đó bị khóa trong menu. Khi tắt, màn hình sau khi đăng nhập giữ màu của trình tổng hợp trong lúc màn hình nền tự vẽ, cho đến khi màn hình tải riêng của shell hiện ra.";
+    };
     youtubeLinks = {
       en = "YouTube links opened by the shell instead of the browser: turn it on in Settings > Apps & accounts > YouTube links (Open YouTube links here; off by default, or set media.youtubeLinks.enable in the shell's Nix settings, which locks it in the menu). Then a YouTube video link (youtube.com/watch, shorts, live, youtu.be) clicked in Zen, typed there, or opened by any other app (Discord, Slack, mail, a terminal) plays in mpv from the link's time, and the right sidebar's YouTube tab shows it; a YouTube Music song or playlist link (music.youtube.com) plays in the background player and the right sidebar opens on its YouTube Music tab (a song from a playlist plays that playlist from the song). Clicking a video inside youtube.com in Zen does the same; Ctrl+click or middle click too. Other YouTube pages (the home page, channels, searches, youtube.com playlists) open in the browser as before, and so does a link the shell can't take (the shell not running; a playlist while YouTube Music isn't signed in). Private windows are left alone. To watch one in the browser anyway, open it in a private window. The same page turns each part off (video links in mpv, YouTube Music links in the background player, opening the right panel): links turned off open in the browser or app as before.";
       fr = "Liens YouTube ouverts par le shell au lieu du navigateur : activez-le dans Paramètres > Applications et comptes > Liens YouTube (désactivé par défaut, ou media.youtubeLinks.enable dans les réglages Nix du shell, qui le verrouille dans le menu). Ensuite un lien de vidéo YouTube (youtube.com/watch, shorts, live, youtu.be) cliqué dans Zen, tapé dans Zen ou ouvert par n'importe quelle autre application (Discord, Slack, mail, un terminal) se lit dans mpv au moment indiqué dans le lien, et l'onglet YouTube du panneau latéral droit la montre ; un lien de morceau ou de playlist YouTube Music (music.youtube.com) se lit dans le lecteur en arrière-plan et le panneau latéral droit s'ouvre sur son onglet YouTube Music (un morceau joué depuis une playlist lance cette playlist à partir du morceau). Cliquer une vidéo dans youtube.com dans Zen fait de même ; Ctrl+clic ou clic du milieu aussi. Les autres pages YouTube (l'accueil, les chaînes, les recherches, les playlists youtube.com) s'ouvrent dans le navigateur comme avant, ainsi qu'un lien que le shell ne peut pas prendre (shell arrêté ; une playlist alors que YouTube Music n'est pas connecté). Les fenêtres privées ne sont pas touchées. Pour en regarder une dans le navigateur quand même, ouvrez-la dans une fenêtre privée. La même page désactive chaque partie (liens de vidéos dans mpv, liens YouTube Music dans le lecteur en arrière-plan, ouverture du panneau droit) : les liens désactivés s'ouvrent dans le navigateur ou l'application comme avant.";
@@ -645,10 +663,10 @@ let
       vi = "Seerr (Overseerr / Jellyseerr): DAI yêu cầu phim và phim bộ bạn chưa có, và cho bạn biết các yêu cầu đến đâu rồi. Thiết lập trong Cài đặt > Trợ lý > Ứng dụng có thể dùng: bật Seerr, nhập máy chủ, rồi đăng nhập bằng chính bạn, không cần khóa quản trị: Mở Seerr trong trình duyệt, đăng nhập như thường lệ (cả OpenID Connect) trong Zen, Firefox, Chrome, Chromium hoặc Brave, rồi Dùng đăng nhập của trình duyệt. Chỉ phiên của Seerr được sao chép, vào chùm khóa của bạn; DAI khi đó hành động như bạn, với quyền và hạn mức của bạn. Khi phiên đăng nhập hết hạn, làm lại; Đăng xuất chỉ quên nó ở đây. Hoặc Dùng khóa API quản trị thay thế (Seerr: Settings > General > API Key) với Yêu cầu với tư cách: người dùng Seerr của bạn. Hỏi \"yêu cầu Dune phần hai\", \"thêm mùa 2 của Edgerunners\", \"yêu cầu của tôi đến đâu rồi?\", \"đang thịnh hành gì?\"; nội dung đã có sẽ phát từ Jellyfin.";
     };
     jellyfinTranscoding = {
-      en = "Jellyfin playback on this computer plays files as they are (direct play): mpv plays almost anything, and nixbook lifts jellyfin-mpv-shim's 10 Mbit/s limit for servers it doesn't see on the local network (behind a public address, a reverse proxy or a VPN), which made the server transcode most 1080p and every 4K file. A limit can still come from nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps or from the server: Dashboard > Users > the user > Internet streaming bitrate limit, or Dashboard > Playback > Streaming. Ask DAI \"why is it transcoding?\": it reads the server's reasons (ContainerBitrateExceedsLimit is a bitrate limit).";
-      fr = "La lecture Jellyfin sur cet ordinateur lit les fichiers tels quels (lecture directe) : mpv lit presque tout, et nixbook lève la limite de 10 Mbit/s de jellyfin-mpv-shim pour les serveurs qu'il ne voit pas sur le réseau local (derrière une adresse publique, un proxy inverse ou un VPN), qui faisait transcoder au serveur la plupart des fichiers 1080p et tous les 4K. Une limite peut encore venir de nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps ou du serveur : Tableau de bord > Utilisateurs > l'utilisateur > Limite de débit de streaming Internet, ou Tableau de bord > Lecture > Streaming. Demandez à DAI « pourquoi ça transcode ? » : il lit les raisons du serveur (ContainerBitrateExceedsLimit est une limite de débit).";
-      de = "Jellyfin spielt auf diesem Computer Dateien so ab, wie sie sind (Direktwiedergabe): mpv spielt fast alles, und nixbook hebt jellyfin-mpv-shims Grenze von 10 Mbit/s für Server auf, die es nicht im lokalen Netz sieht (hinter einer öffentlichen Adresse, einem Reverse-Proxy oder einem VPN), wegen der der Server die meisten 1080p- und alle 4K-Dateien transkodierte. Eine Grenze kann noch von nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps oder vom Server kommen: Dashboard > Benutzer > der Benutzer > Bitratenlimit für Internet-Streaming, oder Dashboard > Wiedergabe > Streaming. Frag DAI „warum wird transkodiert?“: Es liest die Gründe des Servers (ContainerBitrateExceedsLimit ist eine Bitratengrenze).";
-      vi = "Jellyfin trên máy này phát tệp nguyên bản (phát trực tiếp): mpv phát được gần như mọi thứ, và nixbook bỏ giới hạn 10 Mbit/s của jellyfin-mpv-shim cho máy chủ không nằm trong mạng nội bộ (sau địa chỉ công khai, reverse proxy hay VPN), giới hạn khiến máy chủ chuyển mã phần lớn tệp 1080p và mọi tệp 4K. Giới hạn vẫn có thể đến từ nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps hoặc từ máy chủ: Bảng điều khiển > Người dùng > người dùng đó > Giới hạn bitrate phát trực tuyến qua Internet, hoặc Bảng điều khiển > Phát lại > Phát trực tuyến. Hỏi DAI \"sao lại chuyển mã?\": nó đọc lý do của máy chủ (ContainerBitrateExceedsLimit là giới hạn bitrate).";
+      en = "Jellyfin playback on this computer plays files as they are (direct play): mpv plays almost anything, and nixbook lifts jellyfin-mpv-shim's 10 Mbit/s limit for servers it doesn't see on the local network (behind a public address, a reverse proxy or a VPN), which made the server transcode most 1080p and every 4K file. A limit can still come from Settings > Apps & accounts > Jellyfin (Streaming limit away from home, 0 = none) or from the server: Dashboard > Users > the user > Internet streaming bitrate limit, or Dashboard > Playback > Streaming. Ask DAI \"why is it transcoding?\": it reads the server's reasons (ContainerBitrateExceedsLimit is a bitrate limit).";
+      fr = "La lecture Jellyfin sur cet ordinateur lit les fichiers tels quels (lecture directe) : mpv lit presque tout, et nixbook lève la limite de 10 Mbit/s de jellyfin-mpv-shim pour les serveurs qu'il ne voit pas sur le réseau local (derrière une adresse publique, un proxy inverse ou un VPN), qui faisait transcoder au serveur la plupart des fichiers 1080p et tous les 4K. Une limite peut encore venir de Paramètres > Applications et comptes > Jellyfin (Streaming limit away from home, 0 = aucune) ou du serveur : Tableau de bord > Utilisateurs > l'utilisateur > Limite de débit de streaming Internet, ou Tableau de bord > Lecture > Streaming. Demandez à DAI « pourquoi ça transcode ? » : il lit les raisons du serveur (ContainerBitrateExceedsLimit est une limite de débit).";
+      de = "Jellyfin spielt auf diesem Computer Dateien so ab, wie sie sind (Direktwiedergabe): mpv spielt fast alles, und nixbook hebt jellyfin-mpv-shims Grenze von 10 Mbit/s für Server auf, die es nicht im lokalen Netz sieht (hinter einer öffentlichen Adresse, einem Reverse-Proxy oder einem VPN), wegen der der Server die meisten 1080p- und alle 4K-Dateien transkodierte. Eine Grenze kann noch von Einstellungen > Apps & Konten > Jellyfin (Streaming limit away from home, 0 = keine) oder vom Server kommen: Dashboard > Benutzer > der Benutzer > Bitratenlimit für Internet-Streaming, oder Dashboard > Wiedergabe > Streaming. Frag DAI „warum wird transkodiert?“: Es liest die Gründe des Servers (ContainerBitrateExceedsLimit ist eine Bitratengrenze).";
+      vi = "Jellyfin trên máy này phát tệp nguyên bản (phát trực tiếp): mpv phát được gần như mọi thứ, và nixbook bỏ giới hạn 10 Mbit/s của jellyfin-mpv-shim cho máy chủ không nằm trong mạng nội bộ (sau địa chỉ công khai, reverse proxy hay VPN), giới hạn khiến máy chủ chuyển mã phần lớn tệp 1080p và mọi tệp 4K. Giới hạn vẫn có thể đến từ Cài đặt > Ứng dụng & tài khoản > Jellyfin (Streaming limit away from home, 0 = không giới hạn) hoặc từ máy chủ: Bảng điều khiển > Người dùng > người dùng đó > Giới hạn bitrate phát trực tuyến qua Internet, hoặc Bảng điều khiển > Phát lại > Phát trực tuyến. Hỏi DAI \"sao lại chuyển mã?\": nó đọc lý do của máy chủ (ContainerBitrateExceedsLimit là giới hạn bitrate).";
     };
     keepSync = {
       en = "To sync your notes with Google Keep, open the Notes window and click Keep (next to New): give it your Google account's email and its master token (the button beside the field opens gpsoauth's alternative flow, which explains how to get one). The two are kept in the keyring, never in the notes nor in the settings. What you change in the shell is pushed to Keep, what changes in Keep comes back (when both changed, the newer one wins); deletions are not synced: a note deleted in one place stays in the other. The shell syncs every keep.refreshMinutes (15) when keep.enable is on, and Sync now syncs at once. Settings > Apps & accounts > Google Keep has the interval and the two directions (keep.push sends the shell's new notes to Keep, keep.pull brings Keep's new notes in). Google has no public Keep API, so this goes through an unofficial client (gkeepapi).";
@@ -1012,61 +1030,23 @@ in
         switches in Settings > Sound, on by default): yours for the others
         (a speech equalizer, a compressor and a limiter before call apps
         record you), and theirs for you (a "Call voices" output with the
-        same three, where the apps of `echoCancel.callApps` play).
+        same three, where the call apps play: `settings.audio.calls.apps`
+        and `.sites`, also in that menu).
       '';
     };
+    # Renamed to shell settings (editable in the menu too): forwarded, with a
+    # warning (see `renamedToSettings` below).
     echoCancel.callApps = lib.mkOption {
-      type = lib.types.listOf (lib.types.strMatching "[A-Za-z0-9 ._-]+");
-      default = [
-        "vesktop"
-        "discord"
-        "webcord"
-        "slack"
-        "zoom"
-        "teams"
-        "element"
-        "signal"
-        "telegram"
-        "whatsapp"
-        "skype"
-        "jitsi"
-        "mumble"
-        "teamspeak"
-      ];
-      description = ''
-        Call apps: an app whose name or program name contains one of these
-        words (any case) plays on "Call voices" (the unit's listening stage:
-        quiet speakers brought up, speech made clearer) while it runs, and
-        straight on the default output otherwise; never through EasyEffects,
-        whose music equalizer isn't made for voices. Done by a PipeWire
-        stream rule (`pipewire/pipewire-pulse.conf.d` and `client.conf.d`
-        in the user's configuration: the target "Call voices", and
-        `node.dont-move` so EasyEffects can't take the stream back), read
-        when the sound server and each app start: a change applies from the
-        next login. Empty: no rule for apps. Calls in a web browser:
-        `echoCancel.callSites`.
-      '';
+      type = lib.types.nullOr (lib.types.listOf (lib.types.strMatching "[A-Za-z0-9 ._-]+"));
+      default = null;
+      visible = false;
+      description = "Renamed: `settings.audio.calls.apps`.";
     };
     echoCancel.callSites = lib.mkOption {
-      type = lib.types.listOf (lib.types.strMatching ''[^"\\]+'');
-      default = [
-        "Meet( (-|–|—) .*)?"
-        "Google Meet.*"
-        ".* [|] Jitsi Meet"
-        ".* [|] Microsoft Teams"
-      ];
-      description = ''
-        Calls in a web browser: a tab whose whole title matches one of these
-        (POSIX extended regular expressions, no `"` nor `\`: `[|]` for a
-        literal `|`) plays on "Call voices" like a call app
-        (`echoCancel.callApps`), by the same stream rule. In Firefox and the
-        browsers built on it (Zen, LibreWolf, Floorp…), which name each
-        tab's sound after the tab's title; decided when the tab's sound
-        starts. Other tabs (a video, music) aren't touched. Not in Chromium
-        browsers, which give every tab's sound the same name. The default:
-        Google Meet ("Meet", "Meet – the-code"), Jitsi Meet and Microsoft
-        Teams. Empty: no rule for browsers.
-      '';
+      type = lib.types.nullOr (lib.types.listOf (lib.types.strMatching ''[^"\\]+''));
+      default = null;
+      visible = false;
+      description = "Renamed: `settings.audio.calls.sites`.";
     };
 
     accounts.googleClient = lib.mkOption {
@@ -1094,15 +1074,10 @@ in
     };
 
     splash.enable = lib.mkOption {
-      type = lib.types.bool;
-      default = true;
-      description = ''
-        Show the shell's loading screen from the moment the session starts
-        (`nixbook-shell splash`, the `nixbook-shell-splash` user service),
-        until the shell has loaded and its own loading screen takes over: no
-        black screen or half-drawn desktop between the login screen and the
-        shell.
-      '';
+      type = lib.types.nullOr lib.types.bool;
+      default = null;
+      visible = false;
+      description = "Renamed: `settings.appearance.loadingScreen.early`.";
     };
 
     # "The shell's palette": the one it shows, the wallpaper's or a theme
@@ -1123,86 +1098,36 @@ in
 
     desktopMcp = {
       settings = lib.mkOption {
-        type = lib.types.submodule {
-          freeformType = (pkgs.formats.json { }).type;
-          options.tools = lib.mkOption {
-            type = lib.types.listOf (
-              lib.types.enum [
-                "observe"
-                "screen"
-                "windows"
-                "input"
-                "shell"
-                "memory"
-                "personal"
-                "ui"
-                "pages"
-                # The name of `pages` before: read as it.
-                "browser"
-              ]
-            );
-            default = [
-              "observe"
-              "screen"
-              "windows"
-              "input"
-              "shell"
-              "memory"
-              "personal"
-              "ui"
-              "pages"
-            ];
-            description = ''
-              Tool groups AI agents get: `observe` (windows, workspaces,
-              apps), `screen` (screenshots, reading the clipboard and the
-              recent notifications), `windows`
-              (focus, move, close, launch apps), `input` (keyboard, pointer,
-              writing the clipboard), `shell` (the shell's IPC, notifications),
-              `memory` (notes agents keep about this desktop, and the digest of
-              it they get when they connect), `personal` (what you tell
-              agents about your life, remembered across conversations: an
-              entry per subject, only the relevant part sent), `ui` (any app's window as text
-              through its accessibility tree, and acting on its elements;
-              needs the accessibility bus, nixbook's `niri.accessibility`;
-              Firefox-based and Chromium/Electron apps through
-              `desktopMcp.browserAccessibility`, on by default; Electron apps
-              also need `--force-renderer-accessibility`: nixbook wraps its own,
-              nixbookShellConfig.electronAccessibility), `pages` (web pages
-              through the page itself: Zen's tabs, with nixbook's extension, and
-              the Electron apps started through `nixbook-electron-app`, e.g.
-              Vesktop, Slack, YouTube Music; read, click, type, forms, in the
-              background, without the pointer or keys; Discord's messages
-              through its own client too (find, read, send, react); sending a
-              message, reacting, or a click or Enter that sends or pays is
-              asked first (a notification with Allow / No);
-              `browser.blockedSites` / `browser.blockedContainers` and
-              `pages.blockedApps` are off limits, by default password managers,
-              Google account and payment sites, banks and the Banking container,
-              and password manager apps are never bridged; `browser`, its name
-              before, means the same).
-            '';
-          };
-        };
+        type = (pkgs.formats.json { }).type;
         default = { };
         example = lib.literalExpression ''
           {
-            tools = [ "observe" "windows" ];
-            actionsPerMinute = 60;
             inputDenyApps = [ "^org\\.gnome\\.Nautilus$" ];
+            browser.blockedSites = [ "://([^/]*\\.)?mybank\\." ];
           }
         '';
         description = ''
-          Settings of `nixbook-desktop-mcp`, the desktop control MCP server
-          AI agents (Claude Code, opencode, the shell's AI chat…) use to see
-          and drive the desktop, written to
-          `~/.config/nixbook-shell/desktop-mcp.json`. Other keys:
+          The safety rules of `nixbook-desktop-mcp`, the desktop control MCP
+          server AI agents (Claude Code, opencode, the shell's AI chat…) use
+          to see and drive the desktop, written to
+          `~/.config/nixbook-shell/desktop-mcp.json`: Nix-only on purpose, so
+          nothing that changes the shell's settings can loosen them.
           `inputDenyApps`, `inputDenyTitles` (regexes: no keyboard or pointer
           input into those windows; set to replace the defaults, which cover
           terminals, password managers and password prompts),
           `shellIpcDenyTargets`, `allowSuperKey`, `maxTextLength` (typed text and
-          tasks), `maxNoteLength` (a note),
-          `actionsPerMinute`, `notifyOnControl`, `screenshotMaxEdge`,
-          `ocrLanguages` (read_screen's tesseract languages, e.g. `eng+fra`).
+          tasks), `maxNoteLength` (a note), `notifyOnControl` (the default of
+          the menu's "Notify when an agent starts driving the desktop"),
+          `browser.blockedSites` / `browser.blockedContainers`,
+          `pages.blockedApps`, `habitsIgnoreApps`, `habitsIgnoreTitles`,
+          `habitsMusicIgnorePlayers`, `privateIgnoreApps`, `privateIgnoreTitles`.
+
+          The agents' preferences are shell settings instead, editable in
+          Settings > AI assistant or set here in `settings.ai.agents` (then
+          locked in the menu): the tool groups (`tools`: observe, screen,
+          windows, input, shell, memory, personal, ui, pages),
+          `askBeforeSending`, `actionsPerMinute`, the screenshots, OCR
+          languages, memory, initiative, routine and habits limits.
           `nixbook-desktop-mcp config` prints the effective settings.
         '';
       };
@@ -1249,15 +1174,15 @@ in
         nothing while locked, while an agent acts, for password managers or
         private browser windows). The launcher ranks apps with it, a weekly
         report sums it up, a theme switched at the same hour is suggested
-        then, and agents get a short summary. Tune it with the
-        `desktopMcp.settings` keys `habitsKeepDays` (28), `habitsAgents`
-        (`digest`, `timeline` or `off`), `habitsTheme` (`suggest`, `auto` or
-        `off`), `habitsWeeklyReport`, `habitsOpenAtUsualTime` (desktop ids
-        opened at their usual time), `habitsIgnoreApps` and
-        `habitsIgnoreTitles`. The music every player plays (MPRIS: artist,
-        title, album, played or skipped) teaches agents the user's taste:
-        `habitsMusic` (true), `habitsMusicKeepDays` (365),
-        `habitsMusicIgnorePlayers` (regexes; default: web browsers)'';
+        then, and agents get a short summary. Tune it in Settings > Memory >
+        Usage habits, or `settings.ai.agents`: `habitsKeepDays` (28),
+        `habitsAgents` (`digest`, `timeline` or `off`), `habitsTheme`
+        (`suggest`, `auto` or `off`), `habitsWeeklyReport`,
+        `habitsOpenAtUsualTime` (desktop ids opened at their usual time),
+        `habitsMusic` (the music every player plays teaches agents the
+        user's taste), `habitsMusicKeepDays` (365); what is never recorded:
+        `desktopMcp.settings` `habitsIgnoreApps`, `habitsIgnoreTitles`,
+        `habitsMusicIgnorePlayers`'';
     };
 
     electronBridge.apps = lib.mkOption {
@@ -1525,12 +1450,33 @@ in
             key:
             "programs.nixbook-shell.settings.${key} was removed (it did nothing) and is ignored: remove it."
           ) (settingsLib.removedKeysSet cfg.settings)
+          ++ lib.concatMap (
+            r:
+            lib.optional (r.value != null)
+              "programs.nixbook-shell.${r.from} is now the shell setting `settings.${r.to}` (also editable in the Settings menu while not set in Nix): set that instead."
+          ) renamedToSettings
           ++ lib.optional (cfg.settings.appearance.persona.enable != null) ''
             programs.nixbook-shell.settings.appearance.persona.enable is deprecated: use
             appearance.theme = "${
               if cfg.settings.appearance.persona.enable then "persona" else "material"
             }" (the themes are in nixbook-shell/src/modules/common/themes.json).
           '';
+
+        assertions = [
+          {
+            assertion = movedAgentKeys == [ ];
+            message = ''
+              programs.nixbook-shell.desktopMcp.settings sets ${lib.concatStringsSep ", " movedAgentKeys}:
+              the agents' preferences are shell settings now (Settings > AI assistant),
+              set in Nix as programs.nixbook-shell.settings.ai.agents.<key>.
+            '';
+          }
+        ];
+        programs.nixbook-shell.settings = lib.mkMerge (
+          map (
+            r: lib.mkIf (r.value != null) (lib.setAttrByPath (lib.splitString "." r.to) r.value)
+          ) renamedToSettings
+        );
 
         # Defaults one by one, so setting one answer keeps the others.
         programs.nixbook-shell.assistant.howTo = lib.mapAttrs (_: lib.mkDefault) defaultHowTo;
@@ -1558,15 +1504,6 @@ in
         # pinned leaf path. Drives the red lock icon and the disabled control in
         # the Settings menu (src/modules/common/NixManaged.qml).
         xdg.configFile."nixbook-shell/nix-managed.json".source = nixManagedFile;
-        # Call apps play on "Call voices" (scripts/echo-cancel.sh): the same
-        # rule for PulseAudio clients (Electron apps: read by pipewire-pulse)
-        # and for PipeWire's own.
-        xdg.configFile."pipewire/pipewire-pulse.conf.d/60-nixbook-call-voices.conf" = lib.mkIf (
-          cfg.echoCancel.enable && callVoicesMatches != [ ]
-        ) { text = callVoicesRule; };
-        xdg.configFile."pipewire/client.conf.d/60-nixbook-call-voices.conf" = lib.mkIf (
-          cfg.echoCancel.enable && callVoicesMatches != [ ]
-        ) { text = callVoicesRule; };
         xdg.configFile."nixbook-accounts/google-client.json" =
           lib.mkIf (cfg.accounts.googleClient != null)
             {
@@ -1603,12 +1540,10 @@ in
             { inherit (cfg.assistant) mcpServers; };
         # The ui tools: Firefox-based and Chromium/Electron apps publish their
         # accessibility tree only when asked to (GTK and Qt apps always do).
-        systemd.user.sessionVariables =
-          lib.mkIf (cfg.desktopMcp.browserAccessibility && lib.elem "ui" cfg.desktopMcp.settings.tools)
-            {
-              GNOME_ACCESSIBILITY = "1";
-              ACCESSIBILITY_ENABLED = "1";
-            };
+        systemd.user.sessionVariables = lib.mkIf cfg.desktopMcp.browserAccessibility {
+          GNOME_ACCESSIBILITY = "1";
+          ACCESSIBILITY_ENABLED = "1";
+        };
 
         # Launcher entry for the Settings window (nixbook-shell's own launcher, fuzzel…).
         xdg.desktopEntries.nixbook-shell-settings = {
@@ -1776,7 +1711,7 @@ in
         # Started before the shell (Before=): a small instance that is up well
         # before the shell's QML has loaded. It quits by itself once the shell's
         # BootSplash is on screen (the marker below), or after 20 s.
-        systemd.user.services.nixbook-shell-splash = lib.mkIf cfg.splash.enable {
+        systemd.user.services.nixbook-shell-splash = {
           Unit = {
             Description = "nixbook-shell loading screen (until the shell is up)";
             PartOf = [ "graphical-session.target" ];
@@ -1786,8 +1721,9 @@ in
           Service = {
             Type = "simple";
             # Only while the shell isn't up yet (session start), never when a
-            # switch (re)starts this unit under a running shell.
-            ExecCondition = "${pkgs.bash}/bin/bash -c '! ${pkgs.systemd}/bin/systemctl --user is-active --quiet nixbook-shell.service'";
+            # switch (re)starts this unit under a running shell; and unless
+            # the shell's setting appearance.loadingScreen.early is off.
+            ExecCondition = toString splashCondition;
             # A marker left by the previous shell start in this session.
             ExecStartPre = "${pkgs.coreutils}/bin/rm -f %t/nixbook-shell/boot-splash-shown";
             ExecStart = "${lib.getExe cfg.package} splash";

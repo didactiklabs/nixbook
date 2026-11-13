@@ -187,6 +187,52 @@ DEFAULT_CONFIG = {
 }
 
 TOOL_GROUPS = ["observe", "screen", "windows", "input", "shell", "memory", "personal", "ui", "pages"]
+
+# The agents' preferences, from the shell's settings (config.json, ai.agents:
+# Settings > AI assistant, or Nix through nixbookShellConfig.settings) over
+# desktop-mcp.json. Only these: the safety rules (input deny lists, blocked
+# sites and apps, refused IPC targets, text caps, privacy filters) are Nix's
+# alone, so nothing that can change the shell's settings can loosen them (the
+# `settings` IPC target is refused to agents anyway).
+SHELL_PREFERENCES = (
+    "tools", "askBeforeSending", "actionsPerMinute", "screenshotMaxEdge", "screenshotFormat",
+    "screenshotQuality", "ocrLanguages", "memoryPromptChars", "memoryMaxNotes", "memoryLearn",
+    "memoryModel", "personalPromptChars", "personalMaxEntries", "personalContacts",
+    "personalContactsAccount", "initiativeMaxPerDay", "initiativeGapMinutes", "initiativeQuietHours",
+    "initiativeCallsPerDay", "routineAgentPerDay", "routineModel", "habitsKeepDays", "habitsAgents",
+    "habitsWeeklyReport", "habitsTheme", "habitsOpenAtUsualTime", "habitsMusic", "habitsMusicKeepDays",
+)
+CHOICES = {"screenshotFormat": ("jpeg", "png"), "habitsAgents": ("digest", "timeline", "off"),
+           "habitsTheme": ("suggest", "auto", "off")}
+
+
+def shell_preferences():
+    """The shell's ai.agents values that are well formed ({} without the
+    shell's settings): the type of each one's default, a string list for a
+    list, a positive number, one of CHOICES."""
+    try:
+        with open(os.path.join(xdg("XDG_CONFIG_HOME", "~/.config"), "nixbook-shell", "config.json"),
+                  encoding="utf-8") as f:
+            prefs = json.load(f)["ai"]["agents"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+    if not isinstance(prefs, dict):
+        return {}
+    out = {}
+    for key in SHELL_PREFERENCES:
+        value, default = prefs.get(key), DEFAULT_CONFIG.get(key)
+        if isinstance(default, bool):
+            ok = isinstance(value, bool)
+        elif isinstance(default, int):
+            ok = isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0
+            value = int(value) if ok else value
+        elif isinstance(default, list):
+            ok = isinstance(value, list) and all(isinstance(v, str) for v in value)
+        else:
+            ok = isinstance(value, str) and (key not in CHOICES or value in CHOICES[key])
+        if ok:
+            out[key] = value
+    return out
 # Groups of other versions: the page tools were Zen's browser tools.
 RENAMED_GROUPS = {"browser": "pages"}
 
@@ -223,10 +269,10 @@ def read_config():
         if not isinstance(user, dict):
             raise ValueError("not a JSON object")
     except FileNotFoundError:
-        return cfg
+        user = {}
     except (OSError, ValueError) as e:
         log(f"ignoring {path}: {e}")
-        return cfg
+        user = {}
     for key, value in user.items():
         if key not in DEFAULT_CONFIG:
             log(f"{path}: unknown key {key!r}, ignored")
@@ -234,6 +280,7 @@ def read_config():
             cfg[key].update(value)
         else:
             cfg[key] = value
+    cfg.update(shell_preferences())
     if isinstance(cfg["tools"], list):
         cfg["tools"] = list(dict.fromkeys(RENAMED_GROUPS.get(g, g) for g in cfg["tools"]))
     cfg["tools"] = [g for g in cfg["tools"] if g in TOOL_GROUPS]

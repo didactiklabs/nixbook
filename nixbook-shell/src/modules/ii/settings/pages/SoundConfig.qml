@@ -340,7 +340,50 @@ ContentPage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
-                text: Translation.tr("While echo cancellation is on, and without AI. Mine: your voice is equalized for speech (less rumble and boxiness, more presence) and evened out, a quiet voice coming up, before call apps record it. The others': call apps (Discord, Slack, Zoom…) and call tabs of the browser (Google Meet…; echoCancel.callApps and callSites in the Nix configuration) play through \"Call voices\", the same treatment for listening with quiet speakers brought up, and never through the music equalizer. Changing a switch restarts echo cancellation: about a second without microphone.")
+                text: Translation.tr("While echo cancellation is on, and without AI. Mine: your voice is equalized for speech (less rumble and boxiness, more presence) and evened out, a quiet voice coming up, before call apps record it. The others': call apps and call tabs of the browser (below) play through \"Call voices\", the same treatment for listening with quiet speakers brought up, and never through the music equalizer. Changing a switch restarts echo cancellation: about a second without microphone.")
+            }
+
+            // services/EchoCancel.qml writes their PipeWire stream rule
+            // (`nixbook-echo-cancel call-rules`). Saved when editing ends.
+            ConfigTextArea {
+                id: callAppsField
+                configKey: "audio.calls.apps"
+                Layout.fillWidth: true
+                fieldWidth: 320
+                buttonIcon: "call"
+                text: Translation.tr("Call apps")
+                placeholderText: Translation.tr("e.g. vesktop, slack, zoom")
+                value: (Config.options.audio.calls.apps ?? []).join(", ")
+                Connections {
+                    target: callAppsField.textArea
+                    function onEditingFinished() {
+                        Config.options.audio.calls.apps = callAppsField.value.split(",")
+                            .map(f => f.trim()).filter(f => /^[A-Za-z0-9 ._-]+$/.test(f))
+                    }
+                }
+            }
+            ConfigTextArea {
+                id: callSitesField
+                configKey: "audio.calls.sites"
+                Layout.fillWidth: true
+                fieldWidth: 320
+                buttonIcon: "language"
+                text: Translation.tr("Call sites (tab titles)")
+                placeholderText: Translation.tr("e.g. Google Meet.*, .* [|] Jitsi Meet")
+                value: (Config.options.audio.calls.sites ?? []).join(", ")
+                Connections {
+                    target: callSitesField.textArea
+                    function onEditingFinished() {
+                        Config.options.audio.calls.sites = callSitesField.value.split(",")
+                            .map(f => f.trim()).filter(f => f.length > 0 && !/["\\]/.test(f))
+                    }
+                }
+            }
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Call apps: a word of the app's name, any case. Call sites: the whole title of a browser tab, as a regular expression (Zen and other Firefox-based browsers; [|] for a |). A change restarts the sound server: sound pauses for a moment.")
             }
         }
     }

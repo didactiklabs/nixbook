@@ -27,6 +27,7 @@
     },
     "jellyfin": {
       "apiKeyFile": "",
+      "maxBitrateMbps": 0,
       "url": "",
       "user": ""
     },
@@ -71,6 +72,46 @@
     "trust": {
       "enable": true
     },
+    "agents": {
+      "tools": [
+        "observe",
+        "screen",
+        "windows",
+        "input",
+        "shell",
+        "memory",
+        "personal",
+        "ui",
+        "pages"
+      ],
+      "askBeforeSending": true,
+      "actionsPerMinute": 120,
+      "screenshotMaxEdge": 1280,
+      "screenshotFormat": "jpeg",
+      "screenshotQuality": 80,
+      "ocrLanguages": "eng",
+      "memoryPromptChars": 1500,
+      "memoryMaxNotes": 100,
+      "memoryLearn": true,
+      "memoryModel": "haiku",
+      "personalPromptChars": 900,
+      "personalMaxEntries": 200,
+      "personalContacts": true,
+      "personalContactsAccount": "",
+      "initiativeMaxPerDay": 8,
+      "initiativeGapMinutes": 20,
+      "initiativeQuietHours": "22-8",
+      "initiativeCallsPerDay": 30,
+      "routineAgentPerDay": 20,
+      "routineModel": "haiku",
+      "habitsKeepDays": 28,
+      "habitsAgents": "digest",
+      "habitsWeeklyReport": true,
+      "habitsTheme": "suggest",
+      "habitsOpenAtUsualTime": [],
+      "habitsMusic": true,
+      "habitsMusicKeepDays": 365
+    },
     "improve": {
       "enable": false,
       "model": "sonnet",
@@ -93,6 +134,9 @@
     }
   },
   "appearance": {
+    "loadingScreen": {
+      "early": true
+    },
     "chiikawa": {
       "fonts": true,
       "mascot": true,
@@ -182,8 +226,30 @@
   },
   "audio": {
     "calls": {
+      "apps": [
+        "vesktop",
+        "discord",
+        "webcord",
+        "slack",
+        "zoom",
+        "teams",
+        "element",
+        "signal",
+        "telegram",
+        "whatsapp",
+        "skype",
+        "jitsi",
+        "mumble",
+        "teamspeak"
+      ],
       "clearMicrophone": true,
-      "clearVoices": true
+      "clearVoices": true,
+      "sites": [
+        "Meet( (-|–|—) .*)?",
+        "Google Meet.*",
+        ".* [|] Jitsi Meet",
+        ".* [|] Microsoft Teams"
+      ]
     },
     "protection": {
       "enable": false,

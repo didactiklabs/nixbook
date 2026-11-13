@@ -24,7 +24,7 @@ The greeter can't read your home directory, so a small service exports what it n
 
 ## Loading screen
 
-After login, the shell's **loading screen** covers the session from its first frame until the shell is fully drawn, then fades out: no black screen or half-drawn desktop in between (`programs.nixbook-shell.splash.enable`, on by default). It waits until rendering is smooth rather than a fixed delay, and desktop widgets fade in afterwards.
+After login, the shell's **loading screen** covers the session from its first frame until the shell is fully drawn, then fades out: no black screen or half-drawn desktop in between (on by default; Settings → Appearance → Loading screen, from the next login, or `appearance.loadingScreen.early` in the shell's Nix settings). It waits until rendering is smooth rather than a fixed delay, and desktop widgets fade in afterwards.
 
 ## Account picture
 

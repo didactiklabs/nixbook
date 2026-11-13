@@ -426,5 +426,23 @@ ContentPage {
                 }
             }
         }
+
+        // The nixbook-shell-splash user service reads it before it starts.
+        ContentSection {
+            icon: "hourglass_top"
+            shape: MaterialShape.Shape.Pill
+            title: Translation.tr("Loading screen")
+            ConfigSwitch {
+                configKey: "appearance.loadingScreen.early"
+                enabled: !nixManaged
+                buttonIcon: "login"
+                text: Translation.tr("Show the loading screen from the moment you log in, until the shell is up (from the next login)")
+                checked: Config.options.appearance.loadingScreen.early
+                onCheckedChanged: Config.options.appearance.loadingScreen.early = checked
+                StyledToolTip {
+                    text: Translation.tr("Off: the screen after the login screen stays the compositor's own colour, then the desktop draws itself, until the shell shows its own loading screen.")
+                }
+            }
+        }
     }
 }

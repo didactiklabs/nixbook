@@ -129,6 +129,13 @@ check(
 );
 check("YouTube-Links in mpv öffnen", howTos.youtubeLinks);
 check("mở liên kết youtube bằng mpv", howTos.youtubeLinks);
+check("how do I turn off the loading screen at login", howTos.loadingScreen);
+check("comment désactiver l'écran de chargement", howTos.loadingScreen);
+check("wie schalte ich den Ladebildschirm aus", howTos.loadingScreen);
+check("agent tools", howTos.agentTools);
+check("screenshot size for agents", howTos.agentTools);
+check("quels outils des agents puis-je couper", howTos.agentTools);
+check("Werkzeuge der Agenten", howTos.agentTools);
 check("how do I set a charge limit for the battery", howTos.batteryPanel);
 check("how do I stop charging at 80%", howTos.batteryPanel);
 check("how do I change the power profile", howTos.batteryPanel);

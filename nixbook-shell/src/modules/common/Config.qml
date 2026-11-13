@@ -371,6 +371,12 @@ Singleton {
                 property JsonObject jellyfin: JsonObject {
                     property string url: ""
                     property string user: ""
+                    // The most this computer's player (jellyfin-mpv-shim) streams
+                    // from a server it doesn't see on the local network, in
+                    // Mbit/s; more is transcoded by the server. 0: no limit (the
+                    // files played as they are). Written into the player's own
+                    // settings by `jellyfin-mcp shim-bitrate` (services/Jellyfin.qml).
+                    property int maxBitrateMbps: 0
                     property string apiKeyFile: ""
                 }
                 // The Seerr (Overseerr / Jellyseerr) the side panel's DAI can
@@ -479,6 +485,60 @@ Singleton {
                 property JsonObject trust: JsonObject {
                     property bool enable: true
                 }
+
+                // The desktop agents' preferences (nixbook-desktop-mcp: every
+                // agent, the side panel's DAI included), read by it from here
+                // first, then from desktop-mcp.json (Nix: its safety rules,
+                // which stay there) and its own defaults. Settings > AI
+                // assistant. Agents can't change them (the shell's `settings`
+                // IPC is refused to them).
+                property JsonObject agents: JsonObject {
+                    // The tool groups agents get: observe, screen, windows,
+                    // input, shell, memory, personal, ui, pages.
+                    property list<string> tools: ["observe", "screen", "windows", "input", "shell", "memory", "personal", "ui", "pages"]
+                    // What speaks, pays or deletes in your name waits for your yes.
+                    property bool askBeforeSending: true
+                    property int actionsPerMinute: 120
+                    // Screenshots sent to agents: the longest edge (pixels),
+                    // "jpeg" or "png", the JPEG quality.
+                    property int screenshotMaxEdge: 1280
+                    property string screenshotFormat: "jpeg"
+                    property int screenshotQuality: 80
+                    // read_screen's tesseract languages ("eng", "eng+fra"…).
+                    property string ocrLanguages: "eng"
+                    // Desktop memory: the digest sent when an agent connects
+                    // (characters), notes kept, the memory pass and its model.
+                    property int memoryPromptChars: 1500
+                    property int memoryMaxNotes: 100
+                    property bool memoryLearn: true
+                    property string memoryModel: "haiku"
+                    // Personal memory (what you told agents about your life).
+                    property int personalPromptChars: 900
+                    property int personalMaxEntries: 200
+                    property bool personalContacts: true
+                    property string personalContactsAccount: ""
+                    // When it speaks first: messages a day, minutes apart, the
+                    // quiet hours ("22-8"), small-model calls a day.
+                    property int initiativeMaxPerDay: 8
+                    property int initiativeGapMinutes: 20
+                    property string initiativeQuietHours: "22-8"
+                    property int initiativeCallsPerDay: 30
+                    // Routines that take judgment: Claude runs a day, model.
+                    property int routineAgentPerDay: 20
+                    property string routineModel: "haiku"
+                    // Usage habits (when on): days kept, what agents get
+                    // ("digest", "timeline", "off"), the weekly report, a
+                    // theme used at the same hour ("suggest", "auto", "off"),
+                    // apps opened at their usual time (desktop ids), music
+                    // taste and its days kept.
+                    property int habitsKeepDays: 28
+                    property string habitsAgents: "digest"
+                    property bool habitsWeeklyReport: true
+                    property string habitsTheme: "suggest"
+                    property list<string> habitsOpenAtUsualTime: []
+                    property bool habitsMusic: true
+                    property int habitsMusicKeepDays: 365
+                }
                 // The desktop agent fixing nixbook itself (services/SelfImprove.qml,
                 // nixbook-improve): fixes and polish only, each a PR with its
                 // changelog entry, merged when the user says so. Off until
@@ -517,6 +577,14 @@ Singleton {
             }
 
             property JsonObject appearance: JsonObject {
+                // The loading screen from the moment the session starts
+                // (`nixbook-shell splash`, the nixbook-shell-splash user
+                // service, which reads this before it starts) until the shell
+                // is up: no black screen or half-drawn desktop after the login
+                // screen. Takes effect at the next login.
+                property JsonObject loadingScreen: JsonObject {
+                    property bool early: true
+                }
                 // The theme (modules/common/themes.json, Themes.qml): "material"
                 // (wallpaper colours) | "persona" | … Each theme with variants
                 // has an object of its own below, named after its id, holding
@@ -634,6 +702,20 @@ Singleton {
                 property JsonObject calls: JsonObject {
                     property bool clearMicrophone: true
                     property bool clearVoices: true
+                    // Call apps: an app whose name or program name contains one
+                    // of these words (any case) plays on "Call voices" (with
+                    // echo cancellation), straight on the default output
+                    // otherwise; never through EasyEffects. Letters, digits,
+                    // spaces, ".", "_" and "-" only.
+                    property list<string> apps: ["vesktop", "discord", "webcord", "slack", "zoom", "teams", "element", "signal", "telegram", "whatsapp", "skype", "jitsi", "mumble", "teamspeak"]
+                    // Calls in a Firefox-family browser (Zen, LibreWolf…): a
+                    // tab whose whole title matches one of these (POSIX
+                    // extended regular expressions, no `"` nor `\`: `[|]` for
+                    // a literal `|`) plays on "Call voices" too.
+                    property list<string> sites: ["Meet( (-|–|—) .*)?", "Google Meet.*", ".* [|] Jitsi Meet", ".* [|] Microsoft Teams"]
+                    // Both are PipeWire stream rules (scripts/echo-cancel.sh
+                    // call-rules, run by services/EchoCancel.qml): a change
+                    // restarts the sound server (pipewire-pulse).
                 }
             }
 

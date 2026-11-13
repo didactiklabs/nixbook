@@ -1230,6 +1230,24 @@ out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
 expect_not_contains "digest: not sent with memory turned off" "$(jq -r .result.instructions <<<"$out")" "Desktop memory ("
 rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
 
+# The agents' preferences from the shell's settings (ai.agents) over
+# desktop-mcp.json; the safety rules from desktop-mcp.json only.
+echo '{"tools":["observe","windows","memory"],"actionsPerMinute":50,"inputDenyApps":["^nix-rule$"]}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+echo '{"ai":{"agents":{"tools":["observe","windows"],"actionsPerMinute":30,"screenshotFormat":"gif","habitsAgents":"timeline","askBeforeSending":"no","inputDenyApps":[],"memoryMaxNotes":true}}}' >"$XDG_CONFIG_HOME/nixbook-shell/config.json"
+cfg_out=$(python3 "$mcp" config)
+expect_eq "shell preferences: the tool groups from the shell's settings" '["observe","windows"]' "$(jq -c .tools <<<"$cfg_out")"
+expect_eq "shell preferences: a number" 30 "$(jq .actionsPerMinute <<<"$cfg_out")"
+expect_eq "shell preferences: a choice" timeline "$(jq -r .habitsAgents <<<"$cfg_out")"
+expect_eq "shell preferences: a value not among the choices ignored" jpeg "$(jq -r .screenshotFormat <<<"$cfg_out")"
+expect_eq "shell preferences: a value of the wrong type ignored" "true 100" "$(jq -r '"\(.askBeforeSending) \(.memoryMaxNotes)"' <<<"$cfg_out")"
+expect_eq "shell preferences: never a safety rule" '["^nix-rule$"]' "$(jq -c .inputDenyApps <<<"$cfg_out")"
+out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python3 "$mcp")
+expect_not_contains "shell preferences: memory off there, no digest" "$(jq -r .result.instructions <<<"$out")" "Desktop memory ("
+rm "$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
+cfg_out=$(python3 "$mcp" config)
+expect_eq "shell preferences: without desktop-mcp.json too" '["observe","windows"]' "$(jq -c .tools <<<"$cfg_out")"
+rm "$XDG_CONFIG_HOME/nixbook-shell/config.json"
+
 # Just in time: the notes about an app come with the action that reaches it, once a session.
 out=$(printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"focus_window","arguments":{"id":1}}}' \
