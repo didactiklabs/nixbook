@@ -207,6 +207,12 @@ Singleton {
     function videos(feed, count, cached, then) {
         root.run(["videos", feed, "--count", String(count), ...(cached ? ["--cached"] : [])], "", then);
     }
+    // Out of New (your subscriptions' videos not seen yet): marked seen.
+    function markVideosSeen(ids, then) {
+        const valid = (ids ?? []).filter(id => /^[A-Za-z0-9_-]{11}$/.test(String(id)));
+        if (!valid.length) return;
+        root.run(["videos", "seen", ...valid], "", then);
+    }
     // Only the latest search answers (as `search`).
     property int _videoSearchGen: 0
     function searchVideos(query, count, then) {
