@@ -56,7 +56,15 @@ friend's song with it.
                                        service)
   nixbook-ytmusic videos home|subscriptions [--count N] [--cached]
   nixbook-ytmusic videos search WORDS... [--count N]
-  nixbook-ytmusic videos channel URL|VIDEO [--count N]
+  nixbook-ytmusic videos channel URL|VIDEO [--tab latest|popular|shorts|live|playlists]
+                       [--query WORDS...] [--count N]
+                                       a channel's tab (latest: its Videos,
+                                       popular: its most viewed, shorts,
+                                       live: its streams, playlists: its
+                                       playlists {id, title, thumb}), or a
+                                       search in the channel (--query)
+  nixbook-ytmusic videos playlist ID [--count N]
+                                       a playlist's videos
   nixbook-ytmusic videos channels [--cached]
   nixbook-ytmusic videos video ID      one video (a pasted link): its title
                                        and channel, through YouTube's oEmbed
@@ -1242,6 +1250,19 @@ def subscribed_channel(e):
             "avatar": avatar if avatar.startswith("https://") else ""}
 
 
+def channel_playlist(e):
+    """A playlist of a channel's Playlists tab, or None."""
+    pid = str(e.get("id") or "")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{10,64}", pid) or e.get("ie_key") not in (None, "YoutubeTab"):
+        return None
+    pics = [t for t in (e.get("thumbnails") or []) if isinstance(t, dict) and str(t.get("url") or "").startswith("https://")]
+    return {"id": pid, "title": str(e.get("title") or ""), "count": int(e.get("playlist_count") or 0),
+            "thumb": str(max(pics, key=lambda t: t.get("width") or 0)["url"]) if pics else ""}
+
+
+CHANNEL_TABS = {"latest": "/videos", "shorts": "/shorts", "live": "/streams", "playlists": "/playlists"}
+
+
 def videos_copy_path(feed):
     return os.path.join(cache_dir(), f"videos-{feed}.json")
 
@@ -1376,9 +1397,35 @@ def cmd_videos(args):
         answer = {"feed": "channels", "channels": channels, "at": int(time.time())}
         write_private(videos_copy_path("channels"), answer)
         out(answer)
+    if feed == "playlist":
+        # A playlist's videos (a channel's Playlists tab), signed in or not.
+        pid = args[1] if len(args) > 1 else ""
+        if not re.fullmatch(r"[A-Za-z0-9_-]{10,64}", pid):
+            out({"error": "videos playlist: a playlist id"}, 1)
+        top = {}
+        items, error = run_video_feed(f"https://www.youtube.com/playlist?list={pid}", count, session(), top)
+        if error:
+            out({"error": f"YouTube didn't give this playlist: {error}"}, 1)
+        out({"feed": "playlist", "playlist": {"id": pid, "title": str(top.get("title") or ""),
+                                              "count": int(top.get("playlist_count") or 0)},
+             "items": items, "at": int(time.time())})
     if feed == "channel":
-        # A channel's latest videos, newest first (its Videos tab); signed
-        # in or not.
+        # A channel's tab (its latest videos by default, newest first), or a
+        # search in it; signed in or not.
+        tab = "latest"
+        if "--tab" in args:
+            i = args.index("--tab")
+            tab = args[i + 1] if i + 1 < len(args) else ""
+            args = args[:i] + args[i + 2:]
+        query = ""
+        if "--query" in args:
+            i = args.index("--query")
+            query = " ".join(args[i + 1:]).strip()[:200]
+            args = args[:i]
+            if not query:
+                out({"error": "videos channel --query: the words to search for"}, 1)
+        if tab not in CHANNEL_TABS and tab != "popular":
+            out({"error": "videos channel --tab: latest, popular, shorts, live or playlists"}, 1)
         url = (args[1] if len(args) > 1 else "").strip()
         # A video's id: its channel (a feed entry without the channel's link).
         if VIDEO_ID.match(url):
@@ -1390,16 +1437,37 @@ def cmd_videos(args):
             out({"error": "videos channel: a YouTube channel's link (youtube.com/channel/UC…, /@name…) or a video id"}, 1)
         page = m.group(0).replace("://m.", "://www.")
         top = {}
-        items, error = run_video_feed(page + "/videos", count, session(), top)
+        if query:
+            target = page + "/search?query=" + urllib.parse.quote(query)
+        elif tab == "popular":
+            # YouTube's own "Popular videos" list of the channel (UULP + the
+            # id: its videos by views); the id from its page when the link is
+            # an @name.
+            cid = (re.search(r"/channel/UC([A-Za-z0-9_-]{22})", page) or [None, ""])[1]
+            if not cid:
+                run_video_feed(page + "/videos", 1, session(), top)
+                cid = (re.search(r"/channel/UC([A-Za-z0-9_-]{22})", channel_url(top)) or [None, ""])[1]
+                if not cid:
+                    out({"error": "YouTube didn't say which channel that is"}, 1)
+            target = f"https://www.youtube.com/playlist?list=UULP{cid}"
+        else:
+            target = page + CHANNEL_TABS[tab]
+        parse = channel_playlist if tab == "playlists" and not query else None
+        list_top = {}
+        items, error = run_video_feed(target, count, session(), list_top, parse=parse)
         if error:
             out({"error": f"YouTube didn't give this channel's videos: {error}"}, 1)
-        page = channel_url(top) or page
-        name = str(top.get("channel") or top.get("uploader") or "")
-        for v in items:
-            v["channel"] = v["channel"] or name
-            v["channelUrl"] = v["channelUrl"] or page
-        out({"feed": "channel", "channel": {"name": name, "url": page,
-                                            "followers": int(top.get("channel_follower_count") or 0)},
+        # The channel's own name and link (the popular list is a playlist:
+        # its owner's).
+        top = top or list_top
+        page = channel_url(top) or channel_url(list_top) or page
+        name = str(top.get("channel") or top.get("uploader") or list_top.get("channel") or "")
+        if parse is None:
+            for v in items:
+                v["channel"] = v["channel"] or name
+                v["channelUrl"] = v["channelUrl"] or page
+        out({"feed": "channel", "tab": tab, "query": query,
+             "channel": {"name": name, "url": page, "followers": int(top.get("channel_follower_count") or 0)},
              "items": items, "at": int(time.time())})
     if feed == "search":
         query = " ".join(a for a in args[1:] if a != "--cached").strip()[:200]

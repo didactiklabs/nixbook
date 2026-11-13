@@ -253,10 +253,20 @@ Singleton {
     // A channel's latest videos, newest first (its link, or a video's id
     // when the feed didn't give the link): {channel: {name, url, followers},
     // items}; only the latest asked answers.
+    // `tab`: latest|popular|shorts|live|playlists; `query`: a search in it.
     property int _channelGen: 0
-    function channelVideos(urlOrVideo, count, then) {
+    function channelVideos(urlOrVideo, count, then, tab, query) {
         const gen = ++root._channelGen;
-        root.run(["videos", "channel", String(urlOrVideo), "--count", String(count)], "", (ok, answer) => {
+        const q = String(query ?? "").trim();
+        root.run(["videos", "channel", String(urlOrVideo), "--count", String(count), "--tab", tab || "latest",
+            ...(q !== "" ? ["--query", ...q.split(/\s+/)] : [])], "", (ok, answer) => {
+            if (gen === root._channelGen && then) then(ok, answer);
+        });
+    }
+    // A playlist's videos (a channel's Playlists tab); shares the channel's turn.
+    function playlistVideos(id, count, then) {
+        const gen = ++root._channelGen;
+        root.run(["videos", "playlist", String(id), "--count", String(count)], "", (ok, answer) => {
             if (gen === root._channelGen && then) then(ok, answer);
         });
     }

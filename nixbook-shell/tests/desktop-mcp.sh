@@ -3506,7 +3506,12 @@ expect_eq "youtube_videos subscriptions: the channels, no avatars" "Chan B null"
   "$(call youtube_videos '{"action":"subscriptions"}' | jq -r '.channels[0] | "\(.name) \(.avatar)"')"
 expect_eq "youtube_videos subscriptions: the channels list" "nixbook-ytmusic videos channels" "$(last_call)"
 call youtube_videos '{"action":"channel","channel":"https://www.youtube.com/@chan/","count":5}' >/dev/null
-expect_eq "youtube_videos channel: by its link" "nixbook-ytmusic videos channel https://www.youtube.com/@chan --count 5" "$(last_call)"
+expect_eq "youtube_videos channel: by its link" "nixbook-ytmusic videos channel https://www.youtube.com/@chan --count 5 --tab latest" "$(last_call)"
+call youtube_videos '{"action":"channel","channel":"https://www.youtube.com/@chan","tab":"popular","query":"arcane songs"}' >/dev/null
+expect_eq "youtube_videos channel: a tab, a search in it" "nixbook-ytmusic videos channel https://www.youtube.com/@chan --count 20 --tab popular --query arcane songs" "$(last_call)"
+expect_contains "youtube_videos channel: tabs checked" "$(call youtube_videos '{"action":"channel","channel":"https://www.youtube.com/@chan","tab":"trending"}')" "latest, popular"
+call youtube_videos '{"action":"playlist","playlist":"PLplaylist01"}' >/dev/null
+expect_eq "youtube_videos playlist: its videos" "nixbook-ytmusic videos playlist PLplaylist01 --count 20" "$(last_call)"
 expect_contains "youtube_videos channel: only a YouTube channel or a video id" \
   "$(call youtube_videos '{"action":"channel","channel":"https://evil.example/@chan"}')" "channel's link"
 call youtube_videos '{"action":"search","query":"lofi girl","count":3}' >/dev/null
