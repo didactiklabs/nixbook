@@ -1,12 +1,10 @@
 {
   config,
-  pkgs,
   lib,
   ...
 }:
 let
   cfg = config.customHomeManagerModules;
-  swaymsg = "${pkgs.swayfx}/bin/swaymsg";
 in
 {
   config = lib.mkIf cfg.swayConfig.enable {
@@ -15,17 +13,14 @@ in
     };
     wayland.windowManager.sway = {
       config.keybindings = lib.filterAttrsRecursive (name: value: value != null) { };
-      extraConfig = ''
-        # exec ${swaymsg} create_output HEADLESS-1
-        # exec ${swaymsg} output HEADLESS-1 pos 0 0 res 2560x1440@60Hz scale 1
-      '';
-      extraSessionCommands = ''
-        export WLR_BACKENDS="headless,libinput"
-        export PATH="$PATH:${pkgs.quickshell}/bin"
-        systemctl --user import-environment XDG_SESSION_TYPE XDG_CURRENT_DESKTOP PATH
-        dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP PATH
-        dbus-update-activation-environment --all
-      '';
+      # The headless backend (started by greetd, profiles/anya/default.nix)
+      # creates HEADLESS-1; it has no mode list, so sway sets this as a
+      # custom mode. This is the resolution Moonlight streams.
+      config.output."HEADLESS-1" = {
+        mode = "2560x1440@60Hz";
+        pos = "0 0";
+        scale = "1";
+      };
       config.window.commands = lib.mkForce [
         {
           command = "opacity 1.0, shadows enable, blur enable, blur_passes 5, blur_radius 6, corner_radius 10";
