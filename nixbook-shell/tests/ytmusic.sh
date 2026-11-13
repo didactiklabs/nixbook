@@ -520,6 +520,8 @@ expect "videos: home, each video once, channels and other sites out" \
   "$(yv home --count 500 | "$py" -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["items"], ensure_ascii=False))')"
 expect "videos: the session given as a cookie file, gone after; the count capped" "--playlist-end 150 :ytrec [cookies there] none left" \
   "$(tail -1 "$FEEDS_LOG" | grep -o -- '--playlist-end 150 :ytrec \[cookies there\]') $(ls "$tmp/run/nixbook-ytmusic"/videos-cookies-* >/dev/null 2>&1 && echo left || echo none left)"
+expect "videos: every list asks yt-dlp for each video's date (YouTube's \"3 days ago\")" "2" \
+  "$(grep -c -- '--extractor-args youtubetab:approximate_date' "$FEEDS_LOG")"
 expect "videos: --cached, the last copy at once (yt-dlp not asked)" "2 $(wc -l <"$FEEDS_LOG")" \
   "$(NIXBOOK_YTMUSIC_YT_DLP=/nonexistent ytm videos home --cached | "$py" -c 'import json,sys; print(len(json.load(sys.stdin)["items"]))') $(wc -l <"$FEEDS_LOG")"
 expect "videos: --cached without a copy, empty" '{"feed": "subscriptions", "items": [], "at": 0, "none": true}' \

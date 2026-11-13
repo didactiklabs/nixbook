@@ -1240,7 +1240,7 @@ def video_of(e):
             "channel": str(e.get("channel") or e.get("uploader") or ""), "channelUrl": channel_url(e),
             "channelId": cid if re.fullmatch(r"UC[A-Za-z0-9_-]{22}", cid) else "",
             # When it came out (approximate: YouTube's "3 days ago"), 0 when
-            # the list doesn't say (only the New feed asks for it).
+            # the list doesn't say (shorts).
             "published": int(e.get("timestamp") or 0),
             "duration": int(e.get("duration") or 0), "views": int(e.get("view_count") or 0),
             "live": live, "upcoming": e.get("live_status") == "is_upcoming",
@@ -1304,7 +1304,10 @@ def run_video_feed(target, count, cookie, top=None, parse=None, extra=()):
     entry read by `parse` (video_of); the list's own fields (a channel's
     name…) into `top` when given; `extra`: more yt-dlp arguments."""
     parse = parse or video_of
-    argv = [YT_DLP, "--flat-playlist", "-J", "--no-warnings", *extra, "--playlist-end", str(count), target]
+    # Each video's date from YouTube's "3 days ago" (no extra request: every
+    # list but shorts says it; the panel shows it, New keeps the last 30 days).
+    argv = [YT_DLP, "--flat-playlist", "-J", "--no-warnings", "--extractor-args", "youtubetab:approximate_date",
+            *extra, "--playlist-end", str(count), target]
     # The session as a cookie file only while yt-dlp reads it (one per run:
     # two feeds may be asked at once).
     cookies = write_cookies_file(cookie, f"videos-cookies-{os.getpid()}.txt") if cookie else None
@@ -1386,9 +1389,8 @@ def new_videos(count, cookie):
     """(videos, error, history error): the subscriptions' latest you haven't
     seen, newest first, `count` at most."""
     want = min(300, max(60, count * 2))
-    approx = ("--extractor-args", "youtubetab:approximate_date")
     with concurrent.futures.ThreadPoolExecutor(2) as pool:
-        subs = pool.submit(run_video_feed, ":ytsubs", want, cookie, extra=approx)
+        subs = pool.submit(run_video_feed, ":ytsubs", want, cookie)
         history = pool.submit(run_video_feed, ":ythis", NEW_HISTORY, cookie)
         items, error = subs.result()
         watched, history_error = history.result()
