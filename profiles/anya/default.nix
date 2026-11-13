@@ -57,7 +57,18 @@ in
       enable = true;
       settings = rec {
         initial_session = {
-          command = "${pkgs.swayfx}/bin/sway";
+          # Headless: no display is plugged in, the desktop is reached with
+          # Moonlight through Sunshine. wlroots' headless backend gives sway a
+          # virtual output (HEADLESS-1, sized in khoa/swayConfig.nix) still
+          # rendered on the GPU's render node; libinput keeps local input.
+          # Set here, not in Home Manager's extraSessionCommands: greetd runs
+          # this, not HM's wrapper, and an explicit sway `package` makes HM
+          # drop extraSessionCommands anyway.
+          command = "${pkgs.writeShellScript "sway-headless" ''
+            export WLR_BACKENDS=headless,libinput
+            export WLR_HEADLESS_OUTPUTS=1
+            exec ${pkgs.swayfx}/bin/sway
+          ''}";
           user = "khoa";
         };
         default_session = initial_session;
