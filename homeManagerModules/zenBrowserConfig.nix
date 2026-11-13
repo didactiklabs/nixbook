@@ -10,16 +10,23 @@ let
   # nixbook-shell's desktop agents in Zen (nixbookShellConfig.zenAgent).
   agent = shell.enable && shell.zenAgent.enable;
   zenAgent = config.programs.nixbook-shell.package.passthru.zenAgent;
+  # YouTube links opened by the shell (nixbookShellConfig.youtubeLinks): an
+  # extension for Zen, the shell asked first by the router for other apps.
+  youtubeLinks = shell.enable && shell.youtubeLinks.enable;
+  ytLinks = config.programs.nixbook-shell.package.passthru.youtubeLinks;
 
   # Links opened in apps (openInApps): a router for xdg-open's http(s)
   # links, and a Zen extension + native host for the links clicked in Zen.
   openInApps = cfg.zenBrowserConfig.openInApps;
   openHosts = lib.attrNames openInApps;
+  # The router stands in for Zen as the http(s) handler when either needs it.
+  routed = openInApps != { } || youtubeLinks;
   zenExe = lib.getExe' config.programs.zen-browser.finalPackage "zen-twilight";
   router = pkgs.writeShellScriptBin "nixbook-open-url" ''
-    # The http(s) link handler (xdg-open, $BROWSER): a link on one of
-    # zenBrowserConfig.openInApps' hosts goes to its app, anything else
-    # to Zen. The app is started detached (through niri when it can: a
+    # The http(s) link handler (xdg-open, $BROWSER): a YouTube video or
+    # YouTube Music song or playlist to the shell (nixbookShellConfig.youtubeLinks),
+    # a link on one of zenBrowserConfig.openInApps' hosts to its app,
+    # anything else to Zen. The app is started detached (through niri when it can: a
     # scope of its own), so this returns at once.
     url="''${1-}"
     host=""
@@ -32,6 +39,17 @@ let
         host=''${host,,}
         ;;
     esac
+    ${lib.optionalString youtubeLinks ''
+      # YouTube videos and YouTube Music songs and playlists: the shell
+      # (nixbookShellConfig.youtubeLinks), unless it can't take the link.
+      case "$host" in
+        youtube.com | www.youtube.com | m.youtube.com | music.youtube.com | youtu.be)
+          if [ "$#" -eq 1 ] && ${ytLinks.open}/bin/nixbook-youtube-link "$url"; then
+            exit 0
+          fi
+          ;;
+      esac
+    ''}
     app=""
     case "$host" in
     ${lib.concatStrings (
@@ -67,6 +85,7 @@ let
           background = {
             scripts = [
               "hosts.js"
+              "links.js"
               "background.js"
             ];
             persistent = true;
@@ -79,7 +98,7 @@ let
           ]
           ++ map (h: "*://${h}/*") openHosts;
         };
-        hosts = "const OPEN_IN_APPS = ${builtins.toJSON openHosts};\n";
+        hosts = "const OPEN_IN_APPS = ${builtins.toJSON openHosts};\nconst SHELL_YOUTUBE_LINKS = ${lib.boolToString youtubeLinks};\n";
         passAsFile = [
           "manifest"
           "hosts"
@@ -89,7 +108,8 @@ let
         cp $manifestPath manifest.json
         cp $hostsPath hosts.js
         cp ${./zenOpenInApps/background.js} background.js
-        zip -q -X -9 $out manifest.json hosts.js background.js
+        sed '/^\.pragma library/d' ${../nixbook-shell/src/modules/common/functions/youtube_links.js} > links.js
+        zip -q -X -9 $out manifest.json hosts.js links.js background.js
       '';
   openInAppsHost =
     let
@@ -174,6 +194,15 @@ in
           installation_mode = "force_installed";
           install_url = "file://${zenAgent.extension}";
           # In private windows too would let agents read them: not allowed.
+          private_browsing = false;
+        };
+        profiles."default".settings."xpinstall.signatures.required" = false;
+      })
+      (lib.mkIf youtubeLinks {
+        nativeMessagingHosts = [ ytLinks.host ];
+        policies.ExtensionSettings.${ytLinks.extensionId} = {
+          installation_mode = "force_installed";
+          install_url = "file://${ytLinks.extension}";
           private_browsing = false;
         };
         profiles."default".settings."xpinstall.signatures.required" = false;
@@ -497,18 +526,18 @@ in
         "x-scheme-handler/https" = "zen-twilight.desktop";
       }
       # Ahead of Zen: links to an app's host go to it, the rest to Zen.
-      (lib.mkIf (openInApps != { }) {
+      (lib.mkIf routed {
         "x-scheme-handler/http" = lib.mkBefore [ "nixbook-open-url.desktop" ];
         "x-scheme-handler/https" = lib.mkBefore [ "nixbook-open-url.desktop" ];
       })
     ];
     # Not an xdg.desktopEntries (that would put it in home.packages).
-    xdg.dataFile."applications/nixbook-open-url.desktop" = lib.mkIf (openInApps != { }) {
+    xdg.dataFile."applications/nixbook-open-url.desktop" = lib.mkIf routed {
       text = lib.generators.toINI { } {
         "Desktop Entry" = {
           Type = "Application";
           Name = "Open link";
-          Comment = "Opens a link in its app (zenBrowserConfig.openInApps), else in Zen";
+          Comment = "Opens a link in its app (zenBrowserConfig.openInApps) or the shell (YouTube), else in Zen";
           Exec = "${router}/bin/nixbook-open-url %u";
           MimeType = "x-scheme-handler/http;x-scheme-handler/https;";
           NoDisplay = true;
@@ -516,7 +545,7 @@ in
         };
       };
     };
-    home.sessionVariables = lib.mkIf (openInApps != { }) {
+    home.sessionVariables = lib.mkIf routed {
       BROWSER = lib.mkForce "${router}/bin/nixbook-open-url";
     };
   };

@@ -3,7 +3,8 @@
 // the app that opens it (the nixbook_open_in_app native host) and stopped
 // here: a click on a music.youtube.com link plays it in YouTube Music, not in
 // a tab. When the host can't (not installed, the app missing) the page loads
-// as usual.
+// as usual. With nixbookShellConfig.youtubeLinks, YouTube videos and YouTube
+// Music songs and playlists are left to the shell's extension.
 //
 // A load stopped by the extension leaves the tab where it was (no error page,
 // no history entry); a tab another tab opened for the link alone (a link
@@ -15,6 +16,10 @@ const HOSTS = new Set(OPEN_IN_APPS.map((h) => h.toLowerCase()));
 const BLANK = /^about:(blank|newtab|home|privatebrowsing)$/;
 
 function ours(url) {
+  // The shell's YouTube links (nixbookShellConfig.youtubeLinks: its own
+  // extension takes the videos, songs and playlists; linkTarget, links.js)
+  // aren't the app's.
+  if (SHELL_YOUTUBE_LINKS && linkTarget(url)) return false;
   try {
     return HOSTS.has(new URL(url).hostname.toLowerCase());
   } catch (e) {

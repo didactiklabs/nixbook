@@ -64,6 +64,9 @@ ShellRoot {
         // Echo cancellation: on again if it was (its quick toggle may not be
         // built), and resting while nothing records the microphone.
         EchoCancel.load()
+        // YouTube links opened by the shell (youtubeMusic openLink): its IPC
+        // target exists once the service is.
+        YouTubeMusic.load()
     }
     
     PanelFamilyLoader {

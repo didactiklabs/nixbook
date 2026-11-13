@@ -195,6 +195,53 @@ let
     }
     EOF
   '';
+  # YouTube links opened by the shell instead of the browser (nixbook's
+  # opt-in nixbookShellConfig.youtubeLinks): `nixbook-youtube-link URL` asks
+  # the running shell (YouTubeMusic.openLink: a video in mpv, a YouTube Music
+  # song or playlist in the background player, with the right panel's tabs)
+  # and exits 0 when it took the link, 1 otherwise (not running, not a video
+  # or song link): the caller then opens it in the browser. Used by the Zen
+  # extension below (its native host) and by nixbook's http(s) link router,
+  # so links opened by any app go the same way (`passthru.youtubeLinks`).
+  youtubeLink = pkgs.writeShellScriptBin "nixbook-youtube-link" ''
+    if [ "$#" -ne 1 ]; then
+      echo "usage: nixbook-youtube-link URL" >&2
+      exit 2
+    fi
+    answer=$(${pkgs.coreutils}/bin/timeout 5 ${quickshell}/bin/qs -c ${configName} \
+      ipc call youtubeMusic openLink "$1" 2>/dev/null) || exit 1
+    case "$answer" in
+      ok*) exit 0 ;;
+      *) exit 1 ;;
+    esac
+  '';
+  youtubeLinksId = "youtube-links@nixbook-shell";
+  # links.js: the shell's own youtube_links.js, without QML's pragma.
+  youtubeLinksExtension =
+    pkgs.runCommand "nixbook-youtube-links.xpi" { nativeBuildInputs = [ pkgs.zip ]; }
+      ''
+        cp ${./zen-youtube}/manifest.json ${./zen-youtube}/background.js ${./zen-youtube}/content.js .
+        sed '/^\.pragma library/d' ${./src/modules/common/functions/youtube_links.js} > links.js
+        zip -q -X -9 $out manifest.json links.js background.js content.js
+      '';
+  youtubeLinksHost =
+    let
+      exe = pkgs.writeShellScript "nixbook-youtube-links-host" ''
+        exec ${pkgs.python3}/bin/python3 -I ${./scripts/youtube-links-host.py} ${youtubeLink}/bin/nixbook-youtube-link "$@"
+      '';
+    in
+    pkgs.runCommand "nixbook-youtube-links-host" { } ''
+      mkdir -p $out/lib/mozilla/native-messaging-hosts
+      cat > $out/lib/mozilla/native-messaging-hosts/nixbook_youtube_links.json <<EOF
+      {
+        "name": "nixbook_youtube_links",
+        "description": "Hands YouTube video and YouTube Music links to nixbook-shell",
+        "path": "${exe}",
+        "type": "stdio",
+        "allowed_extensions": ["${youtubeLinksId}"]
+      }
+      EOF
+    '';
   # The same page tools in Electron apps: `nixbook-electron-app APP -- BINARY
   # ARGS…` starts the app with its DevTools protocol on a private pipe and
   # serves its fixed operations on $XDG_RUNTIME_DIR/nixbook-electron/APP.sock
@@ -415,6 +462,12 @@ launcher.overrideAttrs (old: {
       ytmusic
       electronBridge
       ;
+    youtubeLinks = {
+      extension = youtubeLinksExtension;
+      extensionId = youtubeLinksId;
+      host = youtubeLinksHost;
+      open = youtubeLink;
+    };
     zenAgent = {
       extension = zenExtension;
       extensionId = zenExtensionId;

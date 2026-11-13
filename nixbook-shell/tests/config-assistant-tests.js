@@ -117,6 +117,18 @@ check(
 check("wo sehe ich meine YouTube Abos", howTos.youtubeVideos);
 check("xem video youtube ở đâu", howTos.youtubeVideos);
 check("trình hiển thị nhạc không hiện", howTos.visualizer);
+check(
+  "how do I open youtube links in mpv instead of the browser",
+  howTos.youtubeLinks,
+);
+check("youtube links open in the shell", howTos.youtubeLinks);
+check("ouvrir les liens youtube dans mpv", howTos.youtubeLinks);
+check(
+  "wie öffne ich YouTube Links in mpv statt im Browser",
+  howTos.youtubeLinks,
+);
+check("YouTube-Links in mpv öffnen", howTos.youtubeLinks);
+check("mở liên kết youtube bằng mpv", howTos.youtubeLinks);
 check("how do I set a charge limit for the battery", howTos.batteryPanel);
 check("how do I stop charging at 80%", howTos.batteryPanel);
 check("how do I change the power profile", howTos.batteryPanel);

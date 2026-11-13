@@ -1,0 +1,38 @@
+{
+  "manifest_version": 2,
+  "name": "nixbook-shell YouTube links",
+  "version": "1.0",
+  "description": "Opens YouTube videos in mpv and YouTube Music songs and playlists in nixbook-shell's background player, with the right panel's tabs, instead of a tab.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "youtube-links@nixbook-shell",
+      "strict_min_version": "128.0"
+    }
+  },
+  "background": {
+    "scripts": ["links.js", "background.js"],
+    "persistent": true
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://youtube.com/*",
+        "*://www.youtube.com/*",
+        "*://m.youtube.com/*"
+      ],
+      "js": ["links.js", "content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "nativeMessaging",
+    "tabs",
+    "*://youtube.com/*",
+    "*://www.youtube.com/*",
+    "*://m.youtube.com/*",
+    "*://music.youtube.com/*",
+    "*://youtu.be/*"
+  ]
+}
