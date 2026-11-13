@@ -56,6 +56,13 @@ in
   ];
   # Radio naps between packets added late wake-ups to a steady 70 Mbit/s stream.
   networking.networkmanager.wifi.powersave = false;
+  # The other half of that 5-minute jitter: automatic-timezoned (core.nix)
+  # keeps a GeoClue client open, and GeoClue's Wi-Fi source scans every
+  # WIFI_SCAN_TIMEOUT_LOW_ACCURACY (300 s, re-armed after each scan) below
+  # street accuracy (gclue-wifi.c), taking the radio off channel. tzupdate
+  # finds the time zone from the public IP at boot and hourly, no scan.
+  services.automatic-timezoned.enable = lib.mkForce false;
+  services.tzupdate.enable = true;
   customNixOSModules = {
     # Panel Self Refresh back on for the OLED (idle battery), minus Selective
     # Update. If the amdgpu freezes return, set "off" (see core.amdgpuPsr).
