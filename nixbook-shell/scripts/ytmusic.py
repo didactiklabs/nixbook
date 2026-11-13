@@ -1653,7 +1653,11 @@ def cmd_watch(args):
     # isn't running).
     ask_player({"cmd": "control", "action": "pause"}, start=False, timeout=3)
     mpv = shutil.which("mpv") or MPV
-    argv = [mpv, f"--script-opts-append=ytdl_hook-ytdl_path={YT_DLP}", "--force-window=immediate"]
+    # Every format of the video is a track (mpv's all_formats), but not those
+    # yt-dlp gives no codec for (YouTube's HLS audio, 233/234): picked in the
+    # audio menu, they played silence.
+    argv = [mpv, f"--script-opts-append=ytdl_hook-ytdl_path={YT_DLP}",
+            "--script-opts-append=ytdl_hook-force_all_formats=no", "--force-window=immediate"]
     if start:
         argv.append(f"--start={start}")
     if volume is not None:
