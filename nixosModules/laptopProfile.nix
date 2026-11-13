@@ -1,11 +1,29 @@
 {
   config,
+  options,
   pkgs,
   lib,
   ...
 }:
 let
   cfg = config.customNixOSModules.laptopProfile;
+
+  # nixos-hardware's ASUS battery module (imported by its ASUS laptop
+  # profiles, totoro's um6702 among them) writes its own limit
+  # (hardware.asus.battery.chargeUpto, 100 by default) at boot and after
+  # each resume, at the same time as battery-charge-limit: whichever ended
+  # last won, and the limit chosen came back as 100 % after a reboot. This
+  # module takes that over: its unit is turned off and a chargeUpto set to
+  # something other than 100 is this module's default limit.
+  asusBattery = options.hardware ? asus && options.hardware.asus ? battery;
+  asusChargeUpto = if asusBattery then config.hardware.asus.battery.chargeUpto else 100;
+  defaultLimit =
+    if cfg.chargeLimit != null then
+      toString cfg.chargeLimit
+    else if asusChargeUpto != 100 then
+      toString asusChargeUpto
+    else
+      "";
 
   # Writes the charge limit to every battery that has one. `restore`: the
   # limit last chosen at run time, else chargeLimit, else nothing. A number:
@@ -16,7 +34,7 @@ let
     arg=''${1:-restore}
     if [ "$arg" = restore ]; then
       limit=$(cat "$state" 2>/dev/null || true)
-      [ -n "$limit" ] || limit=${if cfg.chargeLimit == null then "" else toString cfg.chargeLimit}
+      [ -n "$limit" ] || limit=${defaultLimit}
       if [ -z "$limit" ]; then
         echo "no charge limit set"
         exit 0
@@ -137,7 +155,10 @@ in
         computer) applies another one and remembers it across reboots
         (/var/lib/battery-charge-limit/limit; delete it to come back to this
         option). Applied at boot and after each resume: some firmwares forget
-        it.
+        it. On ASUS laptops using nixos-hardware's battery module, its
+        battery-charge-threshold unit is turned off (it wrote its own limit
+        at the same time) and a hardware.asus.battery.chargeUpto other than
+        100 is the default when this is null.
       '';
     };
   };
@@ -207,6 +228,10 @@ in
         Type = "oneshot";
         ExecStart = "${chargeLimitScript} restore";
       };
+    };
+    # Ours alone (see asusBattery).
+    systemd.services.battery-charge-threshold = lib.mkIf asusBattery {
+      enable = lib.mkForce false;
     };
     systemd.services."battery-charge-limit@" = {
       description = "Stop charging the battery at %i %%";
