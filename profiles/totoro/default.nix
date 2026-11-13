@@ -43,6 +43,19 @@ in
     };
   };
   services.xserver.videoDrivers = lib.mkForce [ "modesetting" ];
+  # Moonlight streaming over Wi-Fi had a jitter burst every 5 min 9 s: a
+  # background scan. NetworkManager gives wpa_supplicant bgscan
+  # "simple:30:-65:300" (every 300 s) once a connection has seen more than
+  # one BSSID, else "simple:30:-70:86400" (nm-supplicant-config.c); the home
+  # GL.iNet router changes its BSSID (28 recorded), so it counted as a
+  # multi-AP network. Forgetting the seen BSSIDs at each start leaves one per
+  # boot (they are recorded on connection only), while real multi-AP
+  # networks still collect several within a boot and keep roaming scans.
+  systemd.services.NetworkManager.serviceConfig.ExecStartPre = [
+    "-${pkgs.coreutils}/bin/rm -f /var/lib/NetworkManager/seen-bssids"
+  ];
+  # Radio naps between packets added late wake-ups to a steady 70 Mbit/s stream.
+  networking.networkmanager.wifi.powersave = false;
   customNixOSModules = {
     # Panel Self Refresh back on for the OLED (idle battery), minus Selective
     # Update. If the amdgpu freezes return, set "off" (see core.amdgpuPsr).
