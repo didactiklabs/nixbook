@@ -318,19 +318,25 @@ Singleton {
         return true;
     }
 
-    // A YouTube link opened anywhere on the machine (nixbook's opt-in
-    // nixbookShellConfig.youtubeLinks: clicked in Zen, through its
-    // extension zen-youtube/, or opened by an app, through the http(s) link
-    // router; both run `nixbook-youtube-link URL`): a video in mpv (the
-    // YouTube tab shows it), a YouTube Music song or playlist in the
-    // background player, the right panel opened on its YouTube Music tab.
-    // "" when taken, else why not (the link then opens in the browser).
+    // YouTube links opened by the shell instead of the browser, anywhere on
+    // the machine (media.youtubeLinks: off by default, Settings > Apps &
+    // accounts > YouTube links, or Nix): clicked in Zen (its extension
+    // zen-youtube/) or opened by an app (nixbook's http(s) link router);
+    // both run `nixbook-youtube-link URL`. A video plays in mpv (the YouTube
+    // tab shows it), a YouTube Music song or playlist in the background
+    // player, the right panel opened on its YouTube Music tab.
+    // "" when taken; "off: …" when the settings don't take that kind of
+    // link (Zen and the router then leave such links alone); else why not.
+    // Either way the link then opens in the browser or its app.
+    readonly property var linkChoice: {
+        const c = Config.options?.media?.youtubeLinks;
+        return { enable: c?.enable === true, videos: c?.videos !== false, music: c?.music !== false };
+    }
     function openLink(url) {
         const t = YouTubeLinks.linkTarget(url);
         if (!t) return "not a YouTube video, song or playlist link";
-        const choice = Config.options?.media?.youtubeLinks;
-        if (t.kind === "video" ? choice?.videos === false : choice?.music === false)
-            return "turned off in Settings > Apps & accounts > YouTube links";
+        if (!YouTubeLinks.wanted(t, root.linkChoice))
+            return "off: turned off in Settings > Apps & accounts > YouTube links";
         if (t.kind === "video") {
             if (!root.watch(t.id, t.start)) return "not a YouTube video id";
             // mpv's window is where it plays: the panel isn't opened over
@@ -354,25 +360,42 @@ Singleton {
                 else root._playSong(t, url);
             });
         } else root._playSong(t, url);
-        root._showTab("youtubeMusic", Config.options.sidebar.youtubeMusicTab, choice?.openPanel !== false);
+        root._showTab("youtubeMusic", Config.options.sidebar.youtubeMusicTab,
+            Config.options?.media?.youtubeLinks?.openPanel !== false);
         return "";
     }
-    // Whether this machine sends YouTube links here at all (its Zen
-    // extension and link router: hm-module.nix's youtubeLinks.enable, in
-    // youtube-links.json): Settings shows its switches only then.
-    property bool linksInstalled: false
+    // The choice as Zen's extension (through its native host, which watches
+    // this file) and the link router read it, so they know at once which
+    // links to bring here: $XDG_RUNTIME_DIR/nixbook-shell/youtube-links.json,
+    // replaced by rename. Written once the settings are read, and on change.
+    readonly property string linkChoiceFile: `${Directories.runtimeTemp}/youtube-links.json`
+    onLinkChoiceChanged: if (Config.ready) root._writeLinkChoice()
+    Connections {
+        target: Config
+        function onReadyChanged() {
+            if (Config.ready) root._writeLinkChoice();
+        }
+    }
+    function _writeLinkChoice() {
+        Quickshell.execDetached(["sh", "-c", 'mkdir -p -m 700 "${2%/*}" && printf "%s\\n" "$1" > "$2.tmp" && mv -f "$2.tmp" "$2"',
+            "sh", JSON.stringify(root.linkChoice), root.linkChoiceFile]);
+    }
+    // Whether something on this machine brings YouTube links here (Zen's
+    // extension, a link router: hm-module.nix's youtubeLinks.available, in
+    // youtube-links.json): Settings shows the switches only then.
+    property bool linksAvailable: false
     FileView {
         id: linksFile
         path: `${Quickshell.env("XDG_CONFIG_HOME") || `${Quickshell.env("HOME")}/.config`}/nixbook-shell/youtube-links.json`
         printErrors: false
         onLoaded: {
             try {
-                root.linksInstalled = JSON.parse(linksFile.text()).enable === true;
+                root.linksAvailable = JSON.parse(linksFile.text()).available === true;
             } catch (e) {
-                root.linksInstalled = false;
+                root.linksAvailable = false;
             }
         }
-        onLoadFailed: root.linksInstalled = false
+        onLoadFailed: root.linksAvailable = false
     }
     function _playSong(t, url) {
         root.playId(t.id, t.start, (ok, answer) => {
@@ -451,11 +474,13 @@ Singleton {
         function stop(): void { root.control("stop"); }
 
         // A YouTube link (a video, a YouTube Music song or playlist) opened by
-        // the shell instead of the browser: "ok: KIND", or "error: why"
-        // (`nixbook-youtube-link`, nixbook's opt-in youtubeLinks).
+        // the shell instead of the browser (`nixbook-youtube-link`,
+        // media.youtubeLinks): "ok: KIND", "off: why" (the settings don't
+        // take that kind of link), or "error: why".
         function openLink(url: string): string {
             const why = root.openLink(url);
-            return why === "" ? `ok: ${YouTubeLinks.linkTarget(url).kind}` : `error: ${why}`;
+            if (why === "") return `ok: ${YouTubeLinks.linkTarget(url).kind}`;
+            return why.startsWith("off: ") ? why : `error: ${why}`;
         }
         // YouTube videos in mpv, as the YouTube tab opens them (desktop-mcp's
         // youtube_videos): a video by its id, at the tab's volume.

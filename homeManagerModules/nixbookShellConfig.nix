@@ -240,34 +240,6 @@ in
     '';
   };
 
-  options.customHomeManagerModules.nixbookShellConfig.youtubeLinks.enable = lib.mkOption {
-    type = lib.types.bool;
-    default = false;
-    description = ''
-      Whether YouTube links open in the shell instead of a browser tab, on
-      the whole machine: a video (youtube.com/watch, /shorts, /live,
-      youtu.be) plays in mpv, its right panel YouTube tab showing it; a
-      YouTube Music song or playlist (music.youtube.com/watch, /playlist)
-      plays in the background player, the right panel opened on its
-      YouTube Music tab. Other YouTube pages (the home page, channels,
-      searches) open in the browser as usual, and so does a link when the
-      shell can't take it (not running; a playlist while YouTube Music
-      isn't signed in).
-
-      Needs `zenBrowserConfig`: in Zen, a force-installed extension
-      (nixbook-shell's zen-youtube/, with a native messaging host) takes
-      the links clicked or typed, including clicks inside YouTube's own
-      pages (private windows are left alone); for every other app (xdg-open,
-      `$BROWSER`) the http(s) link router (`nixbook-open-url`) asks the shell
-      first. Takes the place of `zenBrowserConfig.openInApps`' entry for
-      music.youtube.com for song and playlist links.
-
-      Each kind can be turned off from the shell itself (Settings > Apps &
-      accounts > YouTube links: videos, songs and playlists, opening the
-      right panel): those links then open in the browser or app as before.
-    '';
-  };
-
   options.customHomeManagerModules.nixbookShellConfig.electronAccessibility = lib.mkOption {
     type = lib.types.bool;
     default = config.programs.nixbook-shell.desktopMcp.browserAccessibility;
@@ -562,10 +534,11 @@ in
       appTheming.qt.enable = true;
 
       selfImprove.enable = cfg.selfImprove.enable;
-      # Its switches in Settings > Apps & accounts > YouTube links, where
-      # zenBrowserConfig sends the links here.
-      youtubeLinks.enable =
-        cfg.youtubeLinks.enable && config.customHomeManagerModules.zenBrowserConfig.enable;
+      # zenBrowserConfig brings YouTube links to the shell (its Zen
+      # extension, the link router): Settings > Apps & accounts > YouTube
+      # links shows the switches (media.youtubeLinks, off by default; set in
+      # `settings` to pin it).
+      youtubeLinks.available = config.customHomeManagerModules.zenBrowserConfig.enable;
 
       # The bridged Electron apps installed (lib/electronA11y.nix, in
       # desktopApps or a profile), watched by nixbook-electron-watch: one

@@ -1126,12 +1126,14 @@ Singleton {
             property JsonObject media: JsonObject {
                 // Attempt to remove dupes (the aggregator playerctl one and browsers' native ones when there's plasma browser integration)
                 property bool filterDuplicatePlayers: true
-                // YouTube links opened by the shell instead of the browser,
-                // where the machine sends them here (YouTubeMusic.openLink;
-                // nixbook's youtubeLinks): videos in mpv, YouTube Music songs
-                // and playlists in the background player; openPanel: the
-                // right panel opened on the YouTube Music tab for those.
+                // YouTube links opened by the shell instead of the browser, on
+                // the whole machine (YouTubeMusic.openLink; Zen's extension and
+                // nixbook's link router bring them): off until `enable`; then
+                // videos in mpv, YouTube Music songs and playlists in the
+                // background player; openPanel: the right panel opened on the
+                // YouTube Music tab for those.
                 property JsonObject youtubeLinks: JsonObject {
+                    property bool enable: false
                     property bool videos: true
                     property bool music: true
                     property bool openPanel: true

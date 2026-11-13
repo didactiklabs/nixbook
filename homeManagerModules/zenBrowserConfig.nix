@@ -10,9 +10,11 @@ let
   # nixbook-shell's desktop agents in Zen (nixbookShellConfig.zenAgent).
   agent = shell.enable && shell.zenAgent.enable;
   zenAgent = config.programs.nixbook-shell.package.passthru.zenAgent;
-  # YouTube links opened by the shell (nixbookShellConfig.youtubeLinks): an
+  # YouTube links opened by nixbook-shell (its setting media.youtubeLinks,
+  # off by default, from the menu or nixbookShellConfig.settings): an
   # extension for Zen, the shell asked first by the router for other apps.
-  youtubeLinks = shell.enable && shell.youtubeLinks.enable;
+  # Installed with the shell; they leave the links alone while it's off.
+  youtubeLinks = shell.enable;
   ytLinks = config.programs.nixbook-shell.package.passthru.youtubeLinks;
 
   # Links opened in apps (openInApps): a router for xdg-open's http(s)
@@ -24,7 +26,8 @@ let
   zenExe = lib.getExe' config.programs.zen-browser.finalPackage "zen-twilight";
   router = pkgs.writeShellScriptBin "nixbook-open-url" ''
     # The http(s) link handler (xdg-open, $BROWSER): a YouTube video or
-    # YouTube Music song or playlist to the shell (nixbookShellConfig.youtubeLinks),
+    # YouTube Music song or playlist to the shell (when its setting
+    # media.youtubeLinks takes it),
     # a link on one of zenBrowserConfig.openInApps' hosts to its app,
     # anything else to Zen. The app is started detached (through niri when it can: a
     # scope of its own), so this returns at once.
@@ -40,8 +43,9 @@ let
         ;;
     esac
     ${lib.optionalString youtubeLinks ''
-      # YouTube videos and YouTube Music songs and playlists: the shell
-      # (nixbookShellConfig.youtubeLinks), unless it can't take the link.
+      # YouTube videos and YouTube Music songs and playlists: the shell, when
+      # its setting media.youtubeLinks takes the link (an instant no while
+      # it's off).
       case "$host" in
         youtube.com | www.youtube.com | m.youtube.com | music.youtube.com | youtu.be)
           if [ "$#" -eq 1 ] && ${ytLinks.open}/bin/nixbook-youtube-link "$url"; then

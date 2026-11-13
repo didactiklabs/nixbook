@@ -11,4 +11,7 @@ Singleton {
     function linkTarget(url) {
         return Links.linkTarget(url)
     }
+    function wanted(target, choice) {
+        return Links.wanted(target, choice)
+    }
 }

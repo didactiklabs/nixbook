@@ -11,7 +11,9 @@ const src = fs
     "utf8",
   )
   .replace(/^\.pragma library/m, "");
-const m = new Function(src + "\nreturn { linkTarget, seconds, params }")();
+const m = new Function(
+  src + "\nreturn { linkTarget, wanted, seconds, params }",
+)();
 
 let failed = 0,
   passed = 0;
@@ -138,6 +140,37 @@ for (const url of [
 ]) {
   check(`browser: ${url}`, m.linkTarget(url), null);
 }
+
+// What the settings take (media.youtubeLinks as the shell writes it).
+const v = m.linkTarget(`https://youtu.be/${ID}`);
+const s = m.linkTarget(`https://music.youtube.com/watch?v=${ID}`);
+const pl = m.linkTarget("https://music.youtube.com/playlist?list=PLabc");
+const on = { enable: true, videos: true, music: true };
+check("wanted: on, video", m.wanted(v, on), true);
+check("wanted: on, song", m.wanted(s, on), true);
+check("wanted: on, playlist", m.wanted(pl, on), true);
+check(
+  "wanted: off",
+  m.wanted(v, { enable: false, videos: true, music: true }),
+  false,
+);
+check("wanted: no choice (no shell)", m.wanted(v, null), false);
+check(
+  "wanted: videos off",
+  m.wanted(v, { enable: true, videos: false, music: true }),
+  false,
+);
+check(
+  "wanted: videos off, song",
+  m.wanted(s, { enable: true, videos: false, music: true }),
+  true,
+);
+check(
+  "wanted: music off, playlist",
+  m.wanted(pl, { enable: true, videos: true, music: false }),
+  false,
+);
+check("wanted: not a link", m.wanted(null, on), false);
 
 check("seconds plain", m.seconds("75"), 75);
 check("seconds m/s", m.seconds("2m5s"), 125);
