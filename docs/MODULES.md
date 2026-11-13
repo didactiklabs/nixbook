@@ -707,10 +707,10 @@ Whether to enable per-user Niri compositor configuration. Manages the full Niri 
 
 ### `customHomeManagerModules.niriConfig.keepPlace.apps`
 
-- **Type:** `list of string`
-- **Default:** `["com.moonlight_stream.Moonlight"]`
+- **Type:** `attribute set of (submodule)`
+- **Default:** `{"com.moonlight_stream.Moonlight":{},"vesktop":{"titles":["Discord( \\\|\|$)"]}}`
 
-App ids whose windows niri should give their place back when the app replaces its window with a new one. Moonlight hides its window while a game streams and opens a stream window, then the reverse when the game ends; niri saw a new window each time and opened it at the default width, beside whatever had focus, on the focused workspace. The `niri-keep-place` user service follows niri's event stream: a window of one of these apps opening while another of the same app is open, or closed less than a minute ago, is moved to that window's workspace, made floating or tiled like it, given its size and put at its column (when it has the focus) or its floating position. An app launched afresh opens like any other window. `[ ]` turns the service off.
+Apps (by app id) whose new window opens where their last window was. niri opens every new window at the default width, beside whatever has focus, on the focused workspace; some apps replace their window with a new one: Moonlight hides its window while a game streams and opens a stream window, then the reverse when the game ends, and Vesktop shows a splash, then opens its main window, each start. The `niri-keep-place` user service follows niri's event stream: a new window of one of these apps (whose title matches `titles`, when set) goes to the place of the app's other open window, else of its last one, remembered across launches and reboots in `$XDG_STATE_HOME/niri-keep-place/places.json`: the same workspace (after a reboot, the same name, else the same index on the same monitor), floating or tiled like it, its size, and its column (when it has the focus: niri only moves the focused column) or floating position. `{ }` turns the service off.
 
 ---
 
