@@ -114,6 +114,8 @@ cmd_shell() {
   section "nixbook-shell listening along (is the player on the host's song)"
   bash nixbook-shell/tests/listen-along.sh || failed=1
   bash nixbook-shell/tests/mesh-welcome.sh || failed=1
+  section "nixbook-shell YouTube links (opened by the shell)"
+  bash nixbook-shell/tests/youtube-links.sh || failed=1
   section "nixbook-shell desktop control MCP server"
   bash nixbook-shell/tests/desktop-mcp.sh || failed=1
   section "nixbook-shell Kiroshi scan"

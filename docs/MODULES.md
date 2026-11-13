@@ -272,7 +272,7 @@ Whether to enable lanzaboote for UEFI Secure Boot. Lanzaboote replaces systemd-b
 - **Type:** `null or integer between 20 and 100 (both inclusive)`
 - **Default:** `null`
 
-Level (%) at which the battery stops charging, on laptops whose firmware has such a limit (`charge_control_end_threshold`: ASUS, Framework, ThinkPad…). A lithium battery kept at 100 % on the charger ages much faster than one kept at 80 %. null sets no limit. This is the limit a boot starts with until one is chosen at run time: `systemctl start battery-charge-limit@<percent>.service` (what nixbook-shell's battery panel does; no password for the person at the computer) applies another one and remembers it across reboots (/var/lib/battery-charge-limit/limit; delete it to come back to this option). Applied at boot and after each resume: some firmwares forget it.
+Level (%) at which the battery stops charging, on laptops whose firmware has such a limit (`charge_control_end_threshold`: ASUS, Framework, ThinkPad…). A lithium battery kept at 100 % on the charger ages much faster than one kept at 80 %. null sets no limit. This is the limit a boot starts with until one is chosen at run time: `systemctl start battery-charge-limit@<percent>.service` (what nixbook-shell's battery panel does; no password for the person at the computer) applies another one and remembers it across reboots (/var/lib/battery-charge-limit/limit; delete it to come back to this option). Applied at boot and after each resume: some firmwares forget it. On ASUS laptops using nixos-hardware's battery module, its battery-charge-threshold unit is turned off (it wrote its own limit at the same time) and a hardware.asus.battery.chargeUpto other than 100 is the default when this is null.
 
 ### `customNixOSModules.laptopProfile.cpuBoost`
 
@@ -811,6 +811,13 @@ Whether to enable the desktop agent fixing nixbook itself on this machine (progr
 - **Default:** `*none*`
 
 Alias of {option}`programs.nixbook-shell.settings`.
+
+### `customHomeManagerModules.nixbookShellConfig.youtubeLinks.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether YouTube links open in the shell instead of a browser tab, on the whole machine: a video (youtube.com/watch, /shorts, /live, youtu.be) plays in mpv, its right panel YouTube tab showing it; a YouTube Music song or playlist (music.youtube.com/watch, /playlist) plays in the background player, the right panel opened on its YouTube Music tab. Other YouTube pages (the home page, channels, searches) open in the browser as usual, and so does a link when the shell can't take it (not running; a playlist while YouTube Music isn't signed in). Needs `zenBrowserConfig`: in Zen, a force-installed extension (nixbook-shell's zen-youtube/, with a native messaging host) takes the links clicked or typed, including clicks inside YouTube's own pages (private windows are left alone); for every other app (xdg-open, `$BROWSER`) the http(s) link router (`nixbook-open-url`) asks the shell first. Takes the place of `zenBrowserConfig.openInApps`' entry for music.youtube.com for song and playlist links.
 
 ### `customHomeManagerModules.nixbookShellConfig.zenAgent.enable`
 

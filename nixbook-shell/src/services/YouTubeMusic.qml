@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 
 import qs
 import qs.modules.common
+import qs.modules.common.functions
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Mpris
@@ -38,6 +39,8 @@ Singleton {
         });
     }
     Component.onCompleted: root.refresh()
+    // Created at startup (shell.qml): links reach it before any tab is built.
+    function load() {}
 
     // The playlists ({id, title, count, author, thumb: a cached file}), Liked
     // Music first; kept so the tab shows them at once while it refreshes.
@@ -315,6 +318,61 @@ Singleton {
         return true;
     }
 
+    // A YouTube link opened anywhere on the machine (nixbook's opt-in
+    // nixbookShellConfig.youtubeLinks: clicked in Zen, through its
+    // extension zen-youtube/, or opened by an app, through the http(s) link
+    // router; both run `nixbook-youtube-link URL`): a video in mpv (the
+    // YouTube tab shows it), a YouTube Music song or playlist in the
+    // background player, the right panel opened on its YouTube Music tab.
+    // "" when taken, else why not (the link then opens in the browser).
+    function openLink(url) {
+        const t = YouTubeLinks.linkTarget(url);
+        if (!t) return "not a YouTube video, song or playlist link";
+        if (t.kind === "video") {
+            if (!root.watch(t.id, t.start)) return "not a YouTube video id";
+            // mpv's window is where it plays: the panel isn't opened over
+            // it, only set to the tab that shows the video.
+            root._showTab("youtube", Config.options.sidebar.youtubeTab, false);
+            return "";
+        }
+        if (t.kind === "playlist") {
+            if (!root.signedIn) return "YouTube Music isn't signed in here";
+            root.playlist(t.list, (ok, answer) => {
+                if (ok && (answer?.tracks ?? []).length) root.playTracks(answer.tracks, 0, false, t.list);
+                else root._linkFailed(url, answer?.error);
+            });
+        } else if (t.list !== "" && !/^RD/.test(t.list) && root.signedIn) {
+            // A song played from a playlist: that playlist, from the song
+            // (a radio, RD…, isn't a playlist that can be read).
+            root.playlist(t.list, (ok, answer) => {
+                const tracks = ok ? (answer?.tracks ?? []) : [];
+                const at = tracks.findIndex(x => x?.videoId === t.id);
+                if (at >= 0) root.playTracks(tracks, at, false, t.list);
+                else root._playSong(t, url);
+            });
+        } else root._playSong(t, url);
+        root._showTab("youtubeMusic", Config.options.sidebar.youtubeMusicTab, true);
+        return "";
+    }
+    function _playSong(t, url) {
+        root.playId(t.id, t.start, (ok, answer) => {
+            if (!ok) root._linkFailed(url, answer?.error);
+        });
+    }
+    // `open`: the panel opened on the tab, else the tab only chosen (seen
+    // when the panel is open or next opened).
+    function _showTab(type, shown, open) {
+        if (!shown) return;
+        if (open) GlobalStates.sidebarRightOpen = true;
+        // After the panel's own choice on opening (Notifications, when one
+        // arrived while it was closed): this is the tab asked for.
+        Qt.callLater(() => Persistent.states.sidebar.tab = type);
+    }
+    function _linkFailed(url, why) {
+        Quickshell.execDetached(["notify-send", "--app-name=YouTube Music", "--icon=audio-x-generic",
+            Translation.tr("Couldn't play that link"), `${why ? String(why) + "\n" : ""}${url}`]);
+    }
+
     // `nixbook-ytmusic ARGS`, `input` on stdin; then(ok, answer).
     function run(args, input, then) {
         runner.createObject(root, { input: input ?? "", then: then ?? null, command: [root.bin, ...args] });
@@ -372,6 +430,13 @@ Singleton {
         function previous(): void { root.control("previous"); }
         function stop(): void { root.control("stop"); }
 
+        // A YouTube link (a video, a YouTube Music song or playlist) opened by
+        // the shell instead of the browser: "ok: KIND", or "error: why"
+        // (`nixbook-youtube-link`, nixbook's opt-in youtubeLinks).
+        function openLink(url: string): string {
+            const why = root.openLink(url);
+            return why === "" ? `ok: ${YouTubeLinks.linkTarget(url).kind}` : `error: ${why}`;
+        }
         // YouTube videos in mpv, as the YouTube tab opens them (desktop-mcp's
         // youtube_videos): a video by its id, at the tab's volume.
         function watch(videoId: string): string {

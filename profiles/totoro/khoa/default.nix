@@ -95,8 +95,9 @@ in
     opencodeConfig.enable = true;
     zenBrowserConfig = {
       enable = true;
-      # YouTube Music links (clicked in Zen or opened by other apps) play in
-      # the app, Gmail's open in Meru.
+      # YouTube Music links (clicked in Zen or opened by other apps) open in
+      # the app (but songs and playlists: nixbookShellConfig.youtubeLinks),
+      # Gmail's open in Meru.
       openInApps = (pear-desktop.nixbookOpenLinks or { }) // (meru.nixbookOpenLinks or { });
     };
     rtk = {
@@ -112,6 +113,10 @@ in
       enable = true;
       # The desktop agent fixing nixbook by PR: this machine only, for now.
       selfImprove.enable = true;
+      # YouTube videos play in mpv, YouTube Music songs and playlists in the
+      # shell's background player (the right panel's tabs), from Zen and
+      # every other app; the rest of music.youtube.com still opens the app.
+      youtubeLinks.enable = true;
     };
     rbwConfig = {
       enable = true;
