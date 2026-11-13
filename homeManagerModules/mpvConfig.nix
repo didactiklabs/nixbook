@@ -88,6 +88,11 @@ in
           base = "CfL_Prediction.glsl";
           quality = cfg.desktopApps.mpvUpscaleQuality;
         };
+        # mpv's yt-dlp hook lists every format of a YouTube video as a track
+        # (all_formats, on by default), even those yt-dlp gives no codec for:
+        # YouTube's HLS audio ("233/234 - audio only (Default, …) (null)"),
+        # which play silence when picked. Only the ones with a codec.
+        scriptOpts.ytdl_hook.force_all_formats = "no";
         config = {
           # Hardware decoding (VA-API on AMD/Intel, NVDEC on NVIDIA) instead
           # of the CPU: far less power and heat for video. auto-safe only
