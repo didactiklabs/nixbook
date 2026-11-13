@@ -64,7 +64,7 @@ friend's song with it.
   nixbook-ytmusic videos seen ID...|--all
                                        out of New (--all: every one it shows)
   nixbook-ytmusic videos search WORDS... [--count N]
-  nixbook-ytmusic videos channel URL|VIDEO [--tab latest|sections|popular|shorts|live|playlists]
+  nixbook-ytmusic videos channel URL|VIDEO [--tab latest|popular|shorts|live|playlists]
                        [--query WORDS...] [--count N]
                                        a channel's tab (latest: its Videos,
                                        popular: its most viewed, shorts,
@@ -1273,20 +1273,7 @@ def channel_playlist(e):
             "thumb": str(max(pics, key=lambda t: t.get("width") or 0)["url"]) if pics else ""}
 
 
-def channel_section(e):
-    """A section of a channel's home page (its shelves: "Latest releases", a
-    series…), or None. yt-dlp gives each one as its playlist's link, without
-    a picture; shelves that aren't a playlist are left out."""
-    m = re.search(r"[?&]list=([A-Za-z0-9_-]{10,64})(?:&|$)", str(e.get("url") or ""))
-    title = str(e.get("title") or "").strip()
-    if not m or not title:
-        return None
-    return {"id": m.group(1), "title": title, "count": int(e.get("playlist_count") or 0), "thumb": ""}
-
-
-# sections: the channel's home page (/featured), its shelves as playlists.
-CHANNEL_TABS = {"latest": "/videos", "sections": "/featured", "shorts": "/shorts", "live": "/streams",
-                "playlists": "/playlists"}
+CHANNEL_TABS = {"latest": "/videos", "shorts": "/shorts", "live": "/streams", "playlists": "/playlists"}
 
 
 def videos_copy_path(feed):
@@ -1551,7 +1538,7 @@ def cmd_videos(args):
             if not query:
                 out({"error": "videos channel --query: the words to search for"}, 1)
         if tab not in CHANNEL_TABS and tab != "popular":
-            out({"error": "videos channel --tab: latest, sections, popular, shorts, live or playlists"}, 1)
+            out({"error": "videos channel --tab: latest, popular, shorts, live or playlists"}, 1)
         url = (args[1] if len(args) > 1 else "").strip()
         # A video's id: its channel (a feed entry without the channel's link).
         if VIDEO_ID.match(url):
@@ -1578,7 +1565,7 @@ def cmd_videos(args):
             target = f"https://www.youtube.com/playlist?list=UULP{cid}"
         else:
             target = page + CHANNEL_TABS[tab]
-        parse = None if query else channel_playlist if tab == "playlists" else channel_section if tab == "sections" else None
+        parse = channel_playlist if tab == "playlists" and not query else None
         list_top = {}
         items, error = run_video_feed(target, count, session(), list_top, parse=parse)
         if error:

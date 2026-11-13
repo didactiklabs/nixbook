@@ -30,8 +30,8 @@ import Quickshell.Widgets
  * MPRIS), which the next video starts at too. Hovering a video or a
  * channel shows a button copying its link (the playing video's: at its
  * current second); a channel's page subscribes to it or no longer, has its
- * tabs (Latest, Sections: its home page's shelves, Popular: its most
- * viewed, Shorts, Live, Playlists; a section or playlist opens its videos) and searches in the channel (the search
+ * tabs (Latest, Popular: its most viewed, Shorts, Live, Playlists, each
+ * playlist opening its videos) and searches in the channel (the search
  * field, while it is open).
  */
 Item {
@@ -53,17 +53,15 @@ Item {
         YouTubeMusic.setVideoVolume(value);
     }
 
-    // A channel: {key, name, url, followers, tab (latest|sections|popular|
-    // shorts|live|playlists; sections: its home page's shelves, each a
-    // playlist), query (a search in it), playlist ({id, title}: one of
+    // A channel: {key, name, url, followers, tab (latest|popular|shorts|
+    // live|playlists), query (a search in it), playlist ({id, title}: one of
     // its playlists open), items (the list shown), cache ({list: items})};
     // null for your pages.
     property var channel: null
     property bool channelLoading: false
     property string channelError: ""
     readonly property var channelTabs: [
-        { id: "latest", label: Translation.tr("Latest") }, { id: "sections", label: Translation.tr("Sections") },
-        { id: "popular", label: Translation.tr("Popular") },
+        { id: "latest", label: Translation.tr("Latest") }, { id: "popular", label: Translation.tr("Popular") },
         { id: "shorts", label: Translation.tr("Shorts") }, { id: "live", label: Translation.tr("Live") },
         { id: "playlists", label: Translation.tr("Playlists") }]
     function openChannel(video) {
@@ -314,7 +312,7 @@ Item {
     readonly property string view: root.pastedLink ? "search" : root.channel ? "channel" : root.inSearch ? "search" : root.feed
     // What the rows are: your channels, a channel's playlists, else videos.
     readonly property string rowKind: root.view === "subscriptions" ? "channel"
-        : root.view === "channel" && ["playlists", "sections"].includes(root.channel?.tab ?? "") && !root.channel?.playlist && (root.channel?.query ?? "") === "" ? "playlist" : "video"
+        : root.view === "channel" && root.channel?.tab === "playlists" && !root.channel?.playlist && (root.channel?.query ?? "") === "" ? "playlist" : "video"
     readonly property var shown: root.view === "search" ? (root.results?.items ?? [])
         : root.view === "channel" ? (root.channel?.items ?? [])
         : root.view === "subscriptions" ? (root.feeds.subscriptions?.channels ?? []) : (root.feeds[root.feed]?.items ?? [])
