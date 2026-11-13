@@ -15,11 +15,11 @@ in
     ./niriConfig.nix
   ];
   config = lib.mkIf (cfg.niriConfig.enable && cfg.niriConfig.keepPlace.apps != { }) {
-    # keep-place.py: a new window of these apps opens where the app's last
-    # window was (workspace, column or floating position, size).
+    # keep-place.py: a window these apps reopen gets the place of the one it
+    # replaces (workspace, column or floating position, size).
     systemd.user.services.niri-keep-place = {
       Unit = {
-        Description = "Open windows of ${lib.concatStringsSep ", " (lib.attrNames cfg.niriConfig.keepPlace.apps)} where they were, in niri";
+        Description = "Give reopened windows (${lib.concatStringsSep ", " (lib.attrNames cfg.niriConfig.keepPlace.apps)}) their place back in niri";
         PartOf = [ "graphical-session.target" ];
         After = [ "graphical-session.target" ];
         # niri imports NIRI_SOCKET into the user manager when it starts.
@@ -84,22 +84,21 @@ in
         vesktop.titles = [ "Discord( \\||$)" ];
       };
       description = ''
-        Apps (by app id) whose new window opens where their last window was.
-        niri opens every new window at the default width, beside whatever
-        has focus, on the focused workspace; some apps replace their window
-        with a new one: Moonlight hides its window while a game streams and
-        opens a stream window, then the reverse when the game ends, and
-        Vesktop shows a splash, then opens its main window, each start.
+        Apps (by app id) whose window niri should give its place back when
+        the app closes it and opens a new one. niri opens every new window
+        at the default width, beside whatever has focus, on the focused
+        workspace: Moonlight hides its window while a game streams and opens
+        a stream window, then the reverse when the game ends, and Vesktop
+        restarts itself (updates, the Electron bridge) through a splash.
 
         The `niri-keep-place` user service follows niri's event stream: a
         new window of one of these apps (whose title matches `titles`, when
-        set) goes to the place of the app's other open window, else of its
-        last one, remembered across launches and reboots in
-        `$XDG_STATE_HOME/niri-keep-place/places.json`: the same workspace
-        (after a reboot, the same name, else the same index on the same
-        monitor), floating or tiled like it, its size, and its column (when
-        it has the focus: niri only moves the focused column) or floating
-        position. `{ }` turns the service off.
+        set) opening while another of the app is open, or closed less than
+        30 s ago, goes to that window's workspace, floating or tiled like
+        it, its size, and its column (when it has the focus: niri only moves
+        the focused column) or floating position. Nothing is kept longer:
+        an app launched later opens like any other window. `{ }` turns the
+        service off.
       '';
     };
   };

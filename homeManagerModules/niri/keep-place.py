@@ -1,19 +1,20 @@
-"""niri-keep-place: open an app's window where its last window was.
+"""niri-keep-place: give a reopened window the place of the one it replaces.
 
-Some apps replace their window with a new one: Moonlight hides its window
-while a game streams and opens a stream window, then the reverse when the
-game ends; Vesktop shows a splash, closes it and opens its main window. niri
-sees a brand-new window each time and opens it at the default width, next to
-whatever has focus, on the focused workspace.
+Some apps close their window and open a new one in its place: Moonlight
+hides its window while a game streams and opens a stream window, then the
+reverse when the game ends; Vesktop quits and starts again on its own
+(updates, the Electron bridge). niri sees a brand-new window each time and
+opens it at the default width, next to whatever has focus, on the focused
+workspace.
 
-This follows niri's event stream and, when a window of a watched app opens,
-moves it to the place of that app's other open window, else of its last one
-(remembered across launches and reboots in $XDG_STATE_HOME): the same
-workspace, floating or tiled like it, its size, and its column (when it has
-the focus: niri only moves the focused column) or floating position. An
+This follows niri's event stream and, when a window of a watched app opens
+while another window of that app is open or closed less than GRACE seconds
+ago, moves it to that window's workspace, makes it floating or tiled like
+it, gives it its size, and puts it at its column (when it has the focus:
+niri only moves the focused column) or floating position. Nothing is kept
+longer, nor on disk: an app launched later opens like any other window. An
 app given titles only counts windows whose title matches one of them (its
-main window, not a splash or popouts): the others are neither moved nor
-remembered.
+main window, not a splash or popouts).
 
 Usage: niri-keep-place CONFIG.json
   CONFIG = {"apps": {"<app id>": {"titles": ["<regex>", ...]}, ...}}
@@ -22,14 +23,12 @@ Usage: niri-keep-place CONFIG.json
 import json
 import os
 import re
-import signal
 import socket
 import sys
-import threading
 import time
 
+GRACE = 30.0  # seconds a closed window's place is kept (Vesktop restarting)
 SETTLE = 0.4  # seconds for the client to take a new size before reading back
-SAVE_EVERY = 2.0  # seconds between writes of the remembered places
 
 
 def log(*args):
@@ -71,18 +70,9 @@ def size_of(w):
 
 
 def find_workspace(ref, workspaces):
-    """The remembered workspace: by id (same session), else by name, else
-    the same index on the same monitor (ids change when niri restarts)."""
-    if ref["workspace_id"] in workspaces:
-        return ref["workspace_id"]
-    where = ref.get("workspace") or {}
-    for ws in workspaces.values():
-        if where.get("name") and ws.get("name") == where["name"]:
-            return ws["id"]
-    for ws in workspaces.values():
-        if where.get("output") and ws.get("output") == where["output"] and ws.get("idx") == where.get("idx"):
-            return ws["id"]
-    return None
+    """The remembered workspace, if it still exists (niri removes an emptied
+    one when you're not on it)."""
+    return ref["workspace_id"] if ref["workspace_id"] in workspaces else None
 
 
 def restore(new_id, ref, workspaces):
@@ -154,55 +144,6 @@ def restore(new_id, ref, workspaces):
     log(f"{win['app_id']} window {new_id} ({win['title']!r}): {', '.join(what)}")
 
 
-class Places:
-    """The last place of each app's window, kept in a file."""
-
-    def __init__(self, path):
-        self.path = path
-        self.dirty = False
-        self.lock = threading.Lock()
-        try:
-            with open(path) as f:
-                self.last = json.load(f)
-        except (OSError, ValueError):
-            self.last = {}
-
-    def remember(self, w, workspaces):
-        w = json.loads(json.dumps(w))
-        ws = workspaces.get(w["workspace_id"])
-        if ws:
-            w["workspace"] = {"name": ws.get("name"), "output": ws.get("output"), "idx": ws.get("idx")}
-        with self.lock:
-            if self.last.get(w["app_id"]) != w:
-                self.last[w["app_id"]] = w
-                self.dirty = True
-
-    def save(self):
-        with self.lock:
-            if not self.dirty:
-                return
-            data = json.dumps(self.last)
-            self.dirty = False
-        try:
-            os.makedirs(os.path.dirname(self.path), exist_ok=True)
-            tmp = self.path + ".tmp"
-            with open(tmp, "w") as f:
-                f.write(data)
-            os.replace(tmp, self.path)
-        except OSError as e:
-            log(f"can't save {self.path}: {e}")
-
-    def save_every(self, seconds):
-        """Write what changed every few seconds (a resize sends many events)."""
-
-        def loop():
-            while True:
-                time.sleep(seconds)
-                self.save()
-
-        threading.Thread(target=loop, daemon=True).start()
-
-
 def main():
     if len(sys.argv) != 2 or not os.environ.get("NIRI_SOCKET"):
         log("usage: niri-keep-place CONFIG.json (inside a niri session)")
@@ -219,14 +160,7 @@ def main():
             return False
         return not rules or any(r.search(w.get("title") or "") for r in rules)
 
-    state = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
-    places = Places(os.path.join(state, "niri-keep-place", "places.json"))
-
-    def stop(*_):
-        places.save()
-        sys.exit(0)
-
-    signal.signal(signal.SIGTERM, stop)
+    closed = {}  # app_id -> (window, closed at)
     seen = {}  # id -> last known window of a watched app (title matching)
     placed = set()  # ids already given a place: never moved twice
     workspaces = {}
@@ -238,7 +172,6 @@ def main():
         if "Ok" not in json.loads(stream.readline()):
             log("niri refused the event stream")
             return 1
-        places.save_every(SAVE_EVERY)
         log(f"watching {', '.join(sorted(apps))}")
         for line in stream:
             event = json.loads(line)
@@ -247,8 +180,6 @@ def main():
             elif "WindowsChanged" in event:  # the full list, at start
                 seen = {w["id"]: w for w in event["WindowsChanged"]["windows"] if watched(w)}
                 placed = {w["id"] for w in event["WindowsChanged"]["windows"]}
-                for w in seen.values():
-                    places.remember(w, workspaces)
             elif "WindowOpenedOrChanged" in event:
                 w = event["WindowOpenedOrChanged"]["window"]
                 if not watched(w):
@@ -256,12 +187,15 @@ def main():
                 elif w["id"] in seen or w["id"] in placed:
                     # Known: follow it (a title that matches again isn't new).
                     seen[w["id"]] = w
-                    places.remember(w, workspaces)
                 else:
                     # New: the place of another window of the app still open
-                    # (the new one may come first), else the last remembered.
+                    # (the new one may come first), else of the one that
+                    # just closed.
                     others = [o for o in seen.values() if o["app_id"] == w["app_id"]]
-                    ref = max(others, key=focus_time, default=None) or places.last.get(w["app_id"])
+                    ref = max(others, key=focus_time, default=None)
+                    last, at = closed.get(w["app_id"], (None, 0.0))
+                    if ref is None and time.monotonic() - at < GRACE:
+                        ref = last
                     ref = json.loads(json.dumps(ref)) if ref else None
                     seen[w["id"]] = w
                     placed.add(w["id"])
@@ -270,17 +204,15 @@ def main():
                             restore(w["id"], ref, workspaces)
                         except (OSError, RuntimeError, KeyError, TypeError) as e:
                             log(f"window {w['id']}: {e}")
-                    else:
-                        places.remember(w, workspaces)
             elif "WindowLayoutsChanged" in event:
                 for wid, layout in event["WindowLayoutsChanged"]["changes"]:
                     if wid in seen:
                         seen[wid]["layout"] = layout
-                        places.remember(seen[wid], workspaces)
             elif "WindowClosed" in event:
-                seen.pop(event["WindowClosed"]["id"], None)
+                w = seen.pop(event["WindowClosed"]["id"], None)
                 placed.discard(event["WindowClosed"]["id"])
-    places.save()
+                if w:
+                    closed[w["app_id"]] = (w, time.monotonic())
     log("niri closed the event stream")
     return 1
 

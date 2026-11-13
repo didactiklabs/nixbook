@@ -51,16 +51,15 @@ Screen sharing goes through `xdg-desktop-portal-gnome`, which niri drives: its d
 
 Blocking out covers the screencast portal only. The shell's screenshot selector shows a frozen copy of the screen, so while you take a screenshot during a share, viewers may briefly see a blocked window.
 
-## Windows that open where they were
+## Windows that reopen in place
 
-Niri opens every new window at the default width, next to whatever has focus, on the workspace you're looking at. Some apps replace their window with a new one: **Moonlight** hides its window while a game streams and opens a stream window, then does the reverse when the game ends; **Discord** (Vesktop) shows a splash, then opens its main window, each time it starts or restarts itself. Their window used to lose its size and place each time.
+Some apps close their window and open a new one in its place: **Moonlight** hides its window while a game streams and opens a stream window, then does the reverse when the game ends; **Discord** (Vesktop) restarts itself (updates, the Electron bridge) through its splash. Niri sees a new window each time, so it used to come back at the default width, next to whatever had focus, on whichever workspace you were looking at.
 
-The `niri-keep-place` user service handles the apps in `customHomeManagerModules.niriConfig.keepPlace.apps` (default: Moonlight and Vesktop). A new window of one of them goes to the place of the app's other open window, else of its last one, remembered across launches and reboots: the same workspace, floating or tiled like it, the same size, and the same column or floating position.
+The `niri-keep-place` user service fixes that for the apps in `customHomeManagerModules.niriConfig.keepPlace.apps` (default: Moonlight and Vesktop). A new window of one of them that opens while another window of the same app is open, or less than 30 seconds after one closed, gets that window's place: its workspace, floating or tiled like it, its size, and its column or floating position. Nothing is kept longer: an app you start later, or after a reboot, opens like any other window.
 
 - The column is only restored while the new window has the focus (niri can only move the focused column).
-- After a reboot, workspaces have new ids: the window goes to the workspace with the same name, else the same index on the same monitor. If none exists, it stays where it opened (still at its size).
+- If the old window's workspace is gone (niri removes an empty one you've left), the new window stays where it opened, still at its size.
 - `titles` limits an app to its main window: Vesktop's is titled `Discord…`, so its splash and popouts open as usual.
-- The places are kept in `~/.local/state/niri-keep-place/places.json`.
 
 ```nix
 customHomeManagerModules.niriConfig.keepPlace.apps = {
