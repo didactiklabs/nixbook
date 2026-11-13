@@ -1,8 +1,9 @@
 .pragma library
 
-// YouTube links the shell opens itself instead of a browser tab (nixbook's
-// opt-in nixbookShellConfig.youtubeLinks: the Zen extension in
-// zen-youtube/ and the machine's http(s) link router): what a link is.
+// YouTube links the shell opens itself instead of a browser tab (the setting
+// media.youtubeLinks, off by default, from the menu or Nix; the Zen
+// extension in zen-youtube/ and nixbook's http(s) link router bring the
+// links): what a link is, and whether the settings take it.
 // A video goes to mpv (the right panel's YouTube tab shows it), a YouTube
 // Music song or playlist to the background player (its YouTube Music tab).
 // Anything else (the home page, a channel, a search) is null: it opens in
@@ -78,4 +79,11 @@ function linkTarget(url) {
         if (b) id = b[1]
     }
     return VIDEO_ID.test(id) ? { kind: "video", id: id, list: "", start: start } : null
+}
+
+// Whether the settings take this link (`choice`: media.youtubeLinks as the
+// shell writes it for Zen and the router, {enable, videos, music}).
+function wanted(target, choice) {
+    if (!target || !choice || choice.enable !== true) return false
+    return target.kind === "video" ? choice.videos !== false : choice.music !== false
 }

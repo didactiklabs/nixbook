@@ -624,6 +624,7 @@
   "media": {
     "filterDuplicatePlayers": true,
     "youtubeLinks": {
+      "enable": false,
       "music": true,
       "openPanel": true,
       "videos": true

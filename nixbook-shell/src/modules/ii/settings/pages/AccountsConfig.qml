@@ -123,20 +123,31 @@ ContentPage {
             }
         }
 
-        // YouTube links opened by the shell instead of the browser
-        // (YouTubeMusic.openLink), shown where the machine sends them here
-        // (its Zen extension and link router: YouTubeMusic.linksInstalled).
-        // A switch off: those links open in the browser or app as before.
+        // YouTube links opened by the shell instead of the browser, on the
+        // whole machine (YouTubeMusic.openLink; media.youtubeLinks, also
+        // settable in Nix), shown where something brings the links here
+        // (Zen's extension, the link router: YouTubeMusic.linksAvailable).
+        // Off, or a kind off: those links open in the browser or app as before.
         ContentSection {
             icon: "link"
             shape: MaterialShape.Shape.Clover4Leaf
             title: Translation.tr("YouTube links")
-            shown: YouTubeMusic.linksInstalled
+            shown: YouTubeMusic.linksAvailable
 
             GroupedList {
                 ConfigSwitch {
-                    configKey: "media.youtubeLinks.videos";
+                    configKey: "media.youtubeLinks.enable";
                     enabled: !nixManaged;
+                    buttonIcon: "open_in_new"
+                    text: Translation.tr("Open YouTube links here instead of the browser, from every app")
+                    checked: Config.options.media.youtubeLinks.enable
+                    onCheckedChanged: {
+                        Config.options.media.youtubeLinks.enable = checked;
+                    }
+                }
+                ConfigSwitch {
+                    configKey: "media.youtubeLinks.videos";
+                    enabled: !nixManaged && Config.options.media.youtubeLinks.enable
                     buttonIcon: "smart_display"
                     text: Translation.tr("Play YouTube video links in mpv, not the browser")
                     checked: Config.options.media.youtubeLinks.videos
@@ -146,7 +157,7 @@ ContentPage {
                 }
                 ConfigSwitch {
                     configKey: "media.youtubeLinks.music";
-                    enabled: !nixManaged;
+                    enabled: !nixManaged && Config.options.media.youtubeLinks.enable
                     buttonIcon: "queue_music"
                     text: Translation.tr("Play YouTube Music song and playlist links in the background player")
                     checked: Config.options.media.youtubeLinks.music
@@ -156,7 +167,7 @@ ContentPage {
                 }
                 ConfigSwitch {
                     configKey: "media.youtubeLinks.openPanel";
-                    enabled: !nixManaged && Config.options.media.youtubeLinks.music
+                    enabled: !nixManaged && Config.options.media.youtubeLinks.enable && Config.options.media.youtubeLinks.music
                     buttonIcon: "right_panel_open"
                     text: Translation.tr("Open the right panel on the YouTube Music tab when one plays")
                     checked: Config.options.media.youtubeLinks.openPanel
