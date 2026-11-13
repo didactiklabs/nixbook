@@ -477,6 +477,14 @@ J
   ytsearch*) echo '{"entries": [{"_type": "url", "ie_key": "Youtube", "id": "found111111", "title": "Found", "channel": "C"}]}' ;;
   https://www.youtube.com/feed/channels)
     echo '{"entries": [{"_type": "url", "ie_key": "YoutubeTab", "id": "UCbbbbbbbbbbbbbbbbbbbbbb", "title": "Chan B", "channel_url": "https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb", "channel_follower_count": 4200, "thumbnails": [{"url": "//yt3.example/b=s88", "width": 88}, {"url": "//yt3.example/b=s176", "width": 176}]}, {"_type": "url", "id": "not-a-channel", "title": "Odd"}]}' ;;
+  https://www.youtube.com/playlist?list=UULPbbbbbbbbbbbbbbbbbbbbbb)
+    echo '{"title": "Popular videos", "channel": "Chan B", "entries": [{"_type": "url", "ie_key": "Youtube", "id": "popular1111", "title": "Most viewed", "view_count": 9000000}]}' ;;
+  https://www.youtube.com/@chan/shorts | https://www.youtube.com/@chan/streams | "https://www.youtube.com/@chan/search?query=two%20words")
+    echo '{"channel": "Chan B", "entries": [{"_type": "url", "ie_key": "Youtube", "id": "'"$(basename "$target" | tr -dc a-z | head -c 11 | sed 's/$/xxxxxxxxxxx/' | head -c 11)"'", "title": "From '"${target##*/}"'"}]}' ;;
+  https://www.youtube.com/@chan/playlists)
+    echo '{"channel": "Chan B", "entries": [{"_type": "url", "ie_key": "YoutubeTab", "id": "PLplaylist01", "title": "A playlist", "thumbnails": [{"url": "https://i.ytimg.com/vi/x/hq.jpg", "width": 480}]}, {"_type": "url", "ie_key": "Youtube", "id": "notalist11", "title": "x"}]}' ;;
+  https://www.youtube.com/playlist?list=PLplaylist01)
+    echo '{"title": "A playlist", "playlist_count": 2, "entries": [{"_type": "url", "ie_key": "Youtube", "id": "inlist11111", "title": "In it"}]}' ;;
   https://www.youtube.com/@chan/videos | https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb/videos)
     echo '{"channel": "Chan B", "channel_url": "https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb", "channel_follower_count": 4200, "entries": [{"_type": "url", "ie_key": "Youtube", "id": "newest11111", "title": "Newest", "duration": 60}, {"_type": "url", "ie_key": "Youtube", "id": "older111111", "title": "Older"}]}' ;;
 esac
@@ -517,6 +525,21 @@ expect "videos: an unknown feed refused" "1" "$(
 expect "videos channel: its latest videos from its Videos tab, the channel's name and link on each" \
   'Chan B 4200 newest11111,older111111 Chan B https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb' \
   "$(yv channel https://www.youtube.com/@chan | "$py" -c 'import json,sys; d=json.load(sys.stdin); c=d["channel"]; i=d["items"]; print(c["name"], c["followers"], ",".join(v["id"] for v in i), i[0]["channel"], i[0]["channelUrl"])')"
+expect "videos channel --tab popular: YouTube's Popular videos list (UULP + the id, found from an @name)" "popular1111 Chan B" \
+  "$(yv channel https://www.youtube.com/@chan --tab popular | jq -r '"\(.items[0].id) \(.channel.name)"')"
+expect "videos channel --tab shorts / live: their tabs" "shorts streams" \
+  "$(yv channel https://www.youtube.com/@chan --tab shorts | jq -r '.items[0].title | ltrimstr("From ")') $(yv channel https://www.youtube.com/@chan --tab live | jq -r '.items[0].title | ltrimstr("From ")')"
+expect "videos channel --tab playlists: its playlists, nothing else" '[{"id":"PLplaylist01","title":"A playlist","count":0,"thumb":"https://i.ytimg.com/vi/x/hq.jpg"}]' \
+  "$(yv channel https://www.youtube.com/@chan --tab playlists | jq -c .items)"
+expect "videos channel --query: a search in the channel" "search?query=two%20words" \
+  "$(yv channel https://www.youtube.com/@chan --query two words | jq -r '.items[0].title | ltrimstr("From ")')"
+expect "videos channel --tab: an unknown tab refused" "1" "$(
+  set +e
+  yv channel https://www.youtube.com/@chan --tab trending >/dev/null
+  echo $?
+)"
+expect "videos playlist: its videos, its title and size" "inlist11111 A playlist 2" \
+  "$(yv playlist PLplaylist01 | jq -r '"\(.items[0].id) \(.playlist.title) \(.playlist.count)"')"
 expect "videos channel: not a YouTube channel's link, refused" "1" "$(
   set +e
   yv channel https://example.com/@chan >/dev/null

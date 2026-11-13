@@ -27,7 +27,10 @@ import Quickshell.Widgets
  * video plays, a card on top shows it with its own volume (mpv's, through
  * MPRIS), which the next video starts at too. Hovering a video or a
  * channel shows a button copying its link (the playing video's: at its
- * current second); a channel's page subscribes to it or no longer.
+ * current second); a channel's page subscribes to it or no longer, has its
+ * tabs (Latest, Popular: its most viewed, Shorts, Live, Playlists, each
+ * playlist opening its videos) and searches in the channel (the search
+ * field, while it is open).
  */
 Item {
     id: root
@@ -48,40 +51,92 @@ Item {
         YouTubeMusic.setVideoVolume(value);
     }
 
-    // A channel's latest videos: {key, name, url, followers, items}; null
-    // for your pages.
+    // A channel: {key, name, url, followers, tab (latest|popular|shorts|
+    // live|playlists), query (a search in it), playlist ({id, title}: one of
+    // its playlists open), items (the list shown), cache ({list: items})};
+    // null for your pages.
     property var channel: null
     property bool channelLoading: false
     property string channelError: ""
+    readonly property var channelTabs: [
+        { id: "latest", label: Translation.tr("Latest") }, { id: "popular", label: Translation.tr("Popular") },
+        { id: "shorts", label: Translation.tr("Shorts") }, { id: "live", label: Translation.tr("Live") },
+        { id: "playlists", label: Translation.tr("Playlists") }]
     function openChannel(video) {
         const key = video.channelUrl || video.id;
-        root.channel = { key: key, name: video.channel, url: video.channelUrl, followers: 0, items: [] };
+        root.channel = { key: key, name: video.channel, url: video.channelUrl, followers: 0, tab: "latest", query: "",
+            playlist: null, items: [], cache: {} };
         root.set("counts", "channel", root.page);
         root.unsubscribeAsked = false;
         searchField.text = "";
-        root.loadChannel();
+        root.loadChannel(false);
         // Whether you're subscribed: your list (asked if it isn't here yet).
         root.load("subscriptions", false);
     }
-    function loadChannel() {
-        if (!root.channel) return;
+    // Which of the channel's lists is shown (its cache's key).
+    function channelList(ch) {
+        return !ch ? "" : ch.playlist ? `playlist:${ch.playlist.id}` : ch.query !== "" ? `query:${ch.query}` : ch.tab;
+    }
+    function loadChannel(force) {
+        const ch = root.channel;
+        if (!ch) return;
+        const list = root.channelList(ch);
+        // Shown before: at once (More, or a refresh, asks again).
+        if (!force && ch.cache[list]) {
+            root.channel = Object.assign({}, ch, { items: ch.cache[list] });
+            root.channelLoading = false;
+            root.channelError = "";
+            return;
+        }
         root.channelLoading = true;
         root.channelError = "";
-        const key = root.channel.key;
-        YouTubeMusic.channelVideos(key, root.countOf("channel"), (ok, answer) => {
-            if (root.channel?.key !== key) return;
+        const key = ch.key;
+        const done = (ok, answer) => {
+            const now = root.channel;
+            if (now?.key !== key || root.channelList(now) !== list) return;
             root.channelLoading = false;
             if (!ok) {
                 root.channelError = answer?.error || Translation.tr("YouTube didn't give this channel's videos");
                 return;
             }
-            root.channel = Object.assign({}, root.channel, {
-                name: answer.channel?.name || root.channel.name,
-                url: answer.channel?.url || root.channel.url,
-                followers: answer.channel?.followers ?? 0,
-                items: answer.items ?? []
+            const cache = Object.assign({}, now.cache, { [list]: answer.items ?? [] });
+            root.channel = Object.assign({}, now, {
+                name: answer.channel?.name || now.name,
+                url: answer.channel?.url || now.url,
+                followers: answer.channel?.followers || now.followers,
+                items: answer.items ?? [],
+                cache: cache
             });
-        });
+        };
+        if (ch.playlist) YouTubeMusic.playlistVideos(ch.playlist.id, root.countOf("channel"), done);
+        else YouTubeMusic.channelVideos(key, root.countOf("channel"), done, ch.tab, ch.query);
+    }
+    function setChannelTab(tab) {
+        if (!root.channel) return;
+        root.channel = Object.assign({}, root.channel, { tab: tab, playlist: null, query: "", items: [] });
+        if (searchField.text !== "") searchField.text = "";
+        root.set("counts", "channel", root.page);
+        root.loadChannel(false);
+    }
+    function openPlaylist(pl) {
+        if (!root.channel) return;
+        root.channel = Object.assign({}, root.channel, { playlist: { id: pl.id, title: pl.title }, items: [] });
+        root.set("counts", "channel", root.page);
+        root.loadChannel(false);
+    }
+    // Back: out of a playlist, then out of a search in the channel, then
+    // out of the channel.
+    function back() {
+        const ch = root.channel;
+        if (!ch) return;
+        if (ch.playlist) {
+            root.channel = Object.assign({}, ch, { playlist: null, items: [] });
+            root.loadChannel(false);
+        } else if (ch.query !== "" || searchField.text !== "") {
+            searchField.text = "";
+        } else {
+            root.closeChannel();
+        }
     }
     // Links copied (wl-copy through services/Clipboard.qml).
     function copyLink(url) {
@@ -184,11 +239,11 @@ Item {
         });
     }
     function more() {
-        const feed = root.inSearch ? "search" : root.channel ? "channel" : root.feed;
+        const feed = root.view === "channel" ? "channel" : root.view === "search" ? "search" : root.feed;
         const n = Math.min(root.maxCount, root.countOf(feed) + root.page);
         root.set("counts", feed, n);
         if (feed === "channel") {
-            root.loadChannel();
+            root.loadChannel(true);
         } else if (feed === "search") {
             root.results = null;
             root.search(true);
@@ -218,6 +273,15 @@ Item {
             });
             return;
         }
+        // A channel open: a search in it (cleared: back to its tab).
+        if (root.channel) {
+            const query = q.length >= 2 ? q : "";
+            if (!force && root.channel.query === query) return;
+            root.channel = Object.assign({}, root.channel, { query: query, playlist: null, items: [] });
+            root.set("counts", "channel", root.page);
+            root.loadChannel(force);
+            return;
+        }
         if (q.length < 2) {
             YouTubeMusic.cancelVideoSearch();
             root.searching = false;
@@ -241,7 +305,12 @@ Item {
         onTriggered: root.search(false)
     }
 
-    readonly property string view: root.inSearch ? "search" : root.channel ? "channel" : root.feed
+    // A pasted link is shown even in a channel; a search there is the
+    // channel's own.
+    readonly property string view: root.pastedLink ? "search" : root.channel ? "channel" : root.inSearch ? "search" : root.feed
+    // What the rows are: your channels, a channel's playlists, else videos.
+    readonly property string rowKind: root.view === "subscriptions" ? "channel"
+        : root.view === "channel" && root.channel?.tab === "playlists" && !root.channel?.playlist && (root.channel?.query ?? "") === "" ? "playlist" : "video"
     readonly property var shown: root.view === "search" ? (root.results?.items ?? [])
         : root.view === "channel" ? (root.channel?.items ?? [])
         : root.view === "subscriptions" ? (root.feeds.subscriptions?.channels ?? []) : (root.feeds[root.feed]?.items ?? [])
@@ -277,6 +346,9 @@ Item {
     onFeedChanged: root.load(root.feed, false)
     // Another list: from its top.
     onViewChanged: list.positionViewAtBeginning()
+    // Another of the channel's lists: from its top too.
+    readonly property string channelListShown: root.channelList(root.channel)
+    onChannelListShownChanged: list.positionViewAtBeginning()
     Component.onCompleted: root.load(root.feed, false)
     Connections {
         target: YouTubeMusic
@@ -303,6 +375,7 @@ Item {
                 anchors.centerIn: parent
                 spacing: 6
                 MaterialSymbol {
+                    visible: chip.symbol !== ""
                     text: chip.symbol
                     iconSize: Appearance.font.pixelSize.large
                     fill: chip.lit ? 1 : 0
@@ -338,6 +411,99 @@ Item {
 
     // A channel you're subscribed to: its picture, name, subscribers; a
     // click shows its latest videos.
+    // A channel's playlist: its picture, title, how many videos; a click
+    // shows its videos.
+    component PlaylistRow: RippleButton {
+        id: prow
+        property var playlist
+        implicitHeight: 78
+        buttonRadius: Appearance.rounding.small
+        colBackground: ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 1)
+        onClicked: root.openPlaylist(prow.playlist)
+        contentItem: RowLayout {
+            spacing: 10
+            Rectangle {
+                id: ppic
+                implicitWidth: 120
+                implicitHeight: 68
+                radius: Appearance.rounding.small
+                color: Appearance.colors.colLayer2
+                MaterialSymbol {
+                    anchors.centerIn: parent
+                    visible: pimage.status !== Image.Ready
+                    text: "playlist_play"
+                    iconSize: 26
+                    color: Appearance.colors.colSubtext
+                }
+                ClippingRectangle {
+                    anchors.fill: parent
+                    radius: ppic.radius
+                    color: "transparent"
+                    visible: pimage.status === Image.Ready
+                    Image {
+                        id: pimage
+                        anchors.fill: parent
+                        source: prow.playlist?.thumb ?? ""
+                        sourceSize.width: 240
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                    }
+                }
+                Rectangle {
+                    anchors {
+                        right: parent.right
+                        bottom: parent.bottom
+                        margins: 4
+                    }
+                    implicitWidth: pbadge.implicitWidth + 8
+                    implicitHeight: pbadge.implicitHeight + 2
+                    radius: 4
+                    color: "#cc000000"
+                    MaterialSymbol {
+                        id: pbadge
+                        anchors.centerIn: parent
+                        text: "playlist_play"
+                        iconSize: Appearance.font.pixelSize.normal
+                        color: "white"
+                    }
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignVCenter
+                spacing: 2
+                StyledText {
+                    Layout.fillWidth: true
+                    text: prow.playlist?.title ?? ""
+                    wrapMode: Text.Wrap
+                    maximumLineCount: 2
+                    elide: Text.ElideRight
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    color: Appearance.colors.colOnLayer1
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    visible: (prow.playlist?.count ?? 0) > 0
+                    text: Translation.tr("%1 videos").arg(prow.playlist?.count ?? 0)
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                }
+            }
+            IconButton {
+                visible: prowHover.hovered
+                symbol: "link"
+                tip: Translation.tr("Copy the playlist's link")
+                onClicked: root.copyLink(`https://www.youtube.com/playlist?list=${prow.playlist?.id ?? ""}`)
+            }
+        }
+        HoverHandler {
+            id: prowHover
+        }
+        StyledToolTip {
+            text: Translation.tr("Its videos")
+        }
+    }
+
     component ChannelRow: RippleButton {
         id: crow
         property var channelData
@@ -623,7 +789,8 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: false
                 implicitHeight: 40
-                placeholderText: Translation.tr("Search YouTube or paste a link")
+                placeholderText: root.channel ? Translation.tr("Search in %1").arg(root.channel.name || Translation.tr("this channel"))
+                    : Translation.tr("Search YouTube or paste a link")
                 colBackground: Appearance.colors.colLayer2
                 onTextChanged: {
                     if (searchField.text.trim().length < 2) root.search(false);
@@ -639,7 +806,7 @@ Item {
                 }
                 Keys.onEscapePressed: event => {
                     if (searchField.text === "" && root.channel !== null) {
-                        root.closeChannel();
+                        root.back();
                         event.accepted = true;
                         return;
                     }
@@ -659,15 +826,15 @@ Item {
             }
         }
 
-        // A channel's videos: back to your pages.
+        // A channel's page: back (out of a playlist, a search, the channel).
         RowLayout {
             Layout.fillWidth: true
-            visible: !root.inSearch && root.channel !== null
+            visible: root.channel !== null && !root.pastedLink
             spacing: 6
             IconButton {
                 symbol: "arrow_back"
                 tip: Translation.tr("Back")
-                onClicked: root.closeChannel()
+                onClicked: root.back()
             }
             ColumnLayout {
                 Layout.fillWidth: true
@@ -682,8 +849,11 @@ Item {
                 }
                 StyledText {
                     Layout.fillWidth: true
-                    visible: (root.channel?.followers ?? 0) > 0
-                    text: Translation.tr("%1 subscribers · latest videos").arg(root.short(root.channel?.followers ?? 0))
+                    visible: text !== ""
+                    // What is shown: a playlist, a search, else its subscribers.
+                    text: root.channel?.playlist ? Translation.tr("Playlist: %1").arg(root.channel.playlist.title)
+                        : (root.channel?.query ?? "") !== "" ? Translation.tr("Search: %1").arg(root.channel.query)
+                        : (root.channel?.followers ?? 0) > 0 ? Translation.tr("%1 subscribers").arg(root.short(root.channel?.followers ?? 0)) : ""
                     elide: Text.ElideRight
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     color: Appearance.colors.colSubtext
@@ -723,6 +893,23 @@ Item {
                     font.weight: Font.DemiBold
                     color: !subButton.subscribed ? Appearance.colors.colOnPrimary
                         : root.unsubscribeAsked ? Appearance.m3colors.m3error : Appearance.colors.colOnLayer2
+                }
+            }
+        }
+
+        // The channel's tabs.
+        Flow {
+            Layout.fillWidth: true
+            visible: root.channel !== null && !root.pastedLink && !root.channel?.playlist && (root.channel?.query ?? "") === ""
+            spacing: 6
+            Repeater {
+                model: root.channelTabs
+                delegate: Chip {
+                    required property var modelData
+                    implicitHeight: 30
+                    label: modelData.label
+                    lit: root.channel?.tab === modelData.id
+                    onClicked: root.setChannelTab(modelData.id)
                 }
             }
         }
@@ -776,8 +963,17 @@ Item {
         }
         StyledText {
             Layout.fillWidth: true
-            visible: root.inSearch && !root.searching && root.searchError === "" && root.results !== null && root.shown.length === 0
+            visible: root.view === "search" && !root.searching && root.searchError === "" && root.results !== null && root.shown.length === 0
             text: Translation.tr("Nothing found for “%1”").arg(root.results?.query ?? "")
+            color: Appearance.colors.colSubtext
+            font.pixelSize: Appearance.font.pixelSize.smaller
+        }
+        StyledText {
+            Layout.fillWidth: true
+            visible: root.view === "channel" && !root.channelLoading && root.channelError === "" && root.shown.length === 0
+                && ((root.channel?.query ?? "") !== "" || (root.channel?.cache ?? {})[root.channelListShown] !== undefined)
+            text: (root.channel?.query ?? "") !== "" ? Translation.tr("Nothing found for “%1” in this channel").arg(root.channel.query)
+                : Translation.tr("Nothing here")
             color: Appearance.colors.colSubtext
             font.pixelSize: Appearance.font.pixelSize.smaller
         }
@@ -825,7 +1021,8 @@ Item {
                 id: rowLoader
                 required property var modelData
                 width: ListView.view.width
-                sourceComponent: root.view === "subscriptions" ? channelRowComponent : videoRowComponent
+                sourceComponent: root.rowKind === "channel" ? channelRowComponent
+                    : root.rowKind === "playlist" ? playlistRowComponent : videoRowComponent
                 Component {
                     id: videoRowComponent
                     VideoRow {
@@ -836,6 +1033,12 @@ Item {
                     id: channelRowComponent
                     ChannelRow {
                         channelData: rowLoader.modelData
+                    }
+                }
+                Component {
+                    id: playlistRowComponent
+                    PlaylistRow {
+                        playlist: rowLoader.modelData
                     }
                 }
             }

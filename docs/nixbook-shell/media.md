@@ -50,11 +50,11 @@ The right sidebar's **YouTube** tab (Mod+N; Settings > Panels turns the tab off)
 
 Click a video to play it in **mpv**, your mpv with its settings (controls, upscaling…); the music playing [in the background](#youtube-music-in-the-background) pauses. While it plays, a card at the top of the tab shows it with **play/pause** and **its own volume** (mpv's, not the system's); the next video starts at the volume you left there.
 
-Click a video's **channel name** to see that channel's latest videos, newest first, with **More videos** to go further back; the arrow (or Escape) goes back. A channel's page has **Subscribe** (or **Subscribed**: click it, then **Unsubscribe?** to confirm), your YouTube subscriptions themselves.
+Click a video's **channel name** (or a channel in Subscriptions) to open its page, with its tabs: **Latest** (newest first), **Popular** (its most viewed, YouTube's own list), **Shorts**, **Live** (its streams) and **Playlists** (click one for its videos); **More videos** goes further. While a channel is open the search field searches **in that channel**. The arrow (or Escape) goes back: out of a playlist, then out of a search, then out of the channel. A channel's page has **Subscribe** (or **Subscribed**: click it, then **Unsubscribe?** to confirm), your YouTube subscriptions themselves.
 
 **Copying links**: hover a video or a channel and click its link button; the playing video's card copies its link at the current moment (`&t=`), so whoever opens it lands where you are. **More videos** at the end of a list loads 30 more (150 at most), and the refresh button asks YouTube again; each page otherwise shows its last copy at once and is asked again when it's more than 10 minutes old. Live streams are marked **LIVE**.
 
-DAI can do all of this for you too (its `youtube_videos` tool): find or play a video, list a channel's latest, pause, seek or change the video's volume, subscribe to a channel or no longer.
+DAI can do all of this for you too (its `youtube_videos` tool): find or play a video, list a channel's latest, popular, shorts, live streams or playlists, search in a channel, pause, seek or change the video's volume, subscribe to a channel or no longer.
 
 Home and Subscriptions need your YouTube session: the one [YouTube Music in the background](#youtube-music-in-the-background) signs in with (the same Google login), so there is nothing more to sign in to. Searching works without it.
 
