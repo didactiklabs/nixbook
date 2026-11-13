@@ -35,7 +35,18 @@ in
       description = "Sunshine Gamestreaming server.";
       partOf = [ "graphical-session.target" ];
       requires = [ "graphical-session.target" ];
-      after = [ "graphical-session.target" ];
+      # After the sound server: started alongside it at login, Sunshine found
+      # no default sink ("pa_simple_new() failed", "The stream will not have
+      # audio") and a client reconnecting at boot streamed without sound.
+      wants = [
+        "pipewire-pulse.service"
+        "wireplumber.service"
+      ];
+      after = [
+        "graphical-session.target"
+        "pipewire-pulse.service"
+        "wireplumber.service"
+      ];
       wantedBy = [ "graphical-session.target" ];
       serviceConfig = {
         # The capability wrapper below, not the bare binary: without

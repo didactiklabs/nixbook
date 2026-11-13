@@ -216,7 +216,7 @@ hive.nix                          Colmena deployment config
 - **User:** khoa
 - **Primary WM:** Sway (SwayFX) - auto-login, no greeter
 - **NixOS Modules:** gamingConfig, sunshine, sway, caCertificates (bealv + didactiklabs), openssh
-- **Special Features:** Wake-on-LAN, Steam Big Picture auto-launch, Proton GE, GameMode, AMD GPU tuning, Immich photo sync timers, headless virtual display for Sunshine streaming
+- **Special Features:** Wake-on-LAN, Steam Big Picture auto-launch, Proton GE, GameMode, AMD GPU tuning, Immich photo sync timers, headless virtual display for Sunshine streaming (greetd starts SwayFX with `WLR_BACKENDS=headless,libinput`; `HEADLESS-1` rests at 2560×1440@60 and the Desktop app switches it to each client's size and frame rate)
 - **Work Environments:** didactiklabs, bealv kubeconfigs
 - **Home Manager Modules:** fontConfig, gitConfig, gtkConfig, sshConfig, starship, swayConfig, nixvimConfig, fastfetchConfig, atuinConfig, kittyConfig, zshConfig, dmsConfig
 - **Extra packages:** wineWow64Packages.waylandFull, firefox
