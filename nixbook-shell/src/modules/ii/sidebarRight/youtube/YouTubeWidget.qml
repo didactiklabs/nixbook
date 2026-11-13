@@ -332,6 +332,16 @@ Item {
 
     // New: your subscriptions' videos not seen yet.
     readonly property var newItems: root.feeds.new?.items ?? []
+    // Their ids: a video of New shown elsewhere (a channel's page, Home, a
+    // search) carries a NEW badge and the tick too.
+    readonly property var newIds: {
+        const ids = {};
+        for (const v of root.newItems) ids[v.id] = true;
+        return ids;
+    }
+    function isNew(video) {
+        return !!video?.id && root.newIds[video.id] === true;
+    }
     function dropNew(ids) {
         const have = root.feeds.new;
         if (!have) return;
@@ -658,6 +668,8 @@ Item {
     component VideoRow: RippleButton {
         id: row
         property var video
+        // In New (not seen yet); New's own list doesn't need the badge.
+        readonly property bool fresh: root.isNew(row.video)
         implicitHeight: 78
         buttonRadius: Appearance.rounding.small
         colBackground: ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 1)
@@ -711,6 +723,27 @@ Item {
                         color: row.video?.live ? Appearance.m3colors.m3onError : "white"
                     }
                 }
+                // Not seen yet (one of New's).
+                Rectangle {
+                    anchors {
+                        left: parent.left
+                        top: parent.top
+                        margins: 4
+                    }
+                    visible: row.fresh && root.view !== "new"
+                    implicitWidth: newBadge.implicitWidth + 8
+                    implicitHeight: newBadge.implicitHeight + 2
+                    radius: 4
+                    color: Appearance.colors.colPrimary
+                    StyledText {
+                        id: newBadge
+                        anchors.centerIn: parent
+                        text: Translation.tr("NEW")
+                        font.pixelSize: Appearance.font.pixelSize.smallest
+                        font.weight: Font.DemiBold
+                        color: Appearance.colors.colOnPrimary
+                    }
+                }
             }
             ColumnLayout {
                 Layout.fillWidth: true
@@ -724,6 +757,7 @@ Item {
                     maximumLineCount: 2
                     elide: Text.ElideRight
                     font.pixelSize: Appearance.font.pixelSize.small
+                    font.weight: row.fresh && root.view !== "new" ? Font.DemiBold : Font.Normal
                     color: Appearance.colors.colOnLayer1
                 }
                 RowLayout {
@@ -772,9 +806,9 @@ Item {
                 tip: Translation.tr("Copy the video's link")
                 onClicked: root.copyLink(root.videoLink(row.video?.id ?? ""))
             }
-            // New: seen without watching it here.
+            // New's (here or on a channel's page): seen without watching it here.
             IconButton {
-                visible: rowHover.hovered && root.view === "new"
+                visible: rowHover.hovered && row.fresh
                 symbol: "done"
                 tip: Translation.tr("Mark as seen")
                 onClicked: root.markSeen([row.video?.id ?? ""])
@@ -933,10 +967,14 @@ Item {
                 StyledText {
                     Layout.fillWidth: true
                     visible: text !== ""
-                    // What is shown: a playlist, a search, else its subscribers.
+                    // What is shown: a playlist, a search, else its subscribers
+                    // and how many of its videos you haven't seen (New's).
+                    readonly property int fresh: root.newCountOf({ id: root.channelIdOf(root.channel?.url), url: root.channel?.url ?? "",
+                        name: root.channel?.name ?? "" })
                     text: root.channel?.playlist ? Translation.tr("Playlist: %1").arg(root.channel.playlist.title)
                         : (root.channel?.query ?? "") !== "" ? Translation.tr("Search: %1").arg(root.channel.query)
-                        : (root.channel?.followers ?? 0) > 0 ? Translation.tr("%1 subscribers").arg(root.short(root.channel?.followers ?? 0)) : ""
+                        : [(root.channel?.followers ?? 0) > 0 ? Translation.tr("%1 subscribers").arg(root.short(root.channel?.followers ?? 0)) : "",
+                            fresh > 0 ? Translation.tr("%1 new").arg(fresh) : ""].filter(t => t !== "").join(" · ")
                     elide: Text.ElideRight
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     color: Appearance.colors.colSubtext
