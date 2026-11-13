@@ -28,17 +28,21 @@ ColumnLayout {
         return Qt.locale().toString(d, "ddd d MMM yyyy");
     }
 
-    // Newest first, with a { header } row before each day.
+    // Newest first, with a { header } row before each day. The day is told
+    // by number (date strings for thousands of entries took most of the
+    // time); only a header gets its label.
     readonly property var rows: {
         const query = search.text.trim().toLowerCase();
         const rows = [];
-        let lastDay = "";
+        let lastDay = -1;
+        const d = new Date();
         for (let i = NotificationHistory.entries.length - 1; i >= 0; i--) {
             const e = NotificationHistory.entries[i];
             if (query && !`${e.appName} ${e.summary} ${root.plain(e.body)}`.toLowerCase().includes(query)) continue;
-            const day = root.dayLabel(e.time);
+            d.setTime(e.time);
+            const day = d.getFullYear() * 10000 + d.getMonth() * 100 + d.getDate();
             if (day !== lastDay) {
-                rows.push({ header: day, key: `h${e.time}` });
+                rows.push({ header: root.dayLabel(e.time), key: `h${e.time}` });
                 lastDay = day;
             }
             rows.push({ entry: e, key: `${e.id}-${e.time}` });

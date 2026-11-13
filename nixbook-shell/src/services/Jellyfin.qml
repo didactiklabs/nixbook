@@ -38,14 +38,24 @@ Singleton {
             root.ready = false;
             return;
         }
-        check.running = false;
-        check.command = [root.bin, "configured"];
-        check.environment = root.env;
-        check.running = true;
+        // One process per check: only the latest one's answer counts. A
+        // single Process restarted delivered the killed check's exit late,
+        // saying "not ready" for a moment (the Jellyfin tab came and went).
+        const run = ++root._checkRun;
+        checkComponent.createObject(root, { run: run, command: [root.bin, "configured"], environment: root.env });
     }
-    Process {
-        id: check
-        onExited: code => root.ready = code === 0
+    property int _checkRun: 0
+    Component {
+        id: checkComponent
+        Process {
+            id: check
+            property int run: 0
+            running: true
+            onExited: code => {
+                if (check.run === root._checkRun) root.ready = code === 0;
+                check.destroy();
+            }
+        }
     }
     // Created at startup (shell.qml), for the player's streaming limit below.
     function load() {}
