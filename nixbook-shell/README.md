@@ -95,8 +95,7 @@ theme's colour and the wallpaper from its first frames, and it takes the
 plymouth splash over without clearing the screen; cage is the fallback, and
 tuigreet takes over if neither starts, so there is always a login prompt.
 
-After login, `nixbook-shell splash` (the `nixbook-shell-splash` user service,
-`splash.enable`) shows the shell's loading screen (`src/earlySplash.qml`,
+After login, `nixbook-shell splash` (the `nixbook-shell-splash` user service, unless the setting `appearance.loadingScreen.early` is off) shows the shell's loading screen (`src/earlySplash.qml`,
 drawing the same `BootSplashArt` as the shell's own BootSplash) from the
 start of the session until the shell's BootSplash is up, then fades out: no
 black screen or half-drawn desktop in between.
@@ -549,9 +548,7 @@ instructions ask agents to save what they learned.
 It lives in `~/.local/state/nixbook-shell/desktop-memory.json` (private);
 **Settings → Memory** shows the notes (delete any), the aliases and
 usage, clears them, and pauses desktop control. `nixbook-desktop-mcp memory`
-shows, clears or prints the digest; the `memory` tool group
-(`desktopMcp.settings.tools`) turns it off; `memoryPromptChars` and
-`memoryMaxNotes` size it.
+shows, clears or prints the digest; the `memory` tool group (Settings → Privacy & trust → What agents can use; `ai.agents.tools`) turns it off; `ai.agents.memoryPromptChars` and `memoryMaxNotes` size it.
 
 **Turning AI off**: `policies.ai` (0 no, 1 yes, 2 local; Settings >
 Assistant > AI features, or Panels) gates everything: 0 hides the
@@ -1133,9 +1130,7 @@ Guardrails, whatever the transport:
 - every call is logged to `~/.local/state/nixbook-shell/desktop-mcp.log`
   (typed and copied text by length only).
 
-`programs.nixbook-shell.desktopMcp.settings` (written to
-`~/.config/nixbook-shell/desktop-mcp.json`) turns tool groups off (`tools`:
-`observe`, `screen`, `windows`, `input`, `shell`) and tunes the rest;
+The agents' preferences are shell settings (`ai.agents`: the tool groups `observe`, `screen`, `windows`, `input`, `shell`… in `tools`, the limits; Settings > AI assistant, or Nix), read over `programs.nixbook-shell.desktopMcp.settings` (written to `~/.config/nixbook-shell/desktop-mcp.json`), which holds the safety rules (Nix-only);
 `nixbook-desktop-mcp config` prints what applies. Keyboard input goes
 through `wtype` (Wayland virtual keyboard). The pointer goes through niri's
 virtual pointer (wlr-virtual-pointer, spoken by a small Wayland client in the

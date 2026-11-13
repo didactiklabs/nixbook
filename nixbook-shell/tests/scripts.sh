@@ -797,6 +797,38 @@ echo 'not json' >"$ec/config/nixbook-shell/config.json"
 ec_run
 expect_contains "echo-cancel: unreadable settings, both stages" "$(cat "$ec/conf")" 'node.name = "nixbook-call-voices"'
 
+# -- echo-cancel.sh: the call apps' stream rule (call-rules) -----------------------
+# audio.calls.apps / .sites → a PipeWire stream rule in pipewire-pulse.conf.d and
+# client.conf.d, written only when it changes, removed when both lists are empty;
+# --restart restarts pipewire-pulse only after a change.
+cat >"$ec/bin/systemctl" <<'EOF'
+#!/usr/bin/env bash
+echo "$*" >>"$EC_SYSTEMCTL_LOG"
+EOF
+chmod +x "$ec/bin/systemctl"
+cr_run() { EC_SYSTEMCTL_LOG="$ec/systemctl.log" XDG_RUNTIME_DIR="$ec/run" XDG_CONFIG_HOME="$ec/crconfig" PATH="$ec/bin:$PATH" bash "$scripts/echo-cancel.sh" call-rules "$@"; }
+cr_pulse="$ec/crconfig/pipewire/pipewire-pulse.conf.d/60-nixbook-call-voices.conf"
+cr_client="$ec/crconfig/pipewire/client.conf.d/60-nixbook-call-voices.conf"
+: >"$ec/systemctl.log"
+expect_eq "call-rules: no settings, the default lists written" '{"changed": true}' "$(cr_run --restart)"
+expect_contains "call-rules: a call app, any case" "$(cat "$cr_pulse")" '[vV][eE][sS][kK][tT][oO][pP]'
+expect_contains "call-rules: a call site, in a Firefox-family browser" "$(cat "$cr_client")" 'media.name = "~^(Meet( (-|–|—) .*)?|Google Meet.*|.* [|] Jitsi Meet|.* [|] Microsoft Teams)$"'
+expect_contains "call-rules: their target, not movable" "$(cat "$cr_pulse")" 'node.dont-move = true target.object = "nixbook-call-voices"'
+expect_eq "call-rules: changed, pipewire-pulse restarted" "--user try-restart pipewire-pulse.service" "$(cat "$ec/systemctl.log")"
+: >"$ec/systemctl.log"
+expect_eq "call-rules: the same again, nothing written" '{"changed": false}' "$(cr_run --restart)"
+expect_eq "call-rules: unchanged, no restart" "" "$(cat "$ec/systemctl.log")"
+mkdir -p "$ec/crconfig/nixbook-shell"
+echo '{"audio": {"calls": {"apps": ["Slack", "bad\"word", "a;b"], "sites": ["x\"y"]}}}' >"$ec/crconfig/nixbook-shell/config.json"
+cr_run >/dev/null
+expect_contains "call-rules: from the settings" "$(cat "$cr_pulse")" '"~.*([sS][lL][aA][cC][kK]).*"'
+expect_eq "call-rules: words with other characters and quoted sites left out" 0 "$(grep -c -e 'bad' -e 'a;b' -e 'media.name' "$cr_pulse")"
+ln -sf /nix/store/old-hm-generation-rule "$cr_client"
+cr_run >/dev/null
+expect_eq "call-rules: a link left by Home Manager replaced by the file" "file" "$([ -L "$cr_client" ] && echo link || echo file)"
+echo '{"audio": {"calls": {"apps": [], "sites": []}}}' >"$ec/crconfig/nixbook-shell/config.json"
+expect_eq "call-rules: both lists empty, the rule removed" '{"changed": true}' "$(cr_run)"
+expect_eq "call-rules: nothing left" "" "$(find "$ec/crconfig/pipewire" -type f -o -type l)"
 # -- echo-cancel.sh: resting while nothing records ---------------------------------
 # The unit has an idle sink no mixer lists; `rest on` points the reference
 # stream at it, `rest off` gives it back to the default output.

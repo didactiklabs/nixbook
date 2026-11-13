@@ -97,13 +97,9 @@ let
     mpv_ext_no_ovr = true;
     mpv_ext_start = true;
     fullscreen = true;
-    # Direct play: jellyfin-mpv-shim's 10 Mbit/s for "remote" servers (any
-    # not on a private address) made the server transcode most files.
-    remote_kbps =
-      if cfg.jellyfinMcp.player.maxBitrateMbps == null then
-        2147483
-      else
-        cfg.jellyfinMcp.player.maxBitrateMbps * 1000;
+    # Not `remote_kbps` (the streaming limit): the shell's setting
+    # ai.jellyfin.maxBitrateMbps, written by `jellyfin-mcp shim-bitrate`
+    # (nixbook-shell's services/Jellyfin.qml), so the menu can change it.
     # The user's own mpv and its controls only (modernx, thumbfast from
     # desktopApps' mpvConfig): "custom" loads none of the shim's on-screen
     # controls and turns mpv's built-in OSC off, where its default (with no
@@ -376,25 +372,22 @@ in
         Settings > Assistant > Apps it can use ("Connect the player").
       '';
     };
+    # Renamed to the shell setting ai.jellyfin.maxBitrateMbps (editable in
+    # the menu too): forwarded, with a warning.
     player.maxBitrateMbps = lib.mkOption {
       type = lib.types.nullOr lib.types.ints.positive;
       default = null;
-      example = 20;
-      description = ''
-        The most the player streams from a server it doesn't see on the
-        local network (in Mbit/s); more is transcoded by the server.
-        `null`: no limit, so it plays the files as they are (mpv plays
-        almost anything). jellyfin-mpv-shim's own default is 10, which
-        transcodes most 1080p and every 4K file from a server behind a
-        public address, a reverse proxy or a VPN (100.64.0.0/10 isn't
-        "local" to it). The server's own limits (Dashboard > Users > the
-        user's "Internet streaming bitrate limit", Dashboard > Playback >
-        Streaming) still apply.
-      '';
+      visible = false;
+      description = "Renamed: `nixbookShellConfig.settings.ai.jellyfin.maxBitrateMbps` (0: no limit).";
     };
   };
 
   config = lib.mkIf cfg.enable {
+    warnings = lib.optional (cfg.jellyfinMcp.player.maxBitrateMbps != null) ''
+      nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps is now the shell setting
+      nixbookShellConfig.settings.ai.jellyfin.maxBitrateMbps (also editable in the
+      Settings menu while not set in Nix): set that instead.
+    '';
     assertions = [
       {
         assertion =
@@ -512,8 +505,8 @@ in
       # every nixbook user adds a Google account with no Google Cloud project.
       # In clear on purpose: a desktop app's client secret isn't confidential.
       accounts.googleClient = lib.mkDefault ./nixbookShellConfig/google-oauth-client.json;
-      # The repository's quickshell pin, shared with dmsConfig.nix so the two
-      # shells never disagree on the QML runtime.
+      # The repository's quickshell pin (also DankCalendar's in dmsConfig.nix;
+      # DMS itself now embeds its own runtime, dux-qt-base).
       package =
         (import ../nixbook-shell {
           inherit pkgs;
@@ -524,7 +517,13 @@ in
           withNetbird = os == null || (os.services.netbird.enable or false);
         }).package;
       # Shared settings, as defaults so a profile's `settings` win key by key.
-      settings = lib.mapAttrsRecursive (_: lib.mkDefault) (import ./nixbookShellConfig/settings.nix);
+      settings = lib.mkMerge [
+        (lib.mapAttrsRecursive (_: lib.mkDefault) (import ./nixbookShellConfig/settings.nix))
+        # The former jellyfinMcp.player.maxBitrateMbps, forwarded (a warning says so).
+        (lib.mkIf (cfg.jellyfinMcp.player.maxBitrateMbps != null) {
+          ai.jellyfin.maxBitrateMbps = cfg.jellyfinMcp.player.maxBitrateMbps;
+        })
+      ];
 
       # Qt apps can follow the palette the shell shows (the wallpaper's or the
       # theme variant's) instead of stylix's (stylixConfig.nix turns its qt and

@@ -109,6 +109,22 @@ ContentPage {
             JellyfinAccount {
                 Layout.fillWidth: true
             }
+
+            // services/Jellyfin.qml writes it into the player's settings.
+            ConfigSpinBox {
+                configKey: "ai.jellyfin.maxBitrateMbps"
+                enabled: !nixManaged
+                icon: "speed"
+                text: Translation.tr("Streaming limit away from home, in Mbit/s (0: none, the files played as they are)")
+                value: Config.options.ai.jellyfin.maxBitrateMbps
+                from: 0
+                to: 1000
+                stepSize: 5
+                onValueChanged: Config.options.ai.jellyfin.maxBitrateMbps = value
+                StyledToolTip {
+                    text: Translation.tr("The most this computer's player streams from a Jellyfin server that isn't on your local network (over a VPN, behind a reverse proxy); more is transcoded by the server. The player restarts when it changes.")
+                }
+            }
         }
 
         // YouTube Music in the background (services/YouTubeMusic.qml): no AI,

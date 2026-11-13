@@ -47,6 +47,29 @@ Singleton {
         id: check
         onExited: code => root.ready = code === 0
     }
+    // Created at startup (shell.qml), for the player's streaming limit below.
+    function load() {}
+
+    // The player's limit for a server it doesn't see on the local network
+    // (ai.jellyfin.maxBitrateMbps, 0: none), written into its own settings
+    // once the settings are read and when it changes (`shim-bitrate`: nothing
+    // to do when it already is that or without a player; otherwise the player
+    // restarts). Settled a moment first: the spin box writes every step.
+    readonly property int maxBitrateMbps: Math.max(0, Config.options?.ai?.jellyfin?.maxBitrateMbps ?? 0)
+    onMaxBitrateMbpsChanged: if (Config.ready) bitrateTimer.restart()
+    Connections {
+        target: Config
+        function onReadyChanged() {
+            if (Config.ready) bitrateTimer.restart();
+        }
+    }
+    Timer {
+        id: bitrateTimer
+        interval: 1500
+        onTriggered: if (root.available) root.run(["shim-bitrate", String(root.maxBitrateMbps)], "", (ok, answer) => {
+            if (!ok) console.warn(`[Jellyfin] the player's streaming limit wasn't set: ${answer?.error ?? ""}`);
+        })
+    }
 
     // The right sidebar's Jellyfin tab (sidebar.jellyfinTab): what to watch
     // next (in progress, then next episodes) and what's new, each {id,

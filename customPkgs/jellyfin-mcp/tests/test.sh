@@ -270,6 +270,24 @@ expect_eq "shim-login again: replaces its login (same uuid), keeps the others" \
 r=$("${jmcp[@]}" shim-status)
 expect_eq "shim-status" "$(jq -c '{signed_in, user, device}' <<<"$r")" '{"signed_in":true,"user":"Khoa","device":"totoro mpv"}'
 
+# The streaming limit (nixbook-shell's ai.jellyfin.maxBitrateMbps).
+echo active >"$STUB_DIR/state"
+: >"$STUB_DIR/systemctl.log"
+r=$("${jmcp[@]}" shim-bitrate 20)
+expect_eq "shim-bitrate: written" "$(jq -c '{changed, kbps, restarted}' <<<"$r")" '{"changed":true,"kbps":20000,"restarted":true}'
+expect_eq "shim-bitrate: in its conf.json, the rest kept" "$(jq -c '{remote_kbps, player_name, fullscreen}' "$shimdir/conf.json")" '{"remote_kbps":20000,"player_name":"totoro mpv","fullscreen":true}'
+expect_eq "shim-bitrate: the running player stopped, then started" "$(grep -v '^show' "$STUB_DIR/systemctl.log" | paste -sd,)" "is-active jellyfin-mpv-shim.service,stop jellyfin-mpv-shim.service,start jellyfin-mpv-shim.service"
+: >"$STUB_DIR/systemctl.log"
+r=$("${jmcp[@]}" shim-bitrate 20)
+expect_eq "shim-bitrate: the same again, nothing done" "$(jq -c '{changed}' <<<"$r")$(grep -c -e stop -e start "$STUB_DIR/systemctl.log")" '{"changed":false}0'
+echo inactive >"$STUB_DIR/state"
+r=$("${jmcp[@]}" shim-bitrate 0)
+expect_eq "shim-bitrate 0: no limit, not started" "$(jq -c '{kbps, restarted}' <<<"$r")$(jq .remote_kbps "$shimdir/conf.json")" '{"kbps":2147483,"restarted":false}2147483'
+r=$("${jmcp[@]}" shim-bitrate -3 || true)
+expect_match "shim-bitrate: a negative number refused" "usage" "$r"
+r=$(XDG_CONFIG_HOME="$tmp/none" "${jmcp[@]}" shim-bitrate 5)
+expect_eq "shim-bitrate: no player on this computer, nothing written" "$(jq -r .skipped <<<"$r")$(test -e "$tmp/none/jellyfin-mpv-shim" && echo made)" "no Jellyfin player on this computer"
+
 echo inactive >"$STUB_DIR/state"
 printf '%s' "$SHIM_SESSION" >"$STUB_DIR/shim-session.json"
 : >"$STUB_DIR/systemctl.log"

@@ -2011,6 +2011,53 @@ def sign_in_shim(url, username, password):
             "device": ident["device_name"], "started": code == 0}
 
 
+# The shim's own default for a "remote" server (any not on a private address
+# or its WAN IP: a VPN's, one behind a reverse proxy) is 10 Mbit/s, which had
+# the server transcode most files; this is its own "no limit" (local_kbps's).
+SHIM_NO_LIMIT_KBPS = 2147483
+
+
+def shim_bitrate(args):
+    """shim-bitrate MBPS (0: no limit): the most the player streams from a
+    server it doesn't see on the local network (remote_kbps in its
+    conf.json; nixbook-shell's setting ai.jellyfin.maxBitrateMbps). Nothing
+    to do when it already is that, nor on a computer without the player. The
+    shim writes its file back from memory: stopped while it changes, started
+    again if it ran."""
+    try:
+        mbps = int(args[0]) if len(args) == 1 else -1
+    except ValueError:
+        mbps = -1
+    if mbps < 0:
+        out({"error": "usage: jellyfin-mcp shim-bitrate MBPS (0: no limit)"}, 1)
+    kbps = mbps * 1000 if mbps else SHIM_NO_LIMIT_KBPS
+    path = os.path.join(shim_dir(), "conf.json")
+    _, load = systemctl("show", "-p", "LoadState", "--value", SHIM_UNIT)
+    if load != "loaded" and not os.path.exists(path):
+        out({"ok": True, "changed": False, "skipped": "no Jellyfin player on this computer"})
+    conf = read_json(path)
+    if conf is None and os.path.exists(path):
+        out({"error": f"{path} isn't valid JSON: fix or remove it first"}, 1)
+    conf = conf if isinstance(conf, dict) else {}
+    if conf.get("remote_kbps") == kbps:
+        out({"ok": True, "changed": False, "kbps": kbps})
+    _, state = systemctl("is-active", SHIM_UNIT)
+    if state == "active":
+        systemctl("stop", SHIM_UNIT, timeout=15)
+        conf = read_json(path) or conf
+    conf["remote_kbps"] = kbps
+    try:
+        os.makedirs(shim_dir(), mode=0o700, exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(conf, f, indent=4, sort_keys=True)
+        os.replace(tmp, path)
+    finally:
+        if state == "active":
+            systemctl("start", SHIM_UNIT, timeout=15)
+    out({"ok": True, "changed": True, "kbps": kbps, "restarted": state == "active"})
+
+
 def shim_status():
     url = os.environ.get("JELLYFIN_URL", "").rstrip("/")
     cred = shim_credential(url) if url else None
@@ -2347,6 +2394,8 @@ def main():
         out(shim_status())
     if args == ["shim-logout"]:
         shim_logout()
+    if args[:1] == ["shim-bitrate"]:
+        shim_bitrate(args[1:])
     if args == ["configured"]:
         st = status()
         ok = bool(st["has_key"] and st["url"])
@@ -2359,7 +2408,7 @@ def main():
         print(VERSION)
         return
     sys.stderr.write("usage: jellyfin-mcp [serve] | configured | play-query TEXT | credentials … | shim-login|shim-status|shim-logout"
-                     " | listen-info ID | listen-play | shelf | play-id ID | episodes ID\n")
+                     " | shim-bitrate MBPS | listen-info ID | listen-play | shelf | play-id ID | episodes ID\n")
     sys.exit(2)
 
 

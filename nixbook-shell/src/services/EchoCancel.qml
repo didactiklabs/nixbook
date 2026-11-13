@@ -245,6 +245,40 @@ Singleton {
         }
     }
 
+    // Call apps and calls in a browser on "Call voices" (audio.calls.apps and
+    // .sites): their PipeWire stream rule, written by `nixbook-echo-cancel
+    // call-rules` once the settings are read and a few seconds after the last
+    // edit; a change restarts pipewire-pulse (it reads the rule when it
+    // starts). Only where the unit is installed: the rule targets its sink.
+    readonly property string callRulesKey: JSON.stringify([Config.options.audio.calls.apps, Config.options.audio.calls.sites])
+    onCallRulesKeyChanged: if (Config.ready) callRulesTimer.restart()
+    onAvailableChanged: if (root.available && Config.ready) callRulesTimer.restart()
+    Connections {
+        target: Config
+        function onReadyChanged() { if (Config.ready) callRulesTimer.restart(); }
+    }
+    Timer {
+        id: callRulesTimer
+        interval: 3000
+        onTriggered: {
+            if (!root.available) return;
+            if (callRules.running) {
+                callRulesTimer.restart();
+                return;
+            }
+            callRules.running = true;
+        }
+    }
+    Process {
+        id: callRules
+        command: ["nixbook-echo-cancel", "call-rules", "--restart"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (/"changed": true/.test(this.text)) console.info("[EchoCancel] call apps' stream rule written; pipewire-pulse restarted");
+            }
+        }
+    }
+
     // `nixbook-shell ipc call echoCancel on|off|toggle|status`.
     IpcHandler {
         target: "echoCancel"

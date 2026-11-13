@@ -67,6 +67,8 @@ ShellRoot {
         // YouTube links opened by the shell (youtubeMusic openLink): its IPC
         // target exists once the service is.
         YouTubeMusic.load()
+        // The Jellyfin player's streaming limit (ai.jellyfin.maxBitrateMbps).
+        Jellyfin.load()
     }
     
     PanelFamilyLoader {

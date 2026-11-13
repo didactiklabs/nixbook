@@ -782,7 +782,7 @@ Whether this computer is a Jellyfin player: jellyfin-mpv-shim as the `jellyfin-m
 - **Type:** `null or (positive integer, meaning >0)`
 - **Default:** `null`
 
-The most the player streams from a server it doesn't see on the local network (in Mbit/s); more is transcoded by the server. `null`: no limit, so it plays the files as they are (mpv plays almost anything). jellyfin-mpv-shim's own default is 10, which transcodes most 1080p and every 4K file from a server behind a public address, a reverse proxy or a VPN (100.64.0.0/10 isn't "local" to it). The server's own limits (Dashboard > Users > the user's "Internet streaming bitrate limit", Dashboard > Playback > Streaming) still apply.
+Renamed: `nixbookShellConfig.settings.ai.jellyfin.maxBitrateMbps` (0: no limit).
 
 ### `customHomeManagerModules.nixbookShellConfig.linkedinMcp.enable`
 

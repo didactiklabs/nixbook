@@ -123,15 +123,15 @@ Arguments: `pkgs`, `quickshellSrc` (another Quickshell pin), `withTailscale` / `
 
 ### Home Manager options
 
-| Option                                        | Default | What                                                                      |
-| --------------------------------------------- | ------- | ------------------------------------------------------------------------- |
-| `programs.nixbook-shell.enable`               | `false` | Install and run the shell                                                 |
-| `programs.nixbook-shell.settings`             | `{}`    | Typed shell settings, [locked in the Settings window](./settings)         |
-| `programs.nixbook-shell.cliphist.enable`      | `true`  | Run the cliphist daemon behind the clipboard history                      |
-| `programs.nixbook-shell.splash.enable`        | `true`  | The [loading screen](./lock-and-login#loading-screen) from session start  |
-| `programs.nixbook-shell.appTheming.qt.enable` | `false` | Qt apps follow the shell's palette ([App colours](./themes#app-colours))  |
-| `programs.nixbook-shell.desktopMcp.*`         |         | The [desktop control server](./desktop-agents#configuration)              |
-| `programs.nixbook-shell.assistant.*`          |         | What the [assistant](./ai-assistant#teaching-it-about-your-machine) knows |
+| Option                                   | Default | What                                                              |
+| ---------------------------------------- | ------- | ----------------------------------------------------------------- |
+| `programs.nixbook-shell.enable`          | `false` | Install and run the shell                                         |
+| `programs.nixbook-shell.settings`        | `{}`    | Typed shell settings, [locked in the Settings window](./settings) |
+| `programs.nixbook-shell.cliphist.enable` | `true`  | Run the cliphist daemon behind the clipboard history              |
+
+| `programs.nixbook-shell.appTheming.qt.enable` | `false` | Qt apps follow the shell's palette ([App colours](./themes#app-colours)) |
+| `programs.nixbook-shell.desktopMcp.*` | | The [desktop control server](./desktop-agents#configuration) |
+| `programs.nixbook-shell.assistant.*` | | What the [assistant](./ai-assistant#teaching-it-about-your-machine) knows |
 
 ## Source layout
 
