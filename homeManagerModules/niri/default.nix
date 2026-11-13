@@ -6,31 +6,33 @@
 }:
 let
   cfg = config.customHomeManagerModules;
+  keepPlaceConfig = pkgs.writeText "niri-keep-place.json" (
+    builtins.toJSON { inherit (cfg.niriConfig.keepPlace) apps; }
+  );
 in
 {
   imports = [
     ./niriConfig.nix
   ];
-  config = lib.mkIf (cfg.niriConfig.enable && cfg.niriConfig.keepPlace.apps != [ ]) {
-    # keep-place.py: a reopened window of these apps gets the place of the
-    # one it replaces (workspace, column or floating position, size).
+  config = lib.mkIf (cfg.niriConfig.enable && cfg.niriConfig.keepPlace.apps != { }) {
+    # keep-place.py: a new window of these apps opens where the app's last
+    # window was (workspace, column or floating position, size).
     systemd.user.services.niri-keep-place = {
       Unit = {
-        Description = "Give reopened windows (${lib.concatStringsSep ", " cfg.niriConfig.keepPlace.apps}) their place back in niri";
+        Description = "Open windows of ${lib.concatStringsSep ", " (lib.attrNames cfg.niriConfig.keepPlace.apps)} where they were, in niri";
         PartOf = [ "graphical-session.target" ];
         After = [ "graphical-session.target" ];
         # niri imports NIRI_SOCKET into the user manager when it starts.
         ConditionEnvironment = "NIRI_SOCKET";
+        X-Restart-Triggers = [ keepPlaceConfig ];
       };
       Service = {
-        ExecStart = lib.escapeShellArgs (
-          [
-            "${pkgs.python3}/bin/python3"
-            "-I"
-            "${./keep-place.py}"
-          ]
-          ++ cfg.niriConfig.keepPlace.apps
-        );
+        ExecStart = lib.escapeShellArgs [
+          "${pkgs.python3}/bin/python3"
+          "-I"
+          "${./keep-place.py}"
+          "${keepPlaceConfig}"
+        ];
         Restart = "on-failure";
         RestartSec = 2;
       };
@@ -61,22 +63,43 @@ in
       '';
     };
     keepPlace.apps = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ "com.moonlight_stream.Moonlight" ];
+      type = lib.types.attrsOf (
+        lib.types.submodule {
+          options.titles = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = [ ];
+            description = ''
+              Regular expressions (Python `re.search`) a window's title must
+              match to count: the app's main window, not its splash or
+              popouts. Empty: every window of the app.
+            '';
+          };
+        }
+      );
+      default = {
+        "com.moonlight_stream.Moonlight" = { };
+        # Vesktop's main window: "Discord", "(7) Discord | #channel | server",
+        # "• Discord | @someone"; not its splash ("vesktop") nor popouts
+        # ("Discord Popout").
+        vesktop.titles = [ "Discord( \\||$)" ];
+      };
       description = ''
-        App ids whose windows niri should give their place back when the app
-        replaces its window with a new one. Moonlight hides its window while
-        a game streams and opens a stream window, then the reverse when the
-        game ends; niri saw a new window each time and opened it at the
-        default width, beside whatever had focus, on the focused workspace.
+        Apps (by app id) whose new window opens where their last window was.
+        niri opens every new window at the default width, beside whatever
+        has focus, on the focused workspace; some apps replace their window
+        with a new one: Moonlight hides its window while a game streams and
+        opens a stream window, then the reverse when the game ends, and
+        Vesktop shows a splash, then opens its main window, each start.
 
         The `niri-keep-place` user service follows niri's event stream: a
-        window of one of these apps opening while another of the same app
-        is open, or closed less than a minute ago, is moved to that window's
-        workspace, made floating or tiled like it, given its size and put
-        at its column (when it has the focus) or its floating position. An
-        app launched afresh opens like any other window. `[ ]` turns the
-        service off.
+        new window of one of these apps (whose title matches `titles`, when
+        set) goes to the place of the app's other open window, else of its
+        last one, remembered across launches and reboots in
+        `$XDG_STATE_HOME/niri-keep-place/places.json`: the same workspace
+        (after a reboot, the same name, else the same index on the same
+        monitor), floating or tiled like it, its size, and its column (when
+        it has the focus: niri only moves the focused column) or floating
+        position. `{ }` turns the service off.
       '';
     };
   };
