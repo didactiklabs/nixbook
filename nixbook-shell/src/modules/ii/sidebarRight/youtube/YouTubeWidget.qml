@@ -361,12 +361,18 @@ Item {
         return root.newItems.filter(v => (v.channelId !== "" && v.channelId === ch.id)
             || (v.channelUrl !== "" && v.channelUrl === ch.url) || (!v.channelId && v.channel !== "" && v.channel === ch.name)).length;
     }
+    // When a video came out, as YouTube says it (approximate: "3 years
+    // ago" is all it gives for old ones).
     function ago(t) {
         if (!t) return "";
         const s = Math.max(0, Date.now() / 1000 - t);
+        const d = s / 86400;
         return s < 3600 ? Translation.tr("%1 min ago").arg(Math.max(1, Math.floor(s / 60)))
             : s < 86400 ? Translation.tr("%1 h ago").arg(Math.floor(s / 3600))
-            : Translation.tr("%1 d ago").arg(Math.floor(s / 86400));
+            : d < 14 ? Translation.tr("%1 d ago").arg(Math.floor(d))
+            : d < 60 ? Translation.tr("%1 wk ago").arg(Math.floor(d / 7))
+            : d < 365 ? Translation.tr("%1 mo ago").arg(Math.floor(d / 30.44))
+            : Translation.tr("%1 y ago").arg(Math.floor(d / 365.25));
     }
 
     function length(s) {
