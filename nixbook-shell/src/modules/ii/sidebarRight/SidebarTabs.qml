@@ -14,6 +14,7 @@ import qs.modules.ii.sidebarRight.pomodoro
 import qs.modules.ii.sidebarRight.todo
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 
 /**
  * The right sidebar's main area: one page at a time, filling what the header,
@@ -178,12 +179,14 @@ ColumnLayout {
             id: tabStack
             anchors.fill: parent
             anchors.rightMargin: -anchors.leftMargin
-            property int shownTab: -1
+            // The page shown, by type: pages are kept when tabs come or go,
+            // so an index would point at another one.
+            property string shownType: ""
             property bool forward: true
 
             Component.onCompleted: {
                 // From here on it changes halfway through the animation.
-                tabStack.shownTab = root.selectedTab;
+                tabStack.shownType = root.tabs[root.selectedTab]?.type ?? "";
                 root.previousIndex = root.selectedTab;
             }
 
@@ -219,7 +222,7 @@ ColumnLayout {
                 // Read here, not bound in a PropertyAction: that kept the
                 // value from before the switch.
                 ScriptAction {
-                    script: tabStack.shownTab = root.selectedTab
+                    script: tabStack.shownType = root.tabs[root.selectedTab]?.type ?? ""
                 }
                 ParallelAnimation {
                     PropertyAnimation {
@@ -242,15 +245,21 @@ ColumnLayout {
                 }
             }
 
+            // Keyed by type: the list is rebuilt whenever a tab comes or goes
+            // (Mesh set up, Jellyfin signed in, a setting), and a plain array
+            // made the Repeater destroy every page, built again on the next
+            // visit (the notifications page: ~0.3 s).
             Repeater {
-                model: root.tabs
+                model: ScriptModel {
+                    values: root.tabs
+                    objectProp: "type"
+                }
                 delegate: Loader {
                     required property var modelData
-                    required property int index
                     anchors.fill: parent
                     anchors.margins: 8
-                    active: tabStack.shownTab === index || item !== null || modelData.type === "calendar"
-                    visible: tabStack.shownTab === index
+                    active: tabStack.shownType === modelData.type || item !== null || modelData.type === "calendar"
+                    visible: tabStack.shownType === modelData.type
                     source: modelData.widget
                 }
             }

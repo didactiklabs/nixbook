@@ -18,13 +18,18 @@ Item {
         onTriggered: root.confirmClear = false
     }
 
-    NotificationHistoryView {
+    // Built only while shown: its rows walk the whole history (thousands of
+    // entries), which, kept alive hidden, cost ~0.3 s to build the page and
+    // a freeze at every notification recorded.
+    Loader {
+        active: root.showHistory
         visible: root.showHistory
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: statusRow.bottom
         anchors.topMargin: 6
         anchors.bottom: parent.bottom
+        sourceComponent: NotificationHistoryView {}
     }
 
     NotificationListView { // Scrollable window
