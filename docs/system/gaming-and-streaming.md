@@ -34,7 +34,7 @@ anya, a console-like machine, also auto-logs into SwayFX and starts **Steam Big 
 - the binary wrapped with `cap_sys_admin` to capture display and audio without root;
 - pair clients from the web UI at https://localhost:47990.
 
-On anya it streams a **headless virtual display**, so the machine can be used remotely without a monitor attached: greetd starts SwayFX on wlroots' headless backend (`WLR_BACKENDS=headless,libinput`, still rendered on the GPU), whose virtual output `HEADLESS-1` is set to 2560×1440 at 60 Hz in `profiles/anya/khoa/swayConfig.nix`. A monitor plugged in stays dark. Moonlight Qt is installed on the laptops as the client.
+On anya it streams a **headless virtual display**, so the machine can be used remotely without a monitor attached: greetd starts SwayFX on wlroots' headless backend (`WLR_BACKENDS=headless,libinput`, still rendered on the GPU), whose virtual output `HEADLESS-1` rests at 2560×1440 at 60 Hz (`profiles/anya/khoa/swayConfig.nix`). The Desktop app (`profiles/anya/khoa/sunshine.nix`) switches it to each Moonlight client's own size and frame rate when a stream starts (`SUNSHINE_CLIENT_WIDTH`/`HEIGHT`/`FPS`) and back when it ends, so a 1080p laptop or a 120 Hz tablet gets native frames. A monitor plugged in stays dark. Sunshine starts after PipeWire's sound server, so a client reconnecting at boot has sound. Moonlight Qt is installed on the laptops as the client.
 
 ## Wolf
 
