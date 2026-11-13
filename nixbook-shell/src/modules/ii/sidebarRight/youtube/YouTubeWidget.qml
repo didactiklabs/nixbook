@@ -13,11 +13,13 @@ import Quickshell.Widgets
 /**
  * The right sidebar's YouTube tab (sidebar.youtubeTab, on by default):
  * YouTube's videos to browse, played in mpv (no AI, no browser). Home is
- * your home page's recommendations, Subscriptions your subscriptions'
- * latest videos, both with the YouTube session YouTube Music signs in
- * (services/YouTubeMusic.qml, `nixbook-ytmusic videos`, through yt-dlp);
- * Subscriptions lists the channels you're subscribed to, each opening its
- * latest videos;
+ * your home page's recommendations, New your subscriptions' videos you
+ * haven't seen yet (not in YouTube's watch history, not opened here, not
+ * marked seen; the last 30 days, its count on the chip), both with the
+ * YouTube session YouTube Music signs in (services/YouTubeMusic.qml,
+ * `nixbook-ytmusic videos`, through yt-dlp); Subscriptions lists the
+ * channels you're subscribed to (how many new videos each has), each opening
+ * its latest videos;
  * the search field finds any video, signed in or not (a pasted YouTube
  * link shows that video: Enter plays it, from its t= time). A click opens the
  * video in mpv (`nixbook-ytmusic watch`: your mpv and its configuration),
@@ -35,9 +37,9 @@ import Quickshell.Widgets
 Item {
     id: root
 
-    // home | subscriptions
+    // home | new | subscriptions
     property string feed: "home"
-    // {home: {items, at}, subscriptions: {items, at}}
+    // {home: {items, at}, new: {items, at, historyError?}, subscriptions: {channels, at}}
     property var feeds: ({})
     property var loading: ({})
     property var errors: ({})
@@ -219,7 +221,7 @@ Item {
         return feed === "subscriptions" ? "channels" : feed;
     }
     function load(feed, force) {
-        if (feed !== "home" && feed !== "subscriptions") return;
+        if (feed !== "home" && feed !== "new" && feed !== "subscriptions") return;
         if (root.loading[feed]) return;
         const have = root.feeds[feed];
         // The last copy first, at once.
@@ -321,8 +323,40 @@ Item {
     function watch(video) {
         // A pasted link's video: from its t= time.
         const start = root.view === "search" && root.results?.items?.[0]?.id === video.id ? (root.results?.start ?? 0) : 0;
-        if (YouTubeMusic.watch(video.id, start))
+        if (YouTubeMusic.watch(video.id, start)) {
             root.say(Translation.tr("Opening “%1” in mpv…").arg(video.title || video.id), "busy");
+            // Watching marks it seen (`nixbook-ytmusic watch`): out of New.
+            root.dropNew([video.id]);
+        }
+    }
+
+    // New: your subscriptions' videos not seen yet.
+    readonly property var newItems: root.feeds.new?.items ?? []
+    function dropNew(ids) {
+        const have = root.feeds.new;
+        if (!have) return;
+        root.set("feeds", "new", Object.assign({}, have, { items: (have.items ?? []).filter(v => !ids.includes(v.id)) }));
+    }
+    function markSeen(ids) {
+        if (!ids.length) return;
+        root.dropNew(ids);
+        YouTubeMusic.markVideosSeen(ids, (ok, answer) => {
+            if (!ok) root.say(answer?.error || Translation.tr("Couldn't mark it seen"), "error");
+        });
+    }
+    // A channel of your list: how many of New are theirs (the feed doesn't
+    // always give a channel's id: its link or name then).
+    function newCountOf(ch) {
+        if (!ch) return 0;
+        return root.newItems.filter(v => (v.channelId !== "" && v.channelId === ch.id)
+            || (v.channelUrl !== "" && v.channelUrl === ch.url) || (!v.channelId && v.channel !== "" && v.channel === ch.name)).length;
+    }
+    function ago(t) {
+        if (!t) return "";
+        const s = Math.max(0, Date.now() / 1000 - t);
+        return s < 3600 ? Translation.tr("%1 min ago").arg(Math.max(1, Math.floor(s / 60)))
+            : s < 86400 ? Translation.tr("%1 h ago").arg(Math.floor(s / 3600))
+            : Translation.tr("%1 d ago").arg(Math.floor(s / 86400));
     }
 
     function length(s) {
@@ -342,6 +376,8 @@ Item {
         if (!root.visible) return;
         YouTubeMusic.refresh();
         root.load(root.feed, false);
+        // New's count on its chip, and on the channels.
+        if (root.feed !== "new") root.load("new", false);
     }
     onFeedChanged: root.load(root.feed, false)
     // Another list: from its top.
@@ -349,11 +385,16 @@ Item {
     // Another of the channel's lists: from its top too.
     readonly property string channelListShown: root.channelList(root.channel)
     onChannelListShownChanged: list.positionViewAtBeginning()
-    Component.onCompleted: root.load(root.feed, false)
+    Component.onCompleted: {
+        root.load(root.feed, false);
+        root.load("new", false);
+    }
     Connections {
         target: YouTubeMusic
         function onSignedInChanged() {
-            if (YouTubeMusic.signedIn) root.load(root.feed, false);
+            if (!YouTubeMusic.signedIn) return;
+            root.load(root.feed, false);
+            root.load("new", false);
         }
     }
 
@@ -362,6 +403,8 @@ Item {
         property string symbol
         property string label
         property bool lit: false
+        // A count beside the label (0: none).
+        property int count: 0
         implicitHeight: 34
         implicitWidth: chipRow.implicitWidth + 24
         buttonRadius: Appearance.rounding.full
@@ -386,6 +429,21 @@ Item {
                     font.pixelSize: Appearance.font.pixelSize.small
                     font.weight: chip.lit ? Font.DemiBold : Font.Normal
                     color: chip.lit ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                }
+                Rectangle {
+                    visible: chip.count > 0
+                    implicitWidth: Math.max(implicitHeight, countText.implicitWidth + 10)
+                    implicitHeight: countText.implicitHeight + 2
+                    radius: height / 2
+                    color: Appearance.colors.colPrimary
+                    StyledText {
+                        id: countText
+                        anchors.centerIn: parent
+                        text: chip.count > 99 ? "99+" : String(chip.count)
+                        font.pixelSize: Appearance.font.pixelSize.smallest
+                        font.weight: Font.DemiBold
+                        color: Appearance.colors.colOnPrimary
+                    }
                 }
             }
         }
@@ -559,6 +617,23 @@ Item {
                     color: Appearance.colors.colSubtext
                 }
             }
+            // Their videos you haven't seen yet (in New).
+            Rectangle {
+                readonly property int count: root.newCountOf(crow.channelData)
+                visible: count > 0
+                implicitWidth: Math.max(implicitHeight, newText.implicitWidth + 12)
+                implicitHeight: newText.implicitHeight + 4
+                radius: height / 2
+                color: Appearance.colors.colPrimary
+                StyledText {
+                    id: newText
+                    anchors.centerIn: parent
+                    text: Translation.tr("%1 new").arg(parent.count)
+                    font.pixelSize: Appearance.font.pixelSize.smallest
+                    font.weight: Font.DemiBold
+                    color: Appearance.colors.colOnPrimary
+                }
+            }
             IconButton {
                 visible: crowHover.hovered
                 symbol: "link"
@@ -683,7 +758,8 @@ Item {
                     StyledText {
                         id: viewsText
                         Layout.fillWidth: true
-                        text: (row.video?.channel && row.video?.views ? " · " : "") + root.views(row.video?.views ?? 0)
+                        readonly property string age: root.ago(row.video?.published ?? 0)
+                        text: [root.views(row.video?.views ?? 0), age].filter(t => t !== "").map(t => " · " + t).join("").slice(row.video?.channel ? 0 : 3)
                         elide: Text.ElideRight
                         font.pixelSize: Appearance.font.pixelSize.smaller
                         color: Appearance.colors.colSubtext
@@ -695,6 +771,13 @@ Item {
                 symbol: "link"
                 tip: Translation.tr("Copy the video's link")
                 onClicked: root.copyLink(root.videoLink(row.video?.id ?? ""))
+            }
+            // New: seen without watching it here.
+            IconButton {
+                visible: rowHover.hovered && root.view === "new"
+                symbol: "done"
+                tip: Translation.tr("Mark as seen")
+                onClicked: root.markSeen([row.video?.id ?? ""])
             }
         }
         HoverHandler {
@@ -926,6 +1009,13 @@ Item {
                 onClicked: root.feed = "home"
             }
             Chip {
+                symbol: "new_releases"
+                label: Translation.tr("New")
+                count: root.newItems.length
+                lit: root.feed === "new"
+                onClicked: root.feed = "new"
+            }
+            Chip {
                 symbol: "subscriptions"
                 label: Translation.tr("Subscriptions")
                 lit: root.feed === "subscriptions"
@@ -933,6 +1023,12 @@ Item {
             }
             Item {
                 Layout.fillWidth: true
+            }
+            IconButton {
+                visible: root.view === "new" && root.shown.length > 0
+                symbol: "done_all"
+                tip: Translation.tr("Mark all as seen")
+                onClicked: root.markSeen(root.shown.map(v => v.id))
             }
             MaterialLoadingIndicator {
                 implicitSize: 18
@@ -959,6 +1055,22 @@ Item {
             wrapMode: Text.WordWrap
             text: root.error
             color: Appearance.m3colors.m3error
+            font.pixelSize: Appearance.font.pixelSize.smaller
+        }
+        StyledText {
+            Layout.fillWidth: true
+            visible: root.view === "new" && !root.busy && root.error === "" && root.feeds.new !== undefined && root.shown.length === 0
+            wrapMode: Text.WordWrap
+            text: Translation.tr("Nothing new: you've seen your subscriptions' latest videos")
+            color: Appearance.colors.colSubtext
+            font.pixelSize: Appearance.font.pixelSize.smaller
+        }
+        StyledText {
+            Layout.fillWidth: true
+            visible: root.view === "new" && (root.feeds.new?.historyError ?? "") !== ""
+            wrapMode: Text.WordWrap
+            text: Translation.tr("YouTube's watch history couldn't be read: only the videos opened here or marked seen are left out")
+            color: Appearance.colors.colSubtext
             font.pixelSize: Appearance.font.pixelSize.smaller
         }
         StyledText {

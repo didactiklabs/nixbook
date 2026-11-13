@@ -3505,6 +3505,12 @@ expect_eq "youtube_videos home: 20 by default" "nixbook-ytmusic videos home --co
 expect_eq "youtube_videos subscriptions: the channels, no avatars" "Chan B null" \
   "$(call youtube_videos '{"action":"subscriptions"}' | jq -r '.channels[0] | "\(.name) \(.avatar)"')"
 expect_eq "youtube_videos subscriptions: the channels list" "nixbook-ytmusic videos channels" "$(last_call)"
+expect_eq "youtube_videos new: the videos not seen yet, no picture links" "vid11111111 null" \
+  "$(call youtube_videos '{"action":"new","count":10}' | jq -r '.items[0] | "\(.id) \(.thumb)"')"
+expect_eq "youtube_videos new: through nixbook-ytmusic" "nixbook-ytmusic videos new --count 10" "$(last_call)"
+call youtube_videos '{"action":"seen","videos":["vid11111111","vid22222222"]}' >/dev/null
+expect_eq "youtube_videos seen: marked seen" "nixbook-ytmusic videos seen vid11111111 vid22222222" "$(last_call)"
+expect_contains "youtube_videos seen: ids checked" "$(call youtube_videos '{"action":"seen","videos":["x; rm -rf"]}')" "1 to 150 YouTube video ids"
 call youtube_videos '{"action":"channel","channel":"https://www.youtube.com/@chan/","count":5}' >/dev/null
 expect_eq "youtube_videos channel: by its link" "nixbook-ytmusic videos channel https://www.youtube.com/@chan --count 5 --tab latest" "$(last_call)"
 call youtube_videos '{"action":"channel","channel":"https://www.youtube.com/@chan","tab":"popular","query":"arcane songs"}' >/dev/null

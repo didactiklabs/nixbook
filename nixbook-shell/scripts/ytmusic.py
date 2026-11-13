@@ -55,6 +55,14 @@ friend's song with it.
   nixbook-ytmusic serve                the player (the nixbook-ytmusic user
                                        service)
   nixbook-ytmusic videos home|subscriptions [--count N] [--cached]
+  nixbook-ytmusic videos new [--count N] [--cached]
+                                       your subscriptions' videos you haven't
+                                       seen yet (not in YouTube's watch
+                                       history, not opened with watch, not
+                                       marked seen), newest first, the last
+                                       30 days ({published}: approximate)
+  nixbook-ytmusic videos seen ID...|--all
+                                       out of New (--all: every one it shows)
   nixbook-ytmusic videos search WORDS... [--count N]
   nixbook-ytmusic videos channel URL|VIDEO [--tab latest|popular|shorts|live|playlists]
                        [--query WORDS...] [--count N]
@@ -1227,8 +1235,13 @@ def video_of(e):
     if e.get("ie_key") not in (None, "Youtube"):
         return None
     live = e.get("live_status") in ("is_live", "is_upcoming")
+    cid = str(e.get("channel_id") or "")
     return {"id": vid, "title": str(e.get("title") or ""),
             "channel": str(e.get("channel") or e.get("uploader") or ""), "channelUrl": channel_url(e),
+            "channelId": cid if re.fullmatch(r"UC[A-Za-z0-9_-]{22}", cid) else "",
+            # When it came out (approximate: YouTube's "3 days ago"), 0 when
+            # the list doesn't say (only the New feed asks for it).
+            "published": int(e.get("timestamp") or 0),
             "duration": int(e.get("duration") or 0), "views": int(e.get("view_count") or 0),
             "live": live, "upcoming": e.get("live_status") == "is_upcoming",
             # A small picture every video has (320x180), loaded by the panel.
@@ -1286,12 +1299,12 @@ def channel_of_video(vid):
     return m.group(0).replace("://m.", "://www.") if m else ""
 
 
-def run_video_feed(target, count, cookie, top=None, parse=None):
+def run_video_feed(target, count, cookie, top=None, parse=None, extra=()):
     """yt-dlp's flat list of `target` (count at most): (videos, error), each
     entry read by `parse` (video_of); the list's own fields (a channel's
-    name…) into `top` when given."""
+    name…) into `top` when given; `extra`: more yt-dlp arguments."""
     parse = parse or video_of
-    argv = [YT_DLP, "--flat-playlist", "-J", "--no-warnings", "--playlist-end", str(count), target]
+    argv = [YT_DLP, "--flat-playlist", "-J", "--no-warnings", *extra, "--playlist-end", str(count), target]
     # The session as a cookie file only while yt-dlp reads it (one per run:
     # two feeds may be asked at once).
     cookies = write_cookies_file(cookie, f"videos-cookies-{os.getpid()}.txt") if cookie else None
@@ -1324,8 +1337,71 @@ def run_video_feed(target, count, cookie, top=None, parse=None):
     return items, None
 
 
+# -- New: your subscriptions' videos you haven't seen yet ---------------------
+# Seen = in YouTube's watch history (:ythis, its latest NEW_HISTORY, kept
+# here too so they stay seen once they scroll out of it), opened from the tab
+# (`watch`), or marked seen (`videos seen`). Kept SEEN_KEEP days, SEEN_MAX
+# videos at most, in videos-seen.json beside the session's who.
+SEEN_KEEP = 120 * 86400
+SEEN_MAX = 5000
+NEW_HISTORY = 300
+# Older than this (when YouTube says when it came out): not new any more.
+NEW_MAX_AGE = 30 * 86400
+
+
+def seen_path():
+    return os.path.join(state_dir(), "videos-seen.json")
+
+
+def seen_ids():
+    data = read_json(seen_path(), {})
+    seen = data.get("seen") if isinstance(data, dict) else None
+    return set(seen) if isinstance(seen, dict) else set()
+
+
+def mark_seen(ids):
+    """The videos `ids` seen now; how many weren't yet."""
+    import fcntl
+    ids = [i for i in ids if VIDEO_ID.match(str(i))]
+    with open(os.path.join(state_dir(), "videos-seen.lock"), "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        data = read_json(seen_path(), {})
+        seen = data.get("seen") if isinstance(data, dict) and isinstance(data.get("seen"), dict) else {}
+        now = int(time.time())
+        added = sum(1 for i in ids if i not in seen)
+        for i in ids:
+            seen[i] = now
+        kept = sorted(((k, v) for k, v in seen.items() if VIDEO_ID.match(str(k)) and isinstance(v, (int, float))
+                       and now - v < SEEN_KEEP), key=lambda kv: -kv[1])[:SEEN_MAX]
+        write_private(seen_path(), {"seen": dict(kept)})
+    return added
+
+
+def unseen(items, seen, now=None):
+    now = now or time.time()
+    return [v for v in items if v["id"] not in seen and not (v.get("published") and now - v["published"] > NEW_MAX_AGE)]
+
+
+def new_videos(count, cookie):
+    """(videos, error, history error): the subscriptions' latest you haven't
+    seen, newest first, `count` at most."""
+    want = min(300, max(60, count * 2))
+    approx = ("--extractor-args", "youtubetab:approximate_date")
+    with concurrent.futures.ThreadPoolExecutor(2) as pool:
+        subs = pool.submit(run_video_feed, ":ytsubs", want, cookie, extra=approx)
+        history = pool.submit(run_video_feed, ":ythis", NEW_HISTORY, cookie)
+        items, error = subs.result()
+        watched, history_error = history.result()
+    if error:
+        return None, error, history_error
+    if watched:
+        mark_seen([v["id"] for v in watched])
+    return unseen(items, seen_ids())[:count], None, history_error
+
+
 def cmd_videos(args):
-    usage = ("usage: nixbook-ytmusic videos home|subscriptions [--count N] [--cached] | videos search WORDS... [--count N]"
+    usage = ("usage: nixbook-ytmusic videos home|subscriptions|new [--count N] [--cached] | videos seen ID...|--all"
+             " | videos search WORDS... [--count N]"
              " | videos channel URL|VIDEO [--count N] | videos channels [--cached]")
     if not args:
         out({"error": usage}, 1)
@@ -1365,6 +1441,42 @@ def cmd_videos(args):
                                  "followers": 0, "avatar": ""})
             write_private(videos_copy_path("channels"), dict(copy, channels=chans))
         out({"ok": True, "channel": cid, "subscribed": feed == "subscribe"})
+    if feed == "seen":
+        # Videos marked seen (out of New); --all: every one New shows.
+        ids = [a for a in args[1:] if a != "--all"]
+        copy = read_json(videos_copy_path("new"), None)
+        if "--all" in args and isinstance(copy, dict):
+            ids += [v.get("id") for v in copy.get("items") or [] if isinstance(v, dict)]
+        if not ids or any(not VIDEO_ID.match(str(i)) for i in ids):
+            out({"error": "videos seen: video ids, or --all"}, 1)
+        added = mark_seen(ids)
+        if isinstance(copy, dict) and isinstance(copy.get("items"), list):
+            write_private(videos_copy_path("new"), dict(copy, items=unseen(copy["items"], set(ids))))
+        out({"ok": True, "seen": added})
+    if feed == "new":
+        # Your subscriptions' videos you haven't seen yet.
+        if "--cached" in args:
+            copy = read_json(videos_copy_path("new"), None)
+            if not isinstance(copy, dict):
+                out({"feed": "new", "items": [], "at": 0, "none": True})
+            out(dict(copy, items=unseen(copy.get("items") or [], seen_ids())))
+        cookie = session()
+        if not cookie:
+            out({"error": "not signed in: Settings > Apps & accounts > YouTube Music > Use my browser's session",
+                 "signedOut": True}, 1)
+        items, error, history_error = new_videos(count, cookie)
+        if any(e and REFUSED.search(e) for e in (error, history_error)):
+            renewed = renew_session()
+            if renewed:
+                items, error, history_error = new_videos(count, renewed)
+        if error:
+            out({"error": f"YouTube didn't give your subscriptions' videos: {error}"}, 1)
+        answer = {"feed": "new", "items": items, "at": int(time.time())}
+        if history_error:
+            # Without it, only what you opened here or marked counts as seen.
+            answer["historyError"] = history_error
+        write_private(videos_copy_path("new"), answer)
+        out(answer)
     if feed == "video":
         # One video by its id (a link pasted in the tab's search field).
         vid = args[1] if len(args) > 1 else ""
@@ -1374,7 +1486,8 @@ def cmd_videos(args):
         m = CHANNEL_URL.match(str(info.get("author_url") or ""))
         out({"feed": "video", "items": [{
             "id": vid, "title": str(info.get("title") or ""), "channel": str(info.get("author_name") or ""),
-            "channelUrl": m.group(0).replace("://m.", "://www.") if m else "", "duration": 0, "views": 0,
+            "channelUrl": m.group(0).replace("://m.", "://www.") if m else "", "channelId": "", "published": 0,
+            "duration": 0, "views": 0,
             "live": False, "upcoming": False, "thumb": f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg"}],
              "found": bool(info), "at": int(time.time())})
     if feed == "channels":
@@ -1520,6 +1633,9 @@ def cmd_watch(args):
             volume = max(0, min(100, int(float(args[args.index("--volume") + 1]))))
         except (IndexError, ValueError):
             out({"error": "--volume: 0 to 100"}, 1)
+    # Seen: out of New (never in the way of watching).
+    with contextlib.suppress(OSError, ValueError):
+        mark_seen([vid])
     # The music in the background stops for the video (not started if it
     # isn't running).
     ask_player({"cmd": "control", "action": "pause"}, start=False, timeout=3)

@@ -473,7 +473,20 @@ case "$target" in
  {"_type": "url", "ie_key": "Vimeo", "id": "vimeo333333", "title": "Elsewhere"}]}
 J
   ;;
-  :ytsubs) echo 'ERROR: [youtube:tab] Unable to download webpage: HTTP Error 500' >&2; exit 1 ;;
+  :ytsubs)
+    if [ -z "$FAKE_SUBS" ]; then echo 'ERROR: [youtube:tab] Unable to download webpage: HTTP Error 500' >&2; exit 1; fi
+    now=$(date +%s)
+    cat <<J
+{"entries": [
+ {"_type": "url", "ie_key": "Youtube", "id": "subnew11111", "title": "Fresh", "channel": "Chan B", "channel_id": "UCbbbbbbbbbbbbbbbbbbbbbb", "timestamp": $((now - 3600))},
+ {"_type": "url", "ie_key": "Youtube", "id": "subwatched1", "title": "Watched on YouTube", "channel": "Chan B", "timestamp": $((now - 7200))},
+ {"_type": "url", "ie_key": "Youtube", "id": "subnew22222", "title": "Fresh too", "channel": "Chan A", "channel_id": "not-an-id"},
+ {"_type": "url", "ie_key": "Youtube", "id": "subold11111", "title": "Months old", "channel": "Chan A", "timestamp": $((now - 90 * 86400))}]}
+J
+    ;;
+  :ythis)
+    if [ -n "$FAKE_NO_HISTORY" ]; then echo 'ERROR: [youtube:tab] HTTP Error 500' >&2; exit 1; fi
+    echo '{"entries": [{"_type": "url", "ie_key": "Youtube", "id": "subwatched1", "title": "Watched on YouTube"}]}' ;;
   ytsearch*) echo '{"entries": [{"_type": "url", "ie_key": "Youtube", "id": "found111111", "title": "Found", "channel": "C"}]}' ;;
   https://www.youtube.com/feed/channels)
     echo '{"entries": [{"_type": "url", "ie_key": "YoutubeTab", "id": "UCbbbbbbbbbbbbbbbbbbbbbb", "title": "Chan B", "channel_url": "https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb", "channel_follower_count": 4200, "thumbnails": [{"url": "//yt3.example/b=s88", "width": 88}, {"url": "//yt3.example/b=s176", "width": 176}]}, {"_type": "url", "id": "not-a-channel", "title": "Odd"}]}' ;;
@@ -503,7 +516,7 @@ expect "videos: a search answers signed out (no cookies given)" "found111111 yts
   "$(yv search two words --count 3 | "$py" -c 'import json,sys; print(" ".join(i["id"] for i in json.load(sys.stdin)["items"]))') $(tail -1 "$FEEDS_LOG" | sed 's/.* \(ytsearch\)/\1/')"
 printf '{"cookie": "SAPISID=x; __Secure-3PAPISID=x"}' >"$tmp/keyring/session"
 expect "videos: home, each video once, channels and other sites out" \
-  '[{"id": "home1111111", "title": "First", "channel": "Chan A", "channelUrl": "https://www.youtube.com/channel/UCaaaaaaaaaaaaaaaaaaaaaa", "duration": 146, "views": 1200, "live": false, "upcoming": false, "thumb": "https://i.ytimg.com/vi/home1111111/mqdefault.jpg"}, {"id": "live2222222", "title": "Live", "channel": "Chan B", "channelUrl": "", "duration": 0, "views": 0, "live": true, "upcoming": false, "thumb": "https://i.ytimg.com/vi/live2222222/mqdefault.jpg"}]' \
+  '[{"id": "home1111111", "title": "First", "channel": "Chan A", "channelUrl": "https://www.youtube.com/channel/UCaaaaaaaaaaaaaaaaaaaaaa", "channelId": "", "published": 0, "duration": 146, "views": 1200, "live": false, "upcoming": false, "thumb": "https://i.ytimg.com/vi/home1111111/mqdefault.jpg"}, {"id": "live2222222", "title": "Live", "channel": "Chan B", "channelUrl": "", "channelId": "", "published": 0, "duration": 0, "views": 0, "live": true, "upcoming": false, "thumb": "https://i.ytimg.com/vi/live2222222/mqdefault.jpg"}]' \
   "$(yv home --count 500 | "$py" -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["items"], ensure_ascii=False))')"
 expect "videos: the session given as a cookie file, gone after; the count capped" "--playlist-end 150 :ytrec [cookies there] none left" \
   "$(tail -1 "$FEEDS_LOG" | grep -o -- '--playlist-end 150 :ytrec \[cookies there\]') $(ls "$tmp/run/nixbook-ytmusic"/videos-cookies-* >/dev/null 2>&1 && echo left || echo none left)"
@@ -561,6 +574,33 @@ expect "videos subscribe: through ytmusicapi, the kept list has it first" "true 
   "$(subs subscribe UCcccccccccccccccccccccc 2>/dev/null | jq -r .subscribed) $(tail -n1 "$tmp/subs.log") $(ytm videos channels --cached | jq -r '.channels[0].id')"
 expect "videos unsubscribe: through ytmusicapi, out of the kept list" "false unsubscribe UCcccccccccccccccccccccc 0" \
   "$(subs unsubscribe UCcccccccccccccccccccccc 2>/dev/null | jq -r .subscribed) $(tail -n1 "$tmp/subs.log") $(ytm videos channels --cached | jq '[.channels[] | select(.id == "UCcccccccccccccccccccccc")] | length')"
+# New: the subscriptions' videos not seen yet (not in the watch history, not
+# opened with watch, not marked seen), the last 30 days.
+expect "videos new: signed out, refused" "1 true" \
+  "$(
+    set +e
+    mv "$tmp/keyring/session" "$tmp/session.away"
+    a=$(FAKE_SUBS=1 yv new)
+    echo "$? $(printf '%s' "$a" | jq -r .signedOut)"
+    mv "$tmp/session.away" "$tmp/keyring/session"
+  )"
+expect "videos new: watched on YouTube and months-old videos out; dates asked for; the channel's id" \
+  "subnew11111,subnew22222 UCbbbbbbbbbbbbbbbbbbbbbb| true --playlist-end 300 :ythis" \
+  "$(FAKE_SUBS=1 yv new | jq -r '"\([.items[].id] | join(",")) \(.items[0].channelId)|\(.items[1].channelId)"') $(grep -q 'approximate_date --playlist-end 60 :ytsubs' "$FEEDS_LOG" && echo true) $(grep -o -- '--playlist-end 300 :ythis' "$FEEDS_LOG" | tail -1)"
+expect "videos new: the watch history remembered (seen once it scrolls out of it)" "subnew11111,subnew22222" \
+  "$(FAKE_SUBS=1 FAKE_NO_HISTORY=1 yv new | jq -r '[.items[].id] | join(",")')"
+expect "videos new: without the history, said" "true" \
+  "$(FAKE_SUBS=1 FAKE_NO_HISTORY=1 yv new | jq '.historyError != null')"
+expect "videos seen: out of New, the kept copy too (--cached)" "1 subnew22222" \
+  "$(ytm videos seen subnew11111 | jq -r .seen) $(NIXBOOK_YTMUSIC_YT_DLP=/nonexistent ytm videos new --cached | jq -r '[.items[].id] | join(",")')"
+expect "videos seen: not a video id, refused" "1" "$(
+  set +e
+  ytm videos seen 'bad id' >/dev/null
+  echo $?
+)"
+expect "videos seen --all: every video New shows" "1 0" \
+  "$(ytm videos seen --all | jq -r .seen) $(ytm videos new --cached | jq '.items | length')"
+
 # One video (a pasted link) through oEmbed (urlopen stubbed: no network here).
 expect "videos video: a pasted link's title and channel through oEmbed; its id alone when unknown" \
   "Found It|Chan B|https://www.youtube.com/@chan|True |False" \
@@ -604,6 +644,8 @@ PATH="$tmp/bin:$PATH" ytm watch home1111111 --start 42 --volume 35 >/dev/null
 expect "watch: the user's mpv, the video, from the time and at the volume asked" \
   "--script-opts-append=ytdl_hook-ytdl_path=$tmp/bin/yt-dlp --force-window=immediate --start=42 --volume=35 https://www.youtube.com/watch?v=home1111111" \
   "$(cat "$tmp/mpv-argv")"
+expect "watch: the video seen (out of New)" "true" \
+  "$(jq '.seen | has("home1111111")' "$tmp/state/nixbook-ytmusic/videos-seen.json")"
 expect "watch: not a video id, refused" "1" "$(
   set +e
   PATH="$tmp/bin:$PATH" ytm watch 'bad id' >/dev/null

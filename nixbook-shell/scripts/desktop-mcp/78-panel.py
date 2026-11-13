@@ -146,8 +146,8 @@ def t_youtube_music_player(ctx, args):
     return [text(ytmusic_call("offline", op, as_str(args, "playlist", max_len=64, pattern=YT_PLAYLIST)))]
 
 
-YTV_ACTIONS = ("home", "subscriptions", "channel", "playlist", "search", "watch", "status", "control", "subscribe",
-               "unsubscribe")
+YTV_ACTIONS = ("home", "new", "subscriptions", "channel", "playlist", "search", "watch", "status", "control", "seen",
+               "subscribe", "unsubscribe")
 YTV_TABS = ("latest", "popular", "shorts", "live", "playlists")
 YTV_CONTROLS = ("play", "pause", "toggle", "stop", "seek", "volume")
 YT_CHANNEL = r"https://(www\.|m\.)?youtube\.com/(channel/UC[A-Za-z0-9_-]{22}|@[^/?#\s]{1,100}|c/[^/?#\s]{1,100}|user/[^/?#\s]{1,100})/?"
@@ -172,7 +172,10 @@ def ytv_videos(out):
     "shell",
     "YouTube videos, as the right panel's YouTube tab shows them, played in the user's mpv (a window "
     "with their mpv settings), never a browser. Reading needs the YouTube session YouTube Music signs "
-    "in with (search doesn't). home {count?}: the user's YouTube home page. subscriptions: the channels "
+    "in with (search doesn't). home {count?}: the user's YouTube home page. new {count?}: their "
+    "subscriptions' videos they haven't seen yet (not in their YouTube watch history, not played from "
+    "the tab, not marked seen), newest first, the last 30 days, each with published (approximate unix "
+    "time) and channelId. seen {videos: [ids]}: marks videos seen (out of new). subscriptions: the channels "
     "they're subscribed to ({id, name, url, followers}). channel {channel, tab?, query?, count?}: a "
     "channel's tab — latest (default: newest first), popular (most viewed), shorts, live, playlists "
     "({id, title}) — or a search in it (query); its link from subscriptions or a video's channelUrl, or "
@@ -190,13 +193,14 @@ def ytv_videos(out):
         "tab": {"type": "string", "enum": list(YTV_TABS), "description": "channel: which of its tabs (latest by default)"},
         "playlist": {"type": "string", "description": "playlist: its id (from a channel's playlists)"},
         "video": {"type": "string", "description": "watch: the video's id"},
-        "count": {"type": "integer", "description": "home, channel, search: how many videos (1-150, 20 by default)"},
+        "videos": {"type": "array", "items": {"type": "string"}, "description": "seen: the videos' ids"},
+        "count": {"type": "integer", "description": "home, new, channel, search: how many videos (1-150, 20 by default)"},
         "what": {"type": "string", "enum": list(YTV_CONTROLS), "description": "control: what to do"},
         "value": {"type": "number", "description": "control: seek seconds, volume 0-100"},
     }, ["action"]),
-    props={"action": "home|subscriptions|channel|playlist|search|watch|status|control|subscribe|unsubscribe"},
+    props={"action": "home|new|subscriptions|channel|playlist|search|watch|status|control|seen|subscribe|unsubscribe"},
     brief="YouTube videos played in the user's mpv (the right panel's YouTube tab): their home page, "
-          "subscribed channels, a channel's latest videos, search; watch, pause, seek, its own volume; "
+          "their subscriptions' new videos not seen yet, subscribed channels, a channel's latest videos, search; watch, pause, seek, its own volume; "
           "subscribe to a channel.",
 )
 def t_youtube_videos(ctx, args):
@@ -205,6 +209,8 @@ def t_youtube_videos(ctx, args):
         raise ToolError("`action`: " + ", ".join(YTV_ACTIONS))
     if action == "home":
         return [text(ytv_videos(ytmusic_call("videos", "home", "--count", str(ytv_count(args)), timeout=120)))]
+    if action == "new":
+        return [text(ytv_videos(ytmusic_call("videos", "new", "--count", str(ytv_count(args)), timeout=180)))]
     if action == "subscriptions":
         out = ytmusic_call("videos", "channels", timeout=120)
         for c in out.get("channels") or []:
@@ -249,6 +255,12 @@ def t_youtube_videos(ctx, args):
             if not cid:
                 raise ToolError("YouTube didn't say which channel that is")
         return [text(ytmusic_call("videos", action, cid, timeout=60))]
+    if action == "seen":
+        ids = args.get("videos")
+        if not isinstance(ids, list) or not 1 <= len(ids) <= 150 \
+                or not all(isinstance(i, str) and re.fullmatch(YT_VIDEO, i) for i in ids):
+            raise ToolError("`videos`: 1 to 150 YouTube video ids")
+        return [text(ytmusic_call("videos", "seen", *ids, timeout=30))]
     if action == "watch":
         widget_call("youtubeMusic", "watch", as_str(args, "video", pattern=YT_VIDEO))
         return [text("Opening the video in mpv (it shows in a few seconds); status says when it plays.")]
