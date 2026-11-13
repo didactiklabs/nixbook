@@ -328,6 +328,9 @@ Singleton {
     function openLink(url) {
         const t = YouTubeLinks.linkTarget(url);
         if (!t) return "not a YouTube video, song or playlist link";
+        const choice = Config.options?.media?.youtubeLinks;
+        if (t.kind === "video" ? choice?.videos === false : choice?.music === false)
+            return "turned off in Settings > Apps & accounts > YouTube links";
         if (t.kind === "video") {
             if (!root.watch(t.id, t.start)) return "not a YouTube video id";
             // mpv's window is where it plays: the panel isn't opened over
@@ -351,8 +354,25 @@ Singleton {
                 else root._playSong(t, url);
             });
         } else root._playSong(t, url);
-        root._showTab("youtubeMusic", Config.options.sidebar.youtubeMusicTab, true);
+        root._showTab("youtubeMusic", Config.options.sidebar.youtubeMusicTab, choice?.openPanel !== false);
         return "";
+    }
+    // Whether this machine sends YouTube links here at all (its Zen
+    // extension and link router: hm-module.nix's youtubeLinks.enable, in
+    // youtube-links.json): Settings shows its switches only then.
+    property bool linksInstalled: false
+    FileView {
+        id: linksFile
+        path: `${Quickshell.env("XDG_CONFIG_HOME") || `${Quickshell.env("HOME")}/.config`}/nixbook-shell/youtube-links.json`
+        printErrors: false
+        onLoaded: {
+            try {
+                root.linksInstalled = JSON.parse(linksFile.text()).enable === true;
+            } catch (e) {
+                root.linksInstalled = false;
+            }
+        }
+        onLoadFailed: root.linksInstalled = false
     }
     function _playSong(t, url) {
         root.playId(t.id, t.start, (ok, answer) => {

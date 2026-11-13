@@ -261,6 +261,10 @@ in
       `$BROWSER`) the http(s) link router (`nixbook-open-url`) asks the shell
       first. Takes the place of `zenBrowserConfig.openInApps`' entry for
       music.youtube.com for song and playlist links.
+
+      Each kind can be turned off from the shell itself (Settings > Apps &
+      accounts > YouTube links: videos, songs and playlists, opening the
+      right panel): those links then open in the browser or app as before.
     '';
   };
 
@@ -558,6 +562,10 @@ in
       appTheming.qt.enable = true;
 
       selfImprove.enable = cfg.selfImprove.enable;
+      # Its switches in Settings > Apps & accounts > YouTube links, where
+      # zenBrowserConfig sends the links here.
+      youtubeLinks.enable =
+        cfg.youtubeLinks.enable && config.customHomeManagerModules.zenBrowserConfig.enable;
 
       # The bridged Electron apps installed (lib/electronA11y.nix, in
       # desktopApps or a profile), watched by nixbook-electron-watch: one

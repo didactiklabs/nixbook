@@ -71,6 +71,8 @@ Opt-in, for the whole machine: with `customHomeManagerModules.nixbookShellConfig
 
 In Zen a force-installed extension takes the links clicked or typed, including a click on a video inside youtube.com (YouTube changes its page in place there, so the extension catches the click itself). Every other app (Discord, Slack, mail, a terminal: `xdg-open`, `$BROWSER`) goes through nixbook's link router `nixbook-open-url`, which asks the shell first. Other YouTube pages (the home page, channels, searches, youtube.com playlists) open in the browser as before. A link the shell can't take also opens in the browser: the shell not running, or a playlist while YouTube Music isn't signed in. Private windows are left alone, so a private window is the way to watch one in the browser anyway. For music.youtube.com, songs and playlists go to the shell and the rest still goes to `zenBrowserConfig.openInApps`' app (YouTube Music on totoro).
 
+**Settings > Apps & accounts > YouTube links** (shown where the machine sends YouTube links to the shell) turns each part off: video links in mpv, YouTube Music song and playlist links in the background player, and opening the right panel on the YouTube Music tab. A link of a kind turned off opens in the browser or app as before.
+
 Under the hood: `nixbook-youtube-link URL` (the extension's native host and the router both run it) calls the shell's `youtubeMusic openLink URL` IPC and exits 0 when the shell took the link. What a link is is decided once, in `youtube_links.js`, which the shell and both Zen extensions load.
 
 ## Equalizer
