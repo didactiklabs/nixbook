@@ -122,5 +122,49 @@ ContentPage {
                 Layout.fillWidth: true
             }
         }
+
+        // YouTube links opened by the shell instead of the browser
+        // (YouTubeMusic.openLink), shown where the machine sends them here
+        // (its Zen extension and link router: YouTubeMusic.linksInstalled).
+        // A switch off: those links open in the browser or app as before.
+        ContentSection {
+            icon: "link"
+            shape: MaterialShape.Shape.Clover4Leaf
+            title: Translation.tr("YouTube links")
+            shown: YouTubeMusic.linksInstalled
+
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "media.youtubeLinks.videos";
+                    enabled: !nixManaged;
+                    buttonIcon: "smart_display"
+                    text: Translation.tr("Play YouTube video links in mpv, not the browser")
+                    checked: Config.options.media.youtubeLinks.videos
+                    onCheckedChanged: {
+                        Config.options.media.youtubeLinks.videos = checked;
+                    }
+                }
+                ConfigSwitch {
+                    configKey: "media.youtubeLinks.music";
+                    enabled: !nixManaged;
+                    buttonIcon: "queue_music"
+                    text: Translation.tr("Play YouTube Music song and playlist links in the background player")
+                    checked: Config.options.media.youtubeLinks.music
+                    onCheckedChanged: {
+                        Config.options.media.youtubeLinks.music = checked;
+                    }
+                }
+                ConfigSwitch {
+                    configKey: "media.youtubeLinks.openPanel";
+                    enabled: !nixManaged && Config.options.media.youtubeLinks.music
+                    buttonIcon: "right_panel_open"
+                    text: Translation.tr("Open the right panel on the YouTube Music tab when one plays")
+                    checked: Config.options.media.youtubeLinks.openPanel
+                    onCheckedChanged: {
+                        Config.options.media.youtubeLinks.openPanel = checked;
+                    }
+                }
+            }
+        }
     }
 }
