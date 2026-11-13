@@ -148,7 +148,7 @@ def t_youtube_music_player(ctx, args):
 
 YTV_ACTIONS = ("home", "new", "subscriptions", "channel", "playlist", "search", "watch", "status", "control", "seen",
                "subscribe", "unsubscribe")
-YTV_TABS = ("latest", "popular", "sections", "shorts", "live", "playlists")
+YTV_TABS = ("latest", "popular", "shorts", "live", "playlists")
 YTV_CONTROLS = ("play", "pause", "toggle", "stop", "seek", "volume")
 YT_CHANNEL = r"https://(www\.|m\.)?youtube\.com/(channel/UC[A-Za-z0-9_-]{22}|@[^/?#\s]{1,100}|c/[^/?#\s]{1,100}|user/[^/?#\s]{1,100})/?"
 
@@ -177,8 +177,8 @@ def ytv_videos(out):
     "the tab, not marked seen), newest first, the last 30 days, each with published (approximate unix "
     "time) and channelId. seen {videos: [ids]}: marks videos seen (out of new). subscriptions: the channels "
     "they're subscribed to ({id, name, url, followers}). channel {channel, tab?, query?, count?}: a "
-    "channel's tab — latest (default: newest first), sections (its home page's shelves, each a "
-    "playlist: {id, title}), popular (most viewed), shorts, live, playlists ({id, title}) — or a search in it (query); its link from subscriptions or a video's channelUrl, or "
+    "channel's tab — latest (default: newest first), popular (most viewed), shorts, live, playlists "
+    "({id, title}) — or a search in it (query); its link from subscriptions or a video's channelUrl, or "
     "a video id: its channel. playlist {playlist, count?}: a playlist's videos. search {query, count?}. Videos come with id, title, channel, channelUrl, duration "
     "(seconds), views, live. watch {video}: plays a video id in mpv, at the volume the user last set "
     "for videos; the background music pauses. status: the video playing (title, videoId, Playing/"

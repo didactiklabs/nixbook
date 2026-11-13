@@ -494,8 +494,6 @@ J
     echo '{"title": "Popular videos", "channel": "Chan B", "entries": [{"_type": "url", "ie_key": "Youtube", "id": "popular1111", "title": "Most viewed", "view_count": 9000000}]}' ;;
   https://www.youtube.com/@chan/shorts | https://www.youtube.com/@chan/streams | "https://www.youtube.com/@chan/search?query=two%20words")
     echo '{"channel": "Chan B", "entries": [{"_type": "url", "ie_key": "Youtube", "id": "'"$(basename "$target" | tr -dc a-z | head -c 11 | sed 's/$/xxxxxxxxxxx/' | head -c 11)"'", "title": "From '"${target##*/}"'"}]}' ;;
-  https://www.youtube.com/@chan/featured)
-    echo '{"title": "Chan B - Home", "channel": "Chan B", "entries": [{"_type": "url", "title": "LATEST RELEASES", "url": "https://www.youtube.com/playlist?list=PLsection001"}, {"_type": "url", "title": "Wong Fu 2000s", "url": "https://www.youtube.com/playlist?list=PLFl18ZafiMbY"}, {"_type": "url", "title": "Not a playlist", "url": "https://www.youtube.com/@chan/shorts"}, {"_type": "url", "title": "", "url": "https://www.youtube.com/playlist?list=PLuntitled01"}]}' ;;
   https://www.youtube.com/@chan/playlists)
     echo '{"channel": "Chan B", "entries": [{"_type": "url", "ie_key": "YoutubeTab", "id": "PLplaylist01", "title": "A playlist", "thumbnails": [{"url": "https://i.ytimg.com/vi/x/hq.jpg", "width": 480}]}, {"_type": "url", "ie_key": "Youtube", "id": "notalist11", "title": "x"}]}' ;;
   https://www.youtube.com/playlist?list=PLplaylist01)
@@ -546,8 +544,6 @@ expect "videos channel --tab shorts / live: their tabs" "shorts streams" \
   "$(yv channel https://www.youtube.com/@chan --tab shorts | jq -r '.items[0].title | ltrimstr("From ")') $(yv channel https://www.youtube.com/@chan --tab live | jq -r '.items[0].title | ltrimstr("From ")')"
 expect "videos channel --tab playlists: its playlists, nothing else" '[{"id":"PLplaylist01","title":"A playlist","count":0,"thumb":"https://i.ytimg.com/vi/x/hq.jpg"}]' \
   "$(yv channel https://www.youtube.com/@chan --tab playlists | jq -c .items)"
-expect "videos channel --tab sections: its home page's shelves that are playlists" '[{"id":"PLsection001","title":"LATEST RELEASES","count":0,"thumb":""},{"id":"PLFl18ZafiMbY","title":"Wong Fu 2000s","count":0,"thumb":""}]' \
-  "$(yv channel https://www.youtube.com/@chan --tab sections | jq -c .items)"
 expect "videos channel --query: a search in the channel" "search?query=two%20words" \
   "$(yv channel https://www.youtube.com/@chan --query two words | jq -r '.items[0].title | ltrimstr("From ")')"
 expect "videos channel --tab: an unknown tab refused" "1" "$(
