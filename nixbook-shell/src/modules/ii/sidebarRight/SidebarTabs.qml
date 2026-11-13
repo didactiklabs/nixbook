@@ -173,7 +173,7 @@ ColumnLayout {
         clip: true
 
         // Each page is built on its first visit and kept, then only
-        // shown/hidden (the calendar straight away, it's the heavy one):
+        // shown/hidden (the calendar and the notifications straight away, see below):
         // swapping one Loader's source rebuilt it on every switch, mid-fade.
         Item {
             id: tabStack
@@ -258,7 +258,13 @@ ColumnLayout {
                     required property var modelData
                     anchors.fill: parent
                     anchors.margins: 8
+                    // Built up front: the calendar (heavy), and the
+                    // notifications, the first tab and the one the panel opens
+                    // on when something arrived. Built on its first click it
+                    // froze the switch ~0.4 s, mid-fade; with the panel (kept
+                    // loaded, built at startup) it costs nothing in view.
                     active: tabStack.shownType === modelData.type || item !== null || modelData.type === "calendar"
+                        || modelData.type === "notifications"
                     visible: tabStack.shownType === modelData.type
                     source: modelData.widget
                 }
