@@ -31,6 +31,17 @@ in
     };
   };
   config = lib.mkIf cfg.enable {
+    # Sunshine announces itself over mDNS (Avahi's user services) so Moonlight
+    # clients find the machine without typing its address.
+    services.avahi = {
+      enable = true;
+      nssmdns4 = true;
+      publish = {
+        enable = true;
+        addresses = true;
+        userServices = true;
+      };
+    };
     systemd.user.services.sunshine = {
       description = "Sunshine Gamestreaming server.";
       partOf = [ "graphical-session.target" ];
