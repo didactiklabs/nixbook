@@ -12,7 +12,8 @@ const src = fs
   )
   .replace(/^\.pragma library/m, "");
 const m = new Function(
-  src + "\nreturn { linkTarget, wanted, seconds, params }",
+  src +
+    "\nreturn { linkTarget, wanted, seconds, params, jellyfinTarget, target }",
 )();
 
 let failed = 0,
@@ -176,6 +177,118 @@ check("seconds plain", m.seconds("75"), 75);
 check("seconds m/s", m.seconds("2m5s"), 125);
 check("seconds junk", m.seconds("abc"), 0);
 check("params decode", m.params("a=b%20c&a=x&d"), { a: "b c", d: "" });
+
+// Jellyfin links (media.jellyfinLinks): items of the server set up here.
+const JF = "357b9b6f09061bc8bc94915d92f0446e";
+const S = "https://jellyfin.example.org";
+const jf = (id = JF) => ({ kind: "jellyfin", id, list: "", start: 0 });
+check(
+  "jellyfin details",
+  m.jellyfinTarget(`${S}/web/#/details?id=${JF}&serverId=abc`, S),
+  jf(),
+);
+check(
+  "jellyfin details, old hash",
+  m.jellyfinTarget(`${S}/web/index.html#!/details?id=${JF}`, S),
+  jf(),
+);
+check(
+  "jellyfin details, no /web",
+  m.jellyfinTarget(`${S}/#/details?id=${JF}`, S),
+  jf(),
+);
+check("jellyfin item", m.jellyfinTarget(`${S}/Items/${JF}`, S), jf());
+check(
+  "jellyfin download",
+  m.jellyfinTarget(`${S}/Items/${JF}/Download?api_key=x`, S),
+  jf(),
+);
+check(
+  "jellyfin stream",
+  m.jellyfinTarget(`${S}/Videos/${JF}/stream.mkv?static=true`, S),
+  jf(),
+);
+check(
+  "jellyfin id with dashes, upper case",
+  m.jellyfinTarget(`${S}/Items/357B9B6F-0906-1BC8-BC94-915D92F0446E`, S),
+  jf(),
+);
+check(
+  "jellyfin server with a trailing slash",
+  m.jellyfinTarget(`${S}/web/#/details?id=${JF}`, `${S}/`),
+  jf(),
+);
+check(
+  "jellyfin default port",
+  m.jellyfinTarget(`https://jellyfin.example.org:443/Items/${JF}`, S),
+  jf(),
+);
+check(
+  "jellyfin base path",
+  m.jellyfinTarget(
+    `https://example.org/jellyfin/web/#/details?id=${JF}`,
+    "https://example.org/jellyfin",
+  ),
+  jf(),
+);
+check(
+  "jellyfin base path: outside it",
+  m.jellyfinTarget(
+    `https://example.org/web/#/details?id=${JF}`,
+    "https://example.org/jellyfin",
+  ),
+  null,
+);
+check("jellyfin home", m.jellyfinTarget(`${S}/web/#/home.html`, S), null);
+check(
+  "jellyfin library",
+  m.jellyfinTarget(`${S}/web/#/movies.html?topParentId=${JF}`, S),
+  null,
+);
+check(
+  "jellyfin picture",
+  m.jellyfinTarget(`${S}/Items/${JF}/Images/Primary`, S),
+  null,
+);
+check(
+  "jellyfin bad id",
+  m.jellyfinTarget(`${S}/web/#/details?id=abc`, S),
+  null,
+);
+check(
+  "jellyfin other host",
+  m.jellyfinTarget(`https://evil.example.org/web/#/details?id=${JF}`, S),
+  null,
+);
+check(
+  "jellyfin other port",
+  m.jellyfinTarget(`https://jellyfin.example.org:8096/Items/${JF}`, S),
+  null,
+);
+check(
+  "jellyfin user@host",
+  m.jellyfinTarget(`https://jellyfin.example.org@evil.org/Items/${JF}`, S),
+  null,
+);
+check("jellyfin no server", m.jellyfinTarget(`${S}/Items/${JF}`, ""), null);
+const jfOn = {
+  enable: false,
+  jellyfin: { enable: true, url: S, host: "jellyfin.example.org" },
+};
+check("target: jellyfin", m.target(`${S}/Items/${JF}`, jfOn), jf());
+check(
+  "target: youtube first",
+  m.target(`https://youtu.be/${ID}`, jfOn),
+  video(ID),
+);
+check("wanted: jellyfin on, YouTube off", m.wanted(jf(), jfOn), true);
+check(
+  "wanted: jellyfin off",
+  m.wanted(jf(), { enable: true, jellyfin: { enable: false } }),
+  false,
+);
+check("wanted: jellyfin, an older choice", m.wanted(jf(), on), false);
+check("wanted: a video, jellyfin only", m.wanted(video(ID), jfOn), false);
 
 console.log(`${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -14,4 +14,12 @@ Singleton {
     function wanted(target, choice) {
         return Links.wanted(target, choice)
     }
+    // A film, an episode or a series of the Jellyfin server `server`, or null.
+    function jellyfinTarget(url, server) {
+        return Links.jellyfinTarget(url, server)
+    }
+    // A YouTube link, else one of the Jellyfin server in `choice`, else null.
+    function target(url, choice) {
+        return Links.target(url, choice)
+    }
 }

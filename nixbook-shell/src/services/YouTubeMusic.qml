@@ -330,11 +330,30 @@ Singleton {
     // Either way the link then opens in the browser or its app.
     readonly property var linkChoice: {
         const c = Config.options?.media?.youtubeLinks;
-        return { enable: c?.enable === true, videos: c?.videos !== false, music: c?.music !== false };
+        // Jellyfin's links too (media.jellyfinLinks): the server set up
+        // here, once signed in; `host` is what the link router looks for.
+        const server = String(Config.options?.ai?.jellyfin?.url ?? "").trim().replace(/\/+$/, "");
+        const host = (server.match(/^https?:\/\/([^\/?#@:]+)/i) ?? [])[1] ?? "";
+        const jf = Config.options?.media?.jellyfinLinks?.enable === true && Jellyfin.ready && host !== "";
+        return { enable: c?.enable === true, videos: c?.videos !== false, music: c?.music !== false,
+            jellyfin: { enable: jf, url: jf ? server : "", host: jf ? host.toLowerCase() : "" } };
     }
     function openLink(url) {
+        const j = YouTubeLinks.jellyfinTarget(url, Config.options?.ai?.jellyfin?.url ?? "");
+        if (j) {
+            if (!YouTubeLinks.wanted(j, root.linkChoice))
+                return "off: turned off in Settings > Apps & accounts > Jellyfin";
+            // mpv's window is where it plays: the panel isn't opened over it.
+            Jellyfin.playItem(j.id, (ok, why) => {
+                if (ok) return;
+                Quickshell.execDetached(["notify-send", "--app-name=Jellyfin", "--icon=video-x-generic",
+                    Translation.tr("Couldn't play that Jellyfin link"), `${why ? String(why) + "\n" : ""}${url}`]);
+            });
+            root._showTab("jellyfin", Config.options.sidebar.jellyfinTab, false);
+            return "";
+        }
         const t = YouTubeLinks.linkTarget(url);
-        if (!t) return "not a YouTube video, song or playlist link";
+        if (!t) return "not a YouTube video, song or playlist link, nor a Jellyfin item's";
         if (!YouTubeLinks.wanted(t, root.linkChoice))
             return "off: turned off in Settings > Apps & accounts > YouTube links";
         if (t.kind === "video") {
@@ -479,7 +498,7 @@ Singleton {
         // take that kind of link), or "error: why".
         function openLink(url: string): string {
             const why = root.openLink(url);
-            if (why === "") return `ok: ${YouTubeLinks.linkTarget(url).kind}`;
+            if (why === "") return `ok: ${YouTubeLinks.target(url, root.linkChoice)?.kind ?? "link"}`;
             return why.startsWith("off: ") ? why : `error: ${why}`;
         }
         // YouTube videos in mpv, as the YouTube tab opens them (desktop-mcp's

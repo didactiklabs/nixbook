@@ -77,6 +77,10 @@ In Zen an extension takes the links clicked or typed, including a click on a vid
 
 Under the hood: the shell writes its choice to `$XDG_RUNTIME_DIR/nixbook-shell/youtube-links.json`. The extension's native host stays running, watches that file and tells the extension at once, so links the shell doesn't want are never held up. `nixbook-youtube-link URL` (the native host and the router both run it) answers at once while the setting is off, and otherwise calls the shell's `youtubeMusic openLink URL` IPC; it exits 0 when the shell took the link. What a link is is decided once, in `youtube_links.js`, which the shell and both Zen extensions load.
 
+### Jellyfin links open in mpv
+
+**Settings → Apps & accounts → Jellyfin links** (off by default; `media.jellyfinLinks.enable` in Nix): a link to a film, an episode or a series of the Jellyfin server you signed in to plays in mpv on this computer instead of opening Jellyfin's web page. It works for links opened by any app and for links clicked in Zen on another site. Browsing inside Jellyfin's own web page (and reloading it) stays in the browser. When the shell can't play the link, it opens in the browser as before.
+
 ## Equalizer
 
 The equalizer panel drives **EasyEffects**: presets or a 10-band curve with preamp, or **Auto**, which picks a curve from the song's Last.fm genre tags. Its optional **agent mode** has a small Claude Code task (Haiku by default) tune the curve for each new song (`equalizer.agent`, `equalizer.agentModel`). The curve it makes for a song is remembered (the last 500 songs, in `~/.local/state/quickshell/user/eq/agent-curves.json`): when that song plays again, the same curve comes back at once, with no new agent run.

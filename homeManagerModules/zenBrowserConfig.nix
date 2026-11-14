@@ -54,6 +54,16 @@ let
           ;;
       esac
     ''}
+    ${lib.optionalString youtubeLinks ''
+      # A film or an episode of the Jellyfin server set up in the shell: mpv,
+      # when its setting media.jellyfinLinks is on (the shell then writes the
+      # server's host in its choice file).
+      if [ -n "$host" ] && [ "$#" -eq 1 ] \
+        && ${pkgs.gnugrep}/bin/grep -qsF "\"host\":\"$host\"" "''${XDG_RUNTIME_DIR:-/tmp/nixbook-shell-$USER}/nixbook-shell/youtube-links.json" \
+        && ${ytLinks.open}/bin/nixbook-youtube-link "$url"; then
+        exit 0
+      fi
+    ''}
     app=""
     case "$host" in
     ${lib.concatStrings (

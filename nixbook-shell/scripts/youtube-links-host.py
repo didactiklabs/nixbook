@@ -61,9 +61,10 @@ def send(obj):
         sys.stdout.buffer.flush()
 
 
-def youtube_link(url):
-    """`url` when it is an http(s) link on a YouTube host, else None (the
-    shell decides what it is)."""
+def youtube_link(url, more=()):
+    """`url` when it is an http(s) link on a YouTube host (or one of `more`:
+    the Jellyfin server of the shell's choice), else None (the shell decides
+    what it is)."""
     if not isinstance(url, str) or len(url) > 4000 or any(c in url for c in "\0\r\n"):
         return None
     try:
@@ -71,7 +72,7 @@ def youtube_link(url):
         host = (u.hostname or "").lower()
     except ValueError:
         return None
-    return url if u.scheme in ("http", "https") and host in HOSTS and "@" not in u.netloc else None
+    return url if u.scheme in ("http", "https") and (host in HOSTS or host in more) and "@" not in u.netloc else None
 
 
 def read_choice(path):
@@ -82,8 +83,12 @@ def read_choice(path):
         return None
     if not isinstance(c, dict):
         return None
+    jf = c.get("jellyfin") if isinstance(c.get("jellyfin"), dict) else {}
+    url, host = jf.get("url"), jf.get("host")
+    on = jf.get("enable") is True and isinstance(url, str) and isinstance(host, str) and host != ""
     return {"enable": c.get("enable") is True, "videos": c.get("videos") is not False,
-            "music": c.get("music") is not False}
+            "music": c.get("music") is not False,
+            "jellyfin": {"enable": on, "url": url if on else "", "host": host.lower() if on else ""}}
 
 
 def watch_choice(path, stop):
@@ -107,9 +112,10 @@ def watch_choice(path, stop):
 
 def hand(opener, msg):
     mid = msg.get("id")
-    url = youtube_link(msg.get("url"))
+    jf = ((read_choice(choice_path()) or {}).get("jellyfin") or {}).get("host") or ""
+    url = youtube_link(msg.get("url"), (jf,) if jf else ())
     if not url:
-        send({"id": mid, "ok": False, "off": False, "error": "not a YouTube link"})
+        send({"id": mid, "ok": False, "off": False, "error": "not a YouTube or Jellyfin link"})
         return
     try:
         r = subprocess.run([opener, url], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
