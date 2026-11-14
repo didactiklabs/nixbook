@@ -285,7 +285,7 @@ Whether the CPU may run above its nominal frequency (turbo, Core Performance Boo
 - **Type:** `boolean`
 - **Default:** `false`
 
-Whether to enable laptop-specific power and display optimisations. Configures: - logind lid-switch behaviour: suspend on close, lock when on external power, ignore when docked - power-profiles-daemon: dynamic CPU frequency scaling (performance / balanced / power-saver profiles, switchable via e.g. the DMS control centre) - thermald: Intel thermal management daemon to prevent CPU throttling (Intel CPUs only: the hardware configuration loads kvm-intel) - scx_lavd: sched_ext CPU scheduler built for interactivity and battery life (latency-critical tasks first, fewer cores awake) - powerManagement: general power management framework - powertop: power consumption analyser available in the system PATH Enable this on machines that are laptops (totoro, nishinoya, tanjiro). Leave disabled on desktop/server machines (anya).
+Whether to enable laptop-specific power and display optimisations. Configures: - logind lid-switch behaviour: suspend on close, lock when on external power, ignore when docked - power-profiles-daemon: dynamic CPU frequency scaling (performance / balanced / power-saver profiles, switchable via e.g. the DMS control centre) - thermald: Intel thermal management daemon to prevent CPU throttling (Intel CPUs only: the hardware configuration loads kvm-intel) - scx_lavd: sched_ext CPU scheduler built for interactivity and battery life (latency-critical tasks first, fewer cores awake) - Wi-Fi power save on battery, off on the charger (wifiPowerSaveOnBattery) - powerManagement: general power management framework - powertop: power consumption analyser available in the system PATH Enable this on machines that are laptops (totoro, nishinoya, tanjiro). Leave disabled on desktop/server machines (anya).
 
 ### `customNixOSModules.laptopProfile.powerProfileOnBoot`
 
@@ -293,6 +293,13 @@ Whether to enable laptop-specific power and display optimisations. Configures: -
 - **Default:** `null`
 
 Power profile set at every boot, whatever was chosen before. null (the default): power-profiles-daemon keeps the last profile chosen (the bar's battery panel, the power button) across reboots and deploys. Set one to start each boot from it instead (performance left on by a single click cost totoro 23 W instead of 6-11 W at the same light load).
+
+### `customNixOSModules.laptopProfile.wifiPowerSaveOnBattery`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Wi-Fi power save on battery and off on the charger, switched as the charger is plugged in or out and each time NetworkManager brings a connection up (it applies its own `networking.networkmanager.wifi.powersave` at every activation, which this then corrects). Power save lets the radio doze between packets: less power, but late wake-ups that can make a steady stream (game streaming with Moonlight, a video call) stutter (seen on totoro's MediaTek MT7922). This keeps the radio awake while plugged in and lets it doze on battery. false: NetworkManager's setting alone, whatever the power source.
 
 ---
 
