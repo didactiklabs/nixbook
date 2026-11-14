@@ -54,8 +54,8 @@ in
   systemd.services.NetworkManager.serviceConfig.ExecStartPre = [
     "-${pkgs.coreutils}/bin/rm -f /var/lib/NetworkManager/seen-bssids"
   ];
-  # Radio naps between packets added late wake-ups to a steady 70 Mbit/s stream.
-  networking.networkmanager.wifi.powersave = false;
+  # Wi-Fi power save (radio naps that added late wake-ups to a steady
+  # 70 Mbit/s stream) is laptopProfile's: off on the charger, on on battery.
   # The other half of that 5-minute jitter: automatic-timezoned (core.nix)
   # keeps a GeoClue client open, and GeoClue's Wi-Fi source scans every
   # WIFI_SCAN_TIMEOUT_LOW_ACCURACY (300 s, re-armed after each scan) below

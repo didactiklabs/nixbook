@@ -126,6 +126,13 @@ let
       -> config.systemd.services.plymouth-quit.wantedBy == [ ];
     "only battery-charge-limit sets the charge limit (nixos-hardware's ASUS unit raced it and won)" =
       custom.laptopProfile.enable -> !(config.systemd.services.battery-charge-threshold.enable or false);
+    "laptops switch Wi-Fi power save with the charger (udev rule + NetworkManager dispatcher)" =
+      (custom.laptopProfile.enable && custom.laptopProfile.wifiPowerSaveOnBattery)
+      -> (
+        config.systemd.services ? wifi-power-save
+        && lib.hasInfix "wifi-power-save.service" config.services.udev.extraRules
+        && config.networking.networkmanager.dispatcherScripts != [ ]
+      );
     "firewall module turns on the nftables firewall" =
       custom.firewall.enable -> (config.networking.firewall.enable && config.networking.nftables.enable);
 

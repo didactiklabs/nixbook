@@ -72,6 +72,31 @@ let
     fi
     echo "charging stops at $limit %"
   '';
+  # Wi-Fi power save on battery, off on the charger, for every wireless
+  # interface. Run when the charger is plugged in or out and each time
+  # NetworkManager brings a connection up (it applies its own
+  # wifi.powersave at every activation).
+  wifiPowerSaveScript = pkgs.writeShellScript "wifi-power-save" ''
+    set -u
+    # On battery: there is a mains adapter and none is plugged in.
+    mains=0
+    online=0
+    for supply in /sys/class/power_supply/*; do
+      [ "$(cat "$supply/type" 2>/dev/null)" = Mains ] || continue
+      mains=1
+      [ "$(cat "$supply/online" 2>/dev/null)" = 1 ] && online=1
+    done
+    state=off
+    [ "$mains" = 1 ] && [ "$online" = 0 ] && state=on
+    for iface in /sys/class/net/*; do
+      [ -d "$iface/wireless" ] || [ -L "$iface/phy80211" ] || continue
+      name=''${iface##*/}
+      if ${lib.getExe pkgs.iw} dev "$name" set power_save "$state"; then
+        echo "$name: power save $state ($([ "$state" = on ] && echo on battery || echo on the charger))"
+      fi
+    done
+    exit 0
+  '';
   sleepTargets = [
     "suspend.target"
     "hibernate.target"
@@ -96,6 +121,7 @@ in
           (Intel CPUs only: the hardware configuration loads kvm-intel)
         - scx_lavd: sched_ext CPU scheduler built for interactivity and
           battery life (latency-critical tasks first, fewer cores awake)
+        - Wi-Fi power save on battery, off on the charger (wifiPowerSaveOnBattery)
         - powerManagement: general power management framework
         - powertop: power consumption analyser available in the system PATH
 
@@ -161,6 +187,22 @@ in
         100 is the default when this is null.
       '';
     };
+    wifiPowerSaveOnBattery = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Wi-Fi power save on battery and off on the charger, switched as the
+        charger is plugged in or out and each time NetworkManager brings a
+        connection up (it applies its own `networking.networkmanager.wifi.powersave`
+        at every activation, which this then corrects).
+
+        Power save lets the radio doze between packets: less power, but late
+        wake-ups that can make a steady stream (game streaming with Moonlight,
+        a video call) stutter (seen on totoro's MediaTek MT7922). This keeps
+        the radio awake while plugged in and lets it doze on battery. false:
+        NetworkManager's setting alone, whatever the power source.
+      '';
+    };
   };
   config = lib.mkIf cfg.enable {
     services = {
@@ -201,6 +243,12 @@ in
       # hosts without the attribute (USB storage), which udev logged every boot.
       udev.extraRules = ''
         ACTION=="add", SUBSYSTEM=="scsi_host", KERNEL=="host*", TEST=="link_power_management_policy", ATTR{link_power_management_policy}="med_power_with_dipm"
+      ''
+      # wifiPowerSaveOnBattery: the mains adapter only; on totoro the USB-C
+      # controller's own supplies (type USB) announce a change several times
+      # a second while charging.
+      + lib.optionalString cfg.wifiPowerSaveOnBattery ''
+        SUBSYSTEM=="power_supply", ACTION=="change", ATTR{type}=="Mains", RUN+="${config.systemd.package}/bin/systemctl --no-block start wifi-power-save.service"
       '';
     };
     systemd.services.power-profile-on-boot = lib.mkIf (cfg.powerProfileOnBoot != null) {
@@ -276,6 +324,25 @@ in
         echo "$capped cores capped at their nominal frequency"
       '';
     });
+
+    systemd.services.wifi-power-save = lib.mkIf cfg.wifiPowerSaveOnBattery {
+      description = "Wi-Fi power save on battery, off on the charger";
+      after = [ "NetworkManager.service" ];
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = wifiPowerSaveScript;
+      };
+    };
+    networking.networkmanager.dispatcherScripts = lib.mkIf cfg.wifiPowerSaveOnBattery [
+      {
+        type = "basic";
+        source = pkgs.writeShellScript "wifi-power-save-dispatcher" ''
+          [ "$2" = up ] || exit 0
+          exec ${wifiPowerSaveScript}
+        '';
+      }
+    ];
 
     powerManagement = lib.mkForce {
       enable = true;
