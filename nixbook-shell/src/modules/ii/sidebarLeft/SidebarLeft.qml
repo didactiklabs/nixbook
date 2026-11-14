@@ -152,7 +152,10 @@ Scope { // Scope
             // surface and Qt rebuilt the GL context on every open). Closed =
             // no input region, no keyboard focus, transparent content.
             property bool keepMapped: false
-            visible: (reallyVisible || keepMapped) && !remapping
+            // Pinned, it is on the Overlay layer, which niri draws over a fullscreen
+            // window (a film, a game): gone while one is on its screen, back after.
+            readonly property bool underFullscreen: root.pin && WM.fullscreenOnMonitor(panelWindow.screen?.name ?? "")
+            visible: (reallyVisible || keepMapped) && !remapping && !underFullscreen
 
             // Pinned, the sidebar reserves its strip (exclusiveZone), and niri
             // places the surfaces that reserve space in the order they were
