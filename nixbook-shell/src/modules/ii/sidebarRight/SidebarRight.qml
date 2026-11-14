@@ -146,7 +146,10 @@ Scope {
         // (opacity 0 → nothing drawn); opening only gives it input back. It
         // keeps its size, so nothing is re-laid-out either.
         property bool keepMapped: false
-        visible: (reallyVisible || keepMapped) && !remapping
+        // Pinned, it is on the Overlay layer, which niri draws over a fullscreen
+        // window (a film, a game): gone while one is on its screen, back after.
+        readonly property bool underFullscreen: root.pin && WM.fullscreenOnMonitor(panelWindow.screen?.name ?? "")
+        visible: (reallyVisible || keepMapped) && !remapping && !underFullscreen
         Region { id: noInput }
 
         // Pinned, it is open from the start, and on the Overlay layer a
