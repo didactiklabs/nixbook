@@ -442,12 +442,10 @@ in
             block-out-from = "screencast";
           }
           {
+            # swaybg: the wallpaper without a shell, and nixbook-shell's
+            # blurred one around the workspaces in the overview
+            # (NiriBackdrop.qml).
             matches = [ { namespace = "^wallpaper$"; } ];
-            place-within-backdrop = true;
-          }
-          {
-            # nixbook-shell's blurred wallpaper, around the workspaces in the overview.
-            matches = [ { namespace = "^quickshell:wallpaperBackdrop$"; } ];
             place-within-backdrop = true;
           }
         ];

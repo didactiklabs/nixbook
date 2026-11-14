@@ -7,11 +7,11 @@ import qs.modules.common.functions as CF
 import QtQuick
 import Qt5Compat.GraphicalEffects
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 
-Variants {
-    id: wallpaperBackdropRoot
-    model: Quickshell.screens
+Scope {
+    id: root
 
     // One of WallpaperLayer's two pictures (see `picture` there).
     component BackdropSlot: Image {
@@ -175,41 +175,122 @@ Variants {
         }
     }
 
-    Scope {
-        id: perScreen
-        required property var modelData
+    // The picture the desktop shows (Background.qml): the one just applied
+    // (Wallpapers.confirmedPath) before config.json has it, so both change
+    // together. A video wallpaper plays on the Bottom layer
+    // (live-wallpaper.sh): the surfaces here hold its still frame.
+    readonly property string effectivePath: Wallpapers.confirmedPath || Config.options.background.wallpaperPath
+    readonly property bool video: Wallpapers.isVideo(effectivePath)
+    readonly property string wallpaperPath: video
+        ? Wallpapers.posterFor(effectivePath)
+        : effectivePath
 
-        // The picture the desktop shows (Background.qml): the one just
-        // applied (Wallpapers.confirmedPath) before config.json has it, so
-        // both change together. A video wallpaper plays on the Bottom layer
-        // (live-wallpaper.sh): the surfaces here hold its still frame.
-        readonly property string effectivePath: Wallpapers.confirmedPath || Config.options.background.wallpaperPath
-        readonly property bool video: Wallpapers.isVideo(effectivePath)
-        readonly property string wallpaperPath: video
-            ? Wallpapers.posterFor(effectivePath)
-            : effectivePath
-
-        // What niri's xray blur samples, so windows don't re-blur every frame
-        // of a video. A video's still frame is shown sharp: niri's blur on top
-        // of this one left a flat colour, and windows looked opaque.
+    // What niri's xray blur samples, so windows don't re-blur every frame of a
+    // video. A video's still frame is shown sharp: niri's blur on top of this
+    // one left a flat colour, and windows looked opaque.
+    Variants {
+        model: Quickshell.screens
         WallpaperLayer {
-            screen: perScreen.modelData
+            required property var modelData
+            screen: modelData
             layerName: "quickshell:wallpaper"
-            wallpaperPath: perScreen.wallpaperPath
-            blurred: !perScreen.video
-        }
-
-        // Behind the workspaces: what the overview shows around them (niri's
-        // place-within-backdrop rule, homeManagerModules/niri/niriConfig.nix).
-        // A surface of its own, since one in the backdrop leaves the Background
-        // layer xray samples: with niri's opaque workspace background, windows
-        // would show that flat colour instead of the wallpaper.
-        WallpaperLayer {
-            screen: perScreen.modelData
-            layerName: "quickshell:wallpaperBackdrop"
-            wallpaperPath: perScreen.wallpaperPath
-            shrink: 8
-            blurRadius: 20
+            wallpaperPath: root.wallpaperPath
+            blurred: !root.video
         }
     }
+
+    // Behind the workspaces: what the overview shows around them, the
+    // wallpaper blurred (niri's place-within-backdrop rule for the namespace
+    // "wallpaper", homeManagerModules/niri/niriConfig.nix). Not xray's
+    // surface above: one in the backdrop leaves the Background layer xray
+    // samples, and with niri's opaque workspace background windows would
+    // show that flat colour. And not a window of the shell: niri doesn't
+    // count a surface behind the workspaces as shown and sends it its frame
+    // callbacks once a second, Qt takes a window without one for 100 ms as
+    // obscured and draws it again each time it is exposed, so that window
+    // drew the same picture once a second for good, and each of those frames
+    // made niri present the whole screen again (the panel never rested).
+    // swaybg draws the picture once: blurred here at 1/8 of the largest
+    // screen (magick), scaled up by swaybg, one process for every screen.
+    readonly property size backdropSize: {
+        let w = 0, h = 0;
+        for (const screen of Quickshell.screens) {
+            const px = Wallpapers.pixelSize(screen.name, screen.width, screen.height, screen.devicePixelRatio);
+            if (px.width * px.height > w * h) { w = px.width; h = px.height; }
+        }
+        return Qt.size(Math.ceil(w / 8), Math.ceil(h / 8));
+    }
+    readonly property string backdropWanted: root.wallpaperPath === "" || root.backdropSize.width < 1 ? ""
+        : `${CF.FileUtils.trimFileProtocol(root.wallpaperPath)}\n${root.backdropSize.width}x${root.backdropSize.height}`
+    onBackdropWantedChanged: backdropSoon.restart()
+    Component.onCompleted: backdropSoon.restart()
+    property string backdropMade: ""   // what the running swaybg shows (a `backdropWanted`)
+    property string backdropMaking: ""
+    property int backdropSlot: 0       // which of the two swaybg shows it
+    property int backdropTries: 0
+    function backdropFile(slot) {
+        return `${Directories.runtimeTemp}/overview-backdrop-${slot}.png`;
+    }
+    Timer {
+        id: backdropSoon
+        interval: 400
+        onTriggered: {
+            if (root.backdropWanted === root.backdropMade || blurProc.running) return;
+            if (root.backdropWanted === "") {
+                root.backdropMade = "";
+                return;
+            }
+            const [path, size] = root.backdropWanted.split("\n");
+            root.backdropMaking = root.backdropWanted;
+            // `[0]`: a GIF's first picture. Covers the size, cut to it, blurred.
+            blurProc.command = ["sh", "-c", 'mkdir -p "$(dirname "$3")" && exec magick "$1[0]" -resize "$2^" -gravity center -extent "$2" -blur 0x5 "$3"',
+                "sh", path, size, root.backdropFile(1 - root.backdropSlot)];
+            blurProc.running = true;
+        }
+    }
+    Process {
+        id: blurProc
+        onExited: (exitCode, exitStatus) => {
+            if (exitCode !== 0) {
+                // A video's still frame may not be written yet.
+                if (root.backdropTries++ < 5) backdropSoon.restart();
+                else console.warn(`[NiriBackdrop] the overview's backdrop couldn't be made from ${root.backdropMaking.split("\n")[0]}`);
+                return;
+            }
+            root.backdropTries = 0;
+            // The new one mapped over the old one, which then goes (the
+            // timer first: it is what keeps the old one for that moment).
+            backdropOldOff.restart();
+            root.backdropSlot = 1 - root.backdropSlot;
+            root.backdropMade = root.backdropMaking;
+            if (root.backdropWanted !== root.backdropMade) backdropSoon.restart();
+        }
+    }
+    Timer {
+        id: backdropOldOff
+        interval: 800
+    }
+    component BackdropPlayer: Process {
+        id: player
+        required property int slot
+        readonly property bool wanted: root.backdropMade !== ""
+            && (root.backdropSlot === slot || backdropOldOff.running)
+        property bool resting: false
+        running: wanted && !resting
+        command: ["swaybg", "-m", "fill", "-i", root.backdropFile(slot)]
+        // Ended on its own (the compositor's socket went, a missing file):
+        // tried again after a moment, not in a loop.
+        onExited: (exitCode, exitStatus) => {
+            if (!wanted) return;
+            console.log(`[NiriBackdrop] swaybg ended on its own (exit ${exitCode}), starting it again in 5 s`);
+            resting = true;
+            again.restart();
+        }
+        property Timer again: Timer {
+            interval: 5000
+            onTriggered: player.resting = false
+        }
+    }
+    BackdropPlayer { slot: 0 }
+    BackdropPlayer { slot: 1 }
 }

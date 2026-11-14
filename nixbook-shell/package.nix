@@ -290,6 +290,7 @@ let
       util-linux
 
       imagemagick # magick / convert / identify
+      swaybg # the overview's backdrop (NiriBackdrop.qml)
       matugen
       ffmpeg # ffplay: sounds pw-play can't decode
       pipewire # pw-play: sounds
