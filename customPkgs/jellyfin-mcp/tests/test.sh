@@ -447,7 +447,13 @@ expect_eq "episodes: a film has none" "$(jq -r .ok <<<"$r")" "false"
 # -- downloads: kept on this computer, played from there ----------------------
 export JELLYFIN_OFFLINE_SPAWN=0 JELLYFIN_OFFLINE_RETRY_WAIT=0 JELLYFIN_OFFLINE_POLL=0.1
 export XDG_DATA_HOME="$tmp/data" XDG_CACHE_HOME="$tmp/cache"
-off="$XDG_DATA_HOME/jellyfin-mcp/offline"
+off="$XDG_DATA_HOME/jellyfin-offline"
+# Downloads from the folder they were first kept in are moved over.
+mkdir -p "$XDG_DATA_HOME/jellyfin-mcp/offline"
+echo former >"$XDG_DATA_HOME/jellyfin-mcp/offline/former.txt"
+"${jmcp[@]}" offline status >/dev/null
+expect_eq "offline: the former folder's downloads moved to the new one" "$(cat "$off/former.txt" 2>/dev/null) $([ -e "$XDG_DATA_HOME/jellyfin-mcp/offline" ] && echo there || echo gone)" "former gone"
+rm -f "$off/former.txt"
 ofl() { "${jmcp[@]}" offline "$@" || true; }
 state_of() { jq -r --arg id "$1" '.items[] | select(.id == $id) | .state' <<<"$2"; }
 # A stand-in for mpv: its arguments noted, its IPC socket answering a
