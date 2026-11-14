@@ -154,6 +154,13 @@ EXTRA = """
 :root header[role="banner"] form[role="search"] svg {
   fill: {{colors.on_surface_variant.default.hex}} !important;
 }
+/* The toolbar over the message list (select, refresh, pages; gh="tm", one
+ * of Gmail's long-lived attributes): once the list is scrolled under it,
+ * its ::before draws the fill that hides the rows, light on a light theme
+ * under icons made light. */
+:root [gh="tm"]::before {
+  background-color: {{colors.surface_container.default.hex}} !important;
+}
 /* The side panel (Calendar, Keep, Tasks, Contacts, get add-ons) on the
  * right: white on a light theme. Its "+" (after the apps' separator, a
  * dark picture) is inverted; the apps' own icons keep their colours. */
