@@ -690,6 +690,9 @@
   "media": {
     "filterDuplicatePlayers": true,
     "videoQuality": "best",
+    "jellyfinLinks": {
+      "enable": false
+    },
     "youtubeLinks": {
       "enable": false,
       "music": true,

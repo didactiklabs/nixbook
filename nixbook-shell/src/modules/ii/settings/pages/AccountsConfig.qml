@@ -171,6 +171,39 @@ ContentPage {
             }
         }
 
+        // Links to the Jellyfin server set up here play in mpv instead of
+        // opening its web page (media.jellyfinLinks), where something
+        // brings links here and Jellyfin is signed in.
+        ContentSection {
+            icon: "movie"
+            shape: MaterialShape.Shape.Clover4Leaf
+            title: Translation.tr("Jellyfin links")
+            shown: YouTubeMusic.linksAvailable && Jellyfin.available
+
+            GroupedList {
+                ConfigSwitch {
+                    configKey: "media.jellyfinLinks.enable";
+                    enabled: !nixManaged;
+                    buttonIcon: "open_in_new"
+                    text: Translation.tr("Play links to your Jellyfin server's films and episodes in mpv, not the browser")
+                    checked: Config.options.media.jellyfinLinks.enable
+                    onCheckedChanged: {
+                        Config.options.media.jellyfinLinks.enable = checked;
+                    }
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    Layout.margins: 8
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                    text: Jellyfin.ready
+                        ? Translation.tr("Links from any app, and links opened in Zen from another site. Browsing inside Jellyfin's own web page stays in the browser.")
+                        : Translation.tr("Sign in to Jellyfin above first: the links are the ones of that server.")
+                }
+            }
+        }
+
         // YouTube links opened by the shell instead of the browser, on the
         // whole machine (YouTubeMusic.openLink; media.youtubeLinks, also
         // settable in Nix), shown where something brings the links here

@@ -54,7 +54,8 @@ expect("no shell: no choice", {"choice": None}, read())
 with open(choice + ".tmp", "w") as f:
     f.write('{"enable":true,"videos":false,"music":true}\n')
 os.rename(choice + ".tmp", choice)
-expect("the shell's choice, when written", {"choice": {"enable": True, "videos": False, "music": True}}, read())
+NOJF = {"enable": False, "url": "", "host": ""}
+expect("the shell's choice, when written", {"choice": {"enable": True, "videos": False, "music": True, "jellyfin": NOJF}}, read())
 answers = {}
 for i, url in enumerate(["https://www.youtube.com/watch?v=take0000000", "https://music.youtube.com/watch?v=no000000000",
                          "https://youtu.be/off00000000", "https://example.com/take",
@@ -68,6 +69,21 @@ expect("refused", (False, False), answers[2])
 expect("off", (False, True), answers[3])
 expect("not YouTube", (False, False), answers[4])
 expect("user@host", (False, False), answers[5])
+# Jellyfin's links: only on the server the shell names, while it wants them.
+post({"id": 10, "url": "https://jellyfin.example.org/web/#/details?id=take"})
+m = read()
+expect("Jellyfin, not named by the shell", (False, False), (m["ok"], m["off"]))
+time.sleep(1.2)
+with open(choice + ".tmp", "w") as f:
+    f.write('{"enable":false,"videos":true,"music":true,"jellyfin":{"enable":true,"url":"https://jellyfin.example.org","host":"jellyfin.example.org"}}\n')
+os.rename(choice + ".tmp", choice)
+expect("the choice with Jellyfin", {"enable": True, "url": "https://jellyfin.example.org", "host": "jellyfin.example.org"}, read()["choice"]["jellyfin"])
+post({"id": 11, "url": "https://jellyfin.example.org/web/#/details?id=take"})
+m = read()
+expect("Jellyfin, taken", (True, False), (m["ok"], m["off"]))
+post({"id": 12, "url": "https://other.example.org/web/#/details?id=take"})
+m = read()
+expect("another server, not handed over", (False, False), (m["ok"], m["off"]))
 time.sleep(1.2)
 os.remove(choice)
 expect("the shell gone", {"choice": None}, read())
@@ -76,7 +92,7 @@ expect("ends with Zen's port", 0, p.wait(timeout=5))
 sys.exit(1 if failures else 0)
 PY
 asked=$(wc -l <"$tmp/asked" | tr -d ' ')
-if [ "$asked" = 3 ]; then echo "ok   - host: only YouTube links reach the opener"; else
-  echo "FAIL - host: $asked links reached the opener, not 3" >&2
+if [ "$asked" = 4 ]; then echo "ok   - host: only YouTube links and the named Jellyfin server's reach the opener"; else
+  echo "FAIL - host: $asked links reached the opener, not 4" >&2
   exit 1
 fi

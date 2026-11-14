@@ -81,9 +81,55 @@ function linkTarget(url) {
     return VIDEO_ID.test(id) ? { kind: "video", id: id, list: "", start: start } : null
 }
 
-// Whether the settings take this link (`choice`: media.youtubeLinks as the
-// shell writes it for Zen and the router, {enable, videos, music}).
+// Jellyfin links (the setting media.jellyfinLinks, off by default): a link
+// to a film, an episode or a series on the Jellyfin server set up here
+// (`server`, e.g. "https://jellyfin.example.org" or with a base path) plays
+// in mpv on this computer instead of opening Jellyfin's web page.
+// {kind: "jellyfin", id, list: "", start: 0}, or null: another host, or a
+// page that isn't an item (the home page, a library, the settings).
+//   the web page: …/web/#/details?id=ID, #!/details?id=ID (also /web/index.html)
+//   the item or its file: …/Items/ID, …/Items/ID/Download, …/Videos/ID/stream…
+var JELLYFIN_ID = /^[0-9a-f]{32}$/
+
+function origin(url) {
+    var m = String(url || "").trim().match(/^(https?):\/\/([^\/?#]+)(\/[^?#]*)?(\?[^#]*)?(#.*)?$/i)
+    if (!m || m[2].indexOf("@") >= 0) return null
+    var scheme = m[1].toLowerCase()
+    var host = m[2].toLowerCase().replace(/\.$/, "")
+    host = host.replace(scheme === "https" ? /:443$/ : /:80$/, "")
+    return { scheme: scheme, host: host, path: m[3] || "/", hash: m[5] ? m[5].slice(1) : "" }
+}
+
+function jellyfinTarget(url, server) {
+    var s = origin(server)
+    var u = origin(url)
+    if (!s || !u || u.host !== s.host) return null
+    var base = s.path.replace(/\/+$/, "")
+    if (base !== "" && u.path.toLowerCase().indexOf(base.toLowerCase() + "/") !== 0) return null
+    var path = u.path.slice(base.length)
+    var id = ""
+    var p = path.match(/^\/(?:Items\/([0-9a-fA-F-]{32,36})(?:\/Download)?|Videos\/([0-9a-fA-F-]{32,36})\/(?:stream|master|main)[^\/]*)\/?$/i)
+    if (p) id = p[1] || p[2]
+    else if (/^\/(?:web(?:\/(?:index\.html)?)?)?$/i.test(path)) {
+        var r = u.hash.match(/^!?\/(?:details|item)(?:\.html)?\?(.*)$/i)
+        if (r) id = params(r[1]).id || ""
+    }
+    id = id.replace(/-/g, "").toLowerCase()
+    return JELLYFIN_ID.test(id) ? { kind: "jellyfin", id: id, list: "", start: 0 } : null
+}
+
+// What a link is for the shell: a YouTube one (linkTarget), else one of the
+// Jellyfin server in `choice` (choice.jellyfin.url), else null.
+function target(url, choice) {
+    return linkTarget(url) || jellyfinTarget(url, choice && choice.jellyfin ? choice.jellyfin.url : "")
+}
+
+// Whether the settings take this link (`choice`: media.youtubeLinks and
+// media.jellyfinLinks as the shell writes them for Zen and the router,
+// {enable, videos, music, jellyfin: {enable, url, host}}).
 function wanted(target, choice) {
-    if (!target || !choice || choice.enable !== true) return false
+    if (!target || !choice) return false
+    if (target.kind === "jellyfin") return !!choice.jellyfin && choice.jellyfin.enable === true
+    if (choice.enable !== true) return false
     return target.kind === "video" ? choice.videos !== false : choice.music !== false
 }

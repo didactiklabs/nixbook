@@ -212,6 +212,7 @@ let
       exit 2
     fi
     choice="''${XDG_RUNTIME_DIR:-/tmp/nixbook-shell-$USER}/nixbook-shell/youtube-links.json"
+    # (media.youtubeLinks' or media.jellyfinLinks' enable: either is in there)
     case "$(cat "$choice" 2>/dev/null)" in
       *'"enable":true'*) ;;
       *) exit 3 ;;

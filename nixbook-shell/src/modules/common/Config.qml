@@ -1226,6 +1226,12 @@ Singleton {
                     property bool music: true
                     property bool openPanel: true
                 }
+                // Links to a film, an episode or a series of the Jellyfin
+                // server set up here play in mpv on this computer instead of
+                // opening Jellyfin's web page (YouTubeMusic.openLink).
+                property JsonObject jellyfinLinks: JsonObject {
+                    property bool enable: false
+                }
             }
 
             property JsonObject networking: JsonObject {

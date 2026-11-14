@@ -34,6 +34,60 @@ let backoff = 1000;
 function setChoice(c) {
   choice = c || null;
   browser.storage.local.set({ choice }).catch(() => {});
+  watchJellyfin();
+}
+
+// Jellyfin (the shell's setting media.jellyfinLinks): page loads on the
+// server the shell names, while it wants them. Its host isn't known before
+// the shell says it, so this listener is set when the choice changes.
+// A load in a tab that is already on Jellyfin (browsing its own web page, a
+// reload, a restored tab) stays in the browser: only links coming from
+// somewhere else play in mpv.
+let jellyfinHost = "";
+
+function onJellyfinRequest(details) {
+  if (details.incognito || !takes(details.url)) return {};
+  const here = (url) => {
+    try {
+      return new URL(url).host.toLowerCase() === jellyfinHost;
+    } catch (e) {
+      return false;
+    }
+  };
+  if (details.originUrl && here(details.originUrl)) return {};
+  const tab =
+    details.tabId < 0
+      ? Promise.resolve(null)
+      : browser.tabs.get(details.tabId).catch(() => null);
+  return tab.then((t) => {
+    if (t && here(t.url || "")) return {};
+    return hand(details.url).then((ok) => {
+      if (!ok) return {};
+      setTimeout(() => tidy(details.tabId), 50);
+      return { cancel: true };
+    });
+  });
+}
+
+function watchJellyfin() {
+  let host = "";
+  const jf = choice && choice.jellyfin;
+  if (jf && jf.enable === true) {
+    try {
+      host = new URL(jf.url).host.toLowerCase();
+    } catch (e) {
+      host = "";
+    }
+  }
+  if (host === jellyfinHost) return;
+  browser.webRequest.onBeforeRequest.removeListener(onJellyfinRequest);
+  jellyfinHost = host;
+  if (host === "") return;
+  browser.webRequest.onBeforeRequest.addListener(
+    onJellyfinRequest,
+    { urls: [`*://${host}/*`], types: ["main_frame"] },
+    ["blocking"],
+  );
 }
 
 function connect() {
@@ -77,7 +131,7 @@ function refusedLately(url) {
 }
 
 function takes(url) {
-  return !!port && wanted(linkTarget(url), choice) && !refusedLately(url);
+  return !!port && wanted(target(url, choice), choice) && !refusedLately(url);
 }
 
 function hand(url) {
