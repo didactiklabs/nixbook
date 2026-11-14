@@ -123,6 +123,11 @@ expect "carol joins with her invite" true "$(field .ok "$r")"
 expect "the invite sets the server" "$server" "$(field .server "$r")"
 r=$(mesh carol test "$server")
 expect "carol's own token works, in the mesh" "carol true" "$(field .user "$r") $(field .joined "$r")"
+r=$("$py" -c 'import json, sys, urllib.request
+req = urllib.request.Request(sys.argv[1] + "/v1/account", headers={"Authorization": "Bearer " + open(sys.argv[2]).read().strip()})
+print(" ".join(str(t.get("expires", 0)) for t in json.load(urllib.request.urlopen(req, timeout=10)).get("tokens", [])))' \
+  "$server" "$tmp/carol/config/nixbook-shell/mesh/token")
+expect "carol's token never expires" 0 "$r"
 r=$(mesh dave accept <<<"$invite" || true)
 expect "an invite works once" false "$(field .ok "$r")"
 mesh dave accept <<<"$(field .code "$(mesh alice invite "$server" dave)")" >/dev/null

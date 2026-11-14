@@ -761,7 +761,8 @@ def cmd_accept(_args):
     except (urllib.error.URLError, OSError) as e:
         fail(http_error(e))
     try:
-        answer = api(server, "/v1/account/token", "POST", {"label": socket.gethostname()[:60] or "desktop"},
+        # expires 0 = never: left out, ntfy gives the token 3 days, and using it doesn't extend it
+        answer = api(server, "/v1/account/token", "POST", {"label": socket.gethostname()[:60] or "desktop", "expires": 0},
                      basic=(name, new_password))
     except (urllib.error.URLError, OSError, ValueError) as e:
         fail(http_error(e) + " (the invite is used now: ask for a new one)")
