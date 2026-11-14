@@ -176,9 +176,11 @@ Scope { // Scope
             // window reflow) but draws nothing, blurs nothing and takes no
             // input; it fades in with the loading screen's fade-out. Not tied
             // to the pin: the saved open state can arrive before the pin.
-            readonly property bool bootHidden: Preloader.booting
+            // The same under the session (power) menu, an Overlay surface mapped
+            // before it: the pinned panel showed over it.
+            readonly property bool bootHidden: Preloader.booting || GlobalStates.sessionOpen
             // Changes once, at the end of the boot: only that is animated.
-            property real bootFade: Preloader.booting ? 0 : 1
+            property real bootFade: bootHidden ? 0 : 1
             Behavior on bootFade {
                 NumberAnimation { duration: 320; easing.type: Easing.OutCubic } // BootSplash's fade-out
             }

@@ -157,8 +157,10 @@ Scope {
         // loading screen. While the shell boots it stays mapped (its strip
         // reserved) but draws nothing and takes no input; it fades in with
         // the loading screen's fade-out (see SidebarLeft).
-        readonly property bool bootHidden: Preloader.booting
-        property real bootFade: Preloader.booting ? 0 : 1
+        // The same under the session (power) menu, an Overlay surface mapped
+        // before it: the pinned panel showed over it.
+        readonly property bool bootHidden: Preloader.booting || GlobalStates.sessionOpen
+        property real bootFade: bootHidden ? 0 : 1
         Behavior on bootFade {
             NumberAnimation { duration: 320; easing.type: Easing.OutCubic } // BootSplash's fade-out
         }
