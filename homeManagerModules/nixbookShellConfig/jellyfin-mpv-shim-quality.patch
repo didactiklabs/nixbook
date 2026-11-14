@@ -1,0 +1,35 @@
+diff -ru a/jellyfin_mpv_shim/player.py b/jellyfin_mpv_shim/player.py
+--- a/jellyfin_mpv_shim/player.py
++++ b/jellyfin_mpv_shim/player.py
+@@ -2405,6 +2405,10 @@
+                 trickplay = self.trickplay
+                 if trickplay is not None:
+                     trickplay.request_at(float(args[1]))
++            elif args[0] == "nixbook-jellyfin-quality" and len(args) >= 2:
++                # nixbook: a choice in mpv/quality.lua's menu, the same path
++                # as the HUD's gear menu ("none": direct play again).
++                self.osc_bridge.handle_action(["set-quality", args[1]])
+             elif args[0] == "jms-lua":
+                 if self._lua_probe is not None:
+                     self._lua_probe.set()
+@@ -3111,6 +3115,20 @@
+             )
+         except Exception:
+             log.debug("Could not set user-data/media-source/Path", exc_info=True)
++        # nixbook: the quality choices and the one in use (what the HUD's gear
++        # menu gets from osc_bridge), as JSON, for the quality menu of the
++        # external mpv's own controls (mpv/quality.lua). It answers with the
++        # client message "nixbook-jellyfin-quality <id>".
++        try:
++            import json as _json
++
++            self._player.command(
++                "set",
++                "user-data/jellyfin-quality",
++                _json.dumps(self.osc_bridge._quality(video)),
++            )
++        except Exception:
++            log.debug("Could not set user-data/jellyfin-quality", exc_info=True)
+         # Apply the persisted per-type volume BEFORE playback starts, so the
+         # track never briefly blares at the default while mpv probes/loads
+         # (duration isn't known yet, so use the item we're about to play).

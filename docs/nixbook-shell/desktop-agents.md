@@ -304,6 +304,8 @@ server's own limits still apply (**Dashboard → Users →** the user →
 Ask DAI "why is it transcoding?": the `sessions` tool gives each player's
 play method and the server's reasons.
 
+**Quality while it plays.** Every film and episode starts as the file is. The **gear** button in mpv's control bar (the same as for YouTube videos) lists the copies the server can make on the fly, from **1080p 20 Mbps** down to **320p**, for a slow link: picking one goes on from the same moment, **Original (direct play)** goes back, and the next one starts as the file is again.
+
 **Its tools**: `search`, `item` (an episode's or film's audio and subtitle
 tracks too), `continue_watching`, `next_up`, `recently_added`, `sessions`
 (read only); `play` (now, next or last in the queue; `audio` / `subtitles`: a
