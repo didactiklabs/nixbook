@@ -116,6 +116,76 @@ Singleton {
         root.run(["episodes", id], "", then);
     }
 
+    // Downloads (`jellyfin-mcp offline`): films and episodes kept on this
+    // computer, their files as the server has them, downloaded in the
+    // background by the helper's own unit (it outlives the shell) and played
+    // from there in mpv, with or without the server. `offline`: the helper's
+    // status {running, used, free, online?, items: [{id, title, subtitle,
+    // kind, seriesId, state queued|downloading|done|error, error, size, done,
+    // image, played, progress}]}. Read when Jellyfin is ready, when the tab
+    // shows (with the progress synced with the server: what was watched here
+    // goes up, the server's comes back), and while something downloads:
+    // every 2 s with the tab in view, every 20 s otherwise.
+    property var offline: null
+    readonly property var offlineItems: root.offline?.items ?? []
+    readonly property var offlineById: {
+        const map = {};
+        for (const it of root.offlineItems) map[it.id] = it;
+        return map;
+    }
+    readonly property bool offlineActive: root.offlineItems.some(it => it.state === "queued" || it.state === "downloading")
+    // Set by the tab while it is on screen.
+    property bool offlineShown: false
+    property bool _offlineAsking: false
+    property real _offlineResumedAt: 0
+    onReadyChanged: if (root.ready) root.refreshOffline(true)
+    function _offlineAnswer(ok, answer) {
+        if (!ok) return;
+        root.offline = answer;
+        // Downloads waiting with no downloader (a reboot, a failure of
+        // its unit): started again, once a minute at most.
+        const waiting = (answer.items ?? []).some(it => it.state === "queued" || it.state === "downloading");
+        if (waiting && !answer.running && Date.now() - root._offlineResumedAt > 60 * 1000) {
+            root._offlineResumedAt = Date.now();
+            root.run(["offline", "resume"], "", root._offlineAnswer);
+        }
+    }
+    function refreshOffline(sync) {
+        if (!root.available || root._offlineAsking) return;
+        root._offlineAsking = true;
+        root.run(["offline", "status", ...(sync ? ["--sync"] : [])], "", (ok, answer) => {
+            root._offlineAsking = false;
+            root._offlineAnswer(ok, answer);
+        });
+    }
+    Timer {
+        interval: root.offlineShown ? 2000 : 20000
+        repeat: true
+        running: root.offlineActive && !Idle.screensOff
+        onTriggered: root.refreshOffline(false)
+    }
+    // ids: films, episodes, or a season or series (its episodes); then(ok, error).
+    function keepOffline(ids, then) {
+        root._offlineResumedAt = Date.now();
+        root.run(["offline", "keep", ...ids], "", (ok, answer) => {
+            root._offlineAnswer(ok, answer);
+            if (then) then(ok, ok ? "" : (answer?.error ?? ""));
+        });
+    }
+    function removeOffline(ids, then) {
+        root.run(["offline", "remove", ...ids], "", (ok, answer) => {
+            root._offlineAnswer(ok, answer);
+            if (then) then(ok, ok ? "" : (answer?.error ?? ""));
+        });
+    }
+    // The downloaded file in mpv, from where you stopped. Started through
+    // niri, so it outlives the shell; the helper stays with mpv, notes how
+    // far you got and tells the server when it can.
+    function playOffline(id) {
+        const env = Object.keys(root.env).map(k => `${k}=${root.env[k]}`);
+        AppLaunch.spawn(["env", ...env, root.bin, "offline", "play", id]);
+    }
+
     // `jellyfin-mcp ARGS`, `input` on stdin; then(ok, answer).
     function run(args, input, then) {
         if (!root.available) {

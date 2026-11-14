@@ -106,11 +106,18 @@ CONFIG = {u["Id"]: {"AudioLanguagePreference": None, "SubtitleLanguagePreference
 LIVE = {}
 
 
+def content(item_id):
+    """The file of a film or an episode (what a download gets)."""
+    return (item_id + "-video-").encode() * 20000
+
+
 def full(item):
     if item["Type"] == "Episode":
-        return {**item, "MediaSources": [{"Id": item["Id"] + "-src", "MediaStreams": EPISODE_STREAMS}]}
+        return {**item, "MediaSources": [{"Id": item["Id"] + "-src", "MediaStreams": EPISODE_STREAMS,
+                                          "Container": "mkv", "Size": len(content(item["Id"]))}]}
     if item["Type"] == "Movie":
-        return {**item, "MediaSources": [{"Id": item["Id"] + "-src", "MediaStreams": MOVIE_STREAMS}]}
+        return {**item, "MediaSources": [{"Id": item["Id"] + "-src", "MediaStreams": MOVIE_STREAMS,
+                                          "Container": "mp4,m4a", "Size": len(content(item["Id"]))}]}
     return item
 
 
@@ -142,6 +149,22 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def send_file(self, data):
+        """Bytes, from where a Range header says."""
+        m = re.match(r"^bytes=(\d+)-$", self.headers.get("Range", ""))
+        start = int(m.group(1)) if m else 0
+        if start > len(data):
+            self.send_response(416)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        body = data[start:]
+        self.send_response(206 if m else 200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         self.route("GET")
 
@@ -165,7 +188,8 @@ class Handler(BaseHTTPRequestHandler):
             logged_body = {**body, "Pw": "<given>" if body.get("Pw") else ""}
         with open(log_file, "a", encoding="utf-8") as f:
             f.write(json.dumps({"method": method, "path": path, "query": {k: v[0] for k, v in query.items()},
-                                "body": logged_body, "client": client}) + "\n")
+                                "body": logged_body, "client": client,
+                                **({"range": self.headers["Range"]} if self.headers.get("Range") else {})}) + "\n")
         if path == "/System/Info/Public":
             if __import__("os").environ.get("FAKE_SLOW"):
                 time.sleep(3)
@@ -249,6 +273,29 @@ class Handler(BaseHTTPRequestHandler):
             if not admin:
                 sessions = [x for x in sessions if x.get("UserId") == me["Id"]]
             return self.reply(200, sessions)
+        # Downloads (jellyfin-mcp offline): the file itself, which a user
+        # without the right to download (here: of Dune 1984) only gets as a
+        # static stream; an episode's external subtitles; progress sent back.
+        m = re.match(r"^/Items/([^/]+)/Download$", path)
+        if m:
+            if m.group(1) not in BY_ID:
+                return self.reply(404)
+            if m.group(1) == "mov-dune84":
+                return self.reply(403)
+            return self.send_file(content(m.group(1)))
+        m = re.match(r"^/Videos/([^/]+)/stream$", path)
+        if m:
+            if m.group(1) not in BY_ID or query.get("static", [""])[0] != "true":
+                return self.reply(404)
+            return self.send_file(content(m.group(1)))
+        m = re.match(r"^/Videos/([^/]+)/([^/]+)/Subtitles/(\d+)/Stream\.(\w+)$", path)
+        if m:
+            return self.send_file(f"1\n00:00:01,000 --> 00:00:02,000\n{m.group(1)} {m.group(3)}\n".encode())
+        m = re.match(r"^/UserItems/([^/]+)/UserData$", path)
+        if m and method == "POST":
+            return self.reply(200, {}) if m.group(1) in BY_ID else self.reply(404)
+        if path == "/Items" and query.get("Ids"):
+            return self.reply(200, page([BY_ID[i] for i in query["Ids"][0].split(",") if i in BY_ID], query))
         if path == "/Items":
             items = [i for i in ITEMS if i["Type"] not in ("Season",)]
             if query.get("IncludeItemTypes"):

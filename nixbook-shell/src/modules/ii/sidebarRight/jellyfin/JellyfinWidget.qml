@@ -6,6 +6,7 @@ import qs.modules.common.functions
 import qs.services
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Widgets
 
 /**
@@ -15,7 +16,12 @@ import Quickshell.Widgets
  * their progress, and what was added lately as posters. A click plays it in
  * mpv on this computer (jellyfin-mpv-shim), where you stopped; a series (or
  * an episode's list button) opens its episodes, by season, to pick one (the
- * first, say). How a play goes shows at the bottom. The list comes
+ * first, say). How a play goes shows at the bottom. Films and episodes can
+ * be downloaded (the arrow on a card, a poster or an episode's row; a whole
+ * season from its page): they are kept on this computer as the server has
+ * them, listed under Downloads (the header's button; what the tab shows by
+ * itself when Jellyfin can't be reached), and what is downloaded plays from
+ * its file, with or without the server (Jellyfin.playOffline). The list comes
  * from `jellyfin-mcp shelf` (services/Jellyfin.qml: kept between opens,
  * refreshed when shown, every 10 minutes while shown, and after a play).
  */
@@ -31,6 +37,13 @@ Item {
 
     function play(item, name) {
         const what = name ?? [item.title, item.subtitle].filter(x => x).join(" · ");
+        // Downloaded: its file, no server needed.
+        if (Jellyfin.offlineById[item.id]?.state === "done") {
+            Jellyfin.playOffline(item.id);
+            root.status = { text: Translation.tr("Playing your download of %1").arg(what), kind: "ok" };
+            statusOff.restart();
+            return;
+        }
         root.playing = item.id;
         root.status = { text: Translation.tr("Starting %1…").arg(what), kind: "busy" };
         Jellyfin.playItem(item.id, (ok, error) => {
@@ -69,8 +82,32 @@ Item {
         });
     }
 
-    onVisibleChanged: if (root.visible) Jellyfin.refreshShelf(false)
-    Component.onCompleted: Jellyfin.refreshShelf(false)
+    // Downloads: the page listing them, also shown by itself when the shelf
+    // can't be had (no network, the server away) and something is here.
+    property bool downloads: false
+    readonly property bool unreachable: root.shelf === null && !Jellyfin.shelfLoading
+    readonly property bool showDownloads: root.detail === null
+        && (root.downloads || (root.unreachable && Jellyfin.offlineItems.length > 0))
+    function size(bytes) {
+        const gb = bytes / 1073741824;
+        if (gb >= 1) return Translation.tr("%1 GB").arg(gb.toFixed(gb >= 10 ? 0 : 1));
+        return Translation.tr("%1 MB").arg(Math.max(1, Math.round(bytes / 1048576)));
+    }
+    function keep(ids) {
+        Jellyfin.keepOffline(ids, (ok, error) => {
+            if (!ok) root.status = { text: error || Translation.tr("Jellyfin couldn't download it"), kind: "error" };
+        });
+    }
+
+    function shown() {
+        Jellyfin.offlineShown = root.visible;
+        if (!root.visible) return;
+        Jellyfin.refreshShelf(false);
+        Jellyfin.refreshOffline(true);
+    }
+    onVisibleChanged: root.shown()
+    Component.onCompleted: root.shown()
+    Component.onDestruction: Jellyfin.offlineShown = false
     Timer {
         interval: 10 * 60 * 1000
         repeat: true
@@ -108,8 +145,56 @@ Item {
         }
     }
 
+    // Download it, how its download goes, or (downloaded) take it off this
+    // computer: a second click within 3 s.
+    component DownloadButton: RippleButton {
+        id: dl
+        property string itemId
+        // Over a picture: white on a dark disc.
+        property bool onPicture: false
+        readonly property var kept: Jellyfin.offlineById[dl.itemId] ?? null
+        readonly property string how: dl.kept?.state ?? ""
+        property bool confirming: false
+        implicitWidth: 28
+        implicitHeight: 28
+        buttonRadius: Appearance.rounding.full
+        colBackground: ColorUtils.transparentize(dl.onPicture ? "black" : Appearance.colors.colLayer1Hover, dl.onPicture ? 0.45 : 1)
+        colBackgroundHover: dl.onPicture ? ColorUtils.transparentize("black", 0.25) : Appearance.colors.colLayer1Hover
+        onClicked: {
+            if (dl.how === "" || dl.how === "error") root.keep([dl.itemId]);
+            else if (dl.confirming) {
+                dl.confirming = false;
+                Jellyfin.removeOffline([dl.itemId]);
+            } else {
+                dl.confirming = true;
+                confirmOff.restart();
+            }
+        }
+        Timer {
+            id: confirmOff
+            interval: 3000
+            onTriggered: dl.confirming = false
+        }
+        contentItem: MaterialSymbol {
+            horizontalAlignment: Text.AlignHCenter
+            text: dl.confirming ? "delete" : dl.how === "done" ? "download_done" : dl.how === "downloading" ? "downloading"
+                : dl.how === "queued" ? "schedule" : dl.how === "error" ? "error" : "download"
+            iconSize: Appearance.font.pixelSize.normal
+            color: dl.confirming || dl.how === "error" ? Appearance.m3colors.m3error : dl.onPicture ? "white"
+                : dl.how === "done" ? Appearance.colors.colPrimary : Appearance.colors.colSubtext
+        }
+        StyledToolTip {
+            text: dl.confirming ? Translation.tr("Click again to remove it from this computer")
+                : dl.how === "done" ? Translation.tr("Downloaded (%1): plays from this computer. Click to remove").arg(root.size(dl.kept.size))
+                : dl.how === "downloading" ? Translation.tr("Downloading: %1 %. Click to cancel").arg(dl.kept.size > 0 ? Math.floor(100 * dl.kept.done / dl.kept.size) : 0)
+                : dl.how === "queued" ? Translation.tr("Waiting to download. Click to cancel")
+                : dl.how === "error" ? Translation.tr("%1. Click to try again").arg(dl.kept.error || Translation.tr("The download failed"))
+                : Translation.tr("Download to watch offline")
+        }
+    }
+
     PagePlaceholder {
-        shown: root.shelf === null && !Jellyfin.shelfLoading
+        shown: root.unreachable && Jellyfin.offlineItems.length === 0
         icon: "live_tv"
         title: Translation.tr("Jellyfin")
         description: Jellyfin.shelfError !== "" ? Jellyfin.shelfError : Translation.tr("Nothing to show yet")
@@ -125,7 +210,7 @@ Item {
     StyledFlickable {
         anchors.fill: parent
         anchors.bottomMargin: statusBar.visible ? statusBar.height + 8 : 0
-        visible: root.shelf !== null && root.detail === null
+        visible: root.shelf !== null && root.detail === null && !root.showDownloads
         contentHeight: column.implicitHeight
         clip: true
 
@@ -148,6 +233,14 @@ Item {
                     implicitSize: 18
                     visible: Jellyfin.shelfLoading
                     loading: visible
+                }
+                RippleButtonWithIcon {
+                    materialIcon: Jellyfin.offlineActive ? "downloading" : "download_done"
+                    mainText: Jellyfin.offlineItems.length > 0 ? Translation.tr("Downloads (%1)").arg(Jellyfin.offlineItems.length) : Translation.tr("Downloads")
+                    onClicked: root.downloads = true
+                    StyledToolTip {
+                        text: Translation.tr("What is kept on this computer to watch offline")
+                    }
                 }
                 RippleButton {
                     implicitWidth: 28
@@ -219,6 +312,13 @@ Item {
                                 implicitSize: 32
                                 visible: root.playing === card.modelData.id
                                 loading: visible
+                            }
+                            DownloadButton {
+                                anchors.top: parent.top
+                                anchors.left: parent.left
+                                anchors.margins: 6
+                                itemId: card.modelData.id
+                                onPicture: true
                             }
                             // Its series' episodes, to pick another.
                             RippleButton {
@@ -310,6 +410,15 @@ Item {
                                     visible: root.playing === poster.modelData.id
                                     loading: visible
                                 }
+                                // A film (a series: from its episodes).
+                                DownloadButton {
+                                    visible: poster.modelData.kind === "movie"
+                                    anchors.top: parent.top
+                                    anchors.right: parent.right
+                                    anchors.margins: 6
+                                    itemId: poster.modelData.id
+                                    onPicture: true
+                                }
                             }
                             StyledText {
                                 Layout.fillWidth: true
@@ -377,6 +486,26 @@ Item {
                 implicitSize: 18
                 visible: root.detailLoading
                 loading: visible
+            }
+            RippleButton {
+                id: seasonDl
+                // The episodes of the season shown that aren't here yet.
+                readonly property var missing: (detailView.current?.episodes ?? []).map(e => e.id)
+                    .filter(id => !["done", "queued", "downloading"].includes(Jellyfin.offlineById[id]?.state ?? ""))
+                visible: seasonDl.missing.length > 0
+                implicitWidth: 32
+                implicitHeight: 32
+                buttonRadius: Appearance.rounding.full
+                onClicked: root.keep(seasonDl.missing)
+                contentItem: MaterialSymbol {
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "download_for_offline"
+                    iconSize: Appearance.font.pixelSize.larger
+                    color: Appearance.colors.colOnLayer1
+                }
+                StyledToolTip {
+                    text: Translation.tr("Download this season (%1 episodes)").arg(seasonDl.missing.length)
+                }
             }
             RippleButtonWithIcon {
                 visible: (root.detail?.nextUp ?? "") !== ""
@@ -482,6 +611,233 @@ Item {
                         font.pixelSize: Appearance.font.pixelSize.smallest
                         color: Appearance.colors.colPrimary
                     }
+                    DownloadButton {
+                        itemId: epRow.modelData.id
+                    }
+                }
+            }
+        }
+    }
+
+    // Downloads: what is kept on this computer (a click plays its file),
+    // how each download goes, the space they take.
+    ColumnLayout {
+        id: downloadsView
+        anchors.fill: parent
+        anchors.bottomMargin: statusBar.visible ? statusBar.height + 8 : 0
+        visible: root.showDownloads
+        spacing: 8
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+            RippleButton {
+                visible: root.shelf !== null
+                implicitWidth: 32
+                implicitHeight: 32
+                buttonRadius: Appearance.rounding.full
+                onClicked: root.downloads = false
+                contentItem: MaterialSymbol {
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "arrow_back"
+                    iconSize: Appearance.font.pixelSize.larger
+                    color: Appearance.colors.colOnLayer1
+                }
+                StyledToolTip {
+                    text: Translation.tr("Back")
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+                StyledText {
+                    Layout.fillWidth: true
+                    text: Translation.tr("Downloads")
+                    font.pixelSize: Appearance.font.pixelSize.normal
+                    font.weight: Font.DemiBold
+                    color: Appearance.colors.colOnLayer1
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    visible: Jellyfin.offline !== null
+                    text: Translation.tr("%1 used · %2 free").arg(root.size(Jellyfin.offline?.used ?? 0)).arg(root.size(Jellyfin.offline?.free ?? 0))
+                    elide: Text.ElideRight
+                    font.pixelSize: Appearance.font.pixelSize.smallest
+                    color: Appearance.colors.colSubtext
+                }
+            }
+            MaterialLoadingIndicator {
+                implicitSize: 18
+                visible: Jellyfin.shelfLoading
+                loading: visible
+            }
+            // Jellyfin again (it couldn't be reached).
+            RippleButton {
+                visible: root.shelf === null
+                implicitWidth: 28
+                implicitHeight: 28
+                buttonRadius: Appearance.rounding.full
+                enabled: !Jellyfin.shelfLoading
+                onClicked: {
+                    Jellyfin.refreshShelf(true);
+                    Jellyfin.refreshOffline(true);
+                }
+                contentItem: MaterialSymbol {
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "refresh"
+                    iconSize: Appearance.font.pixelSize.larger
+                    color: Appearance.colors.colOnLayer1
+                }
+                StyledToolTip {
+                    text: Translation.tr("Try Jellyfin again")
+                }
+            }
+        }
+        StyledText {
+            Layout.fillWidth: true
+            visible: root.shelf === null && !Jellyfin.shelfLoading
+            text: Translation.tr("Jellyfin can't be reached: here is what you downloaded.")
+            wrapMode: Text.Wrap
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            color: Appearance.colors.colSubtext
+        }
+        StyledText {
+            Layout.fillWidth: true
+            visible: Jellyfin.offlineItems.length === 0
+            text: Translation.tr("Nothing downloaded yet. The arrow on a film or an episode keeps it on this computer, to watch without the server.")
+            wrapMode: Text.Wrap
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            color: Appearance.colors.colSubtext
+        }
+        StyledListView {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            spacing: 2
+            model: ScriptModel {
+                values: Jellyfin.offlineItems.map(it => it.id)
+            }
+            delegate: RippleButton {
+                id: keptRow
+                required property string modelData
+                readonly property var kept: Jellyfin.offlineById[keptRow.modelData] ?? ({})
+                readonly property bool ready: keptRow.kept.state === "done"
+                width: ListView.view.width
+                implicitHeight: 62
+                buttonRadius: Appearance.rounding.small
+                onClicked: {
+                    if (keptRow.ready) root.play(keptRow.kept);
+                    else if (keptRow.kept.state === "error") root.keep([keptRow.modelData]);
+                }
+                contentItem: RowLayout {
+                    spacing: 10
+                    Picture {
+                        Layout.preferredWidth: 88
+                        Layout.preferredHeight: 50
+                        source: keptRow.kept.image ?? ""
+                        symbol: keptRow.kept.kind === "episode" ? "live_tv" : "movie"
+                        // How far you got.
+                        Rectangle {
+                            visible: (keptRow.kept.progress ?? 0) > 0 && !keptRow.kept.played
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            anchors.margins: 4
+                            height: 3
+                            radius: 1.5
+                            color: ColorUtils.transparentize("black", 0.4)
+                            Rectangle {
+                                width: parent.width * Math.min(1, (keptRow.kept.progress ?? 0) / 100)
+                                height: parent.height
+                                radius: 1.5
+                                color: Appearance.colors.colPrimary
+                            }
+                        }
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 1
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: keptRow.kept.title ?? ""
+                            elide: Text.ElideRight
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            font.weight: Font.DemiBold
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            visible: text !== ""
+                            text: keptRow.kept.subtitle ?? ""
+                            elide: Text.ElideRight
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: Appearance.colors.colSubtext
+                        }
+                        StyledText {
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                            font.pixelSize: Appearance.font.pixelSize.smallest
+                            color: keptRow.kept.state === "error" ? Appearance.m3colors.m3error : Appearance.colors.colSubtext
+                            text: keptRow.ready ? (keptRow.kept.played ? Translation.tr("%1 · watched").arg(root.size(keptRow.kept.size)) : root.size(keptRow.kept.size))
+                                : keptRow.kept.state === "downloading" ? (keptRow.kept.size > 0
+                                    ? Translation.tr("Downloading · %1 of %2").arg(root.size(keptRow.kept.done)).arg(root.size(keptRow.kept.size))
+                                    : Translation.tr("Downloading…"))
+                                : keptRow.kept.state === "queued" ? Translation.tr("Waiting to download")
+                                : Translation.tr("%1. Click to try again").arg(keptRow.kept.error || Translation.tr("The download failed"))
+                        }
+                        Rectangle {
+                            visible: keptRow.kept.state === "downloading" && keptRow.kept.size > 0
+                            Layout.fillWidth: true
+                            implicitHeight: 3
+                            radius: 1.5
+                            color: Appearance.colors.colLayer2
+                            Rectangle {
+                                width: parent.width * Math.min(1, (keptRow.kept.done ?? 0) / Math.max(1, keptRow.kept.size ?? 1))
+                                height: parent.height
+                                radius: 1.5
+                                color: Appearance.colors.colPrimary
+                            }
+                        }
+                    }
+                    MaterialSymbol {
+                        visible: !!keptRow.kept.played
+                        text: "check_circle"
+                        iconSize: Appearance.font.pixelSize.larger
+                        color: Appearance.colors.colPrimary
+                    }
+                    // Off this computer (a second click), or its download stopped.
+                    RippleButton {
+                        id: removeButton
+                        property bool confirming: false
+                        implicitWidth: 28
+                        implicitHeight: 28
+                        buttonRadius: Appearance.rounding.full
+                        onClicked: {
+                            if (removeButton.confirming) Jellyfin.removeOffline([keptRow.modelData]);
+                            else {
+                                removeButton.confirming = true;
+                                removeOff.restart();
+                            }
+                        }
+                        Timer {
+                            id: removeOff
+                            interval: 3000
+                            onTriggered: removeButton.confirming = false
+                        }
+                        contentItem: MaterialSymbol {
+                            horizontalAlignment: Text.AlignHCenter
+                            text: removeButton.confirming ? "delete_forever" : keptRow.ready || keptRow.kept.state === "error" ? "delete" : "close"
+                            iconSize: Appearance.font.pixelSize.normal
+                            color: removeButton.confirming ? Appearance.m3colors.m3error : Appearance.colors.colSubtext
+                        }
+                        StyledToolTip {
+                            text: removeButton.confirming ? Translation.tr("Click again to remove it from this computer")
+                                : keptRow.ready ? Translation.tr("Remove from this computer") : Translation.tr("Cancel this download")
+                        }
+                    }
+                }
+                StyledToolTip {
+                    text: keptRow.ready ? Translation.tr("Play %1 from this computer").arg([keptRow.kept.title, keptRow.kept.subtitle].filter(x => x).join(" · "))
+                        : keptRow.kept.state === "error" ? Translation.tr("Try the download again") : Translation.tr("Still downloading")
                 }
             }
         }

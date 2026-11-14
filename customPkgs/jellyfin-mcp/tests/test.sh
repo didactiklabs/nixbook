@@ -444,6 +444,110 @@ expect_eq "episodes: the first one numbered" "$(jq -r '.seasons[0].episodes[0] |
 r=$("${jmcp[@]}" episodes mov-spirited || true)
 expect_eq "episodes: a film has none" "$(jq -r .ok <<<"$r")" "false"
 
+# -- downloads: kept on this computer, played from there ----------------------
+export JELLYFIN_OFFLINE_SPAWN=0 JELLYFIN_OFFLINE_RETRY_WAIT=0 JELLYFIN_OFFLINE_POLL=0.1
+export XDG_DATA_HOME="$tmp/data" XDG_CACHE_HOME="$tmp/cache"
+off="$XDG_DATA_HOME/jellyfin-mcp/offline"
+ofl() { "${jmcp[@]}" offline "$@" || true; }
+state_of() { jq -r --arg id "$1" '.items[] | select(.id == $id) | .state' <<<"$2"; }
+# A stand-in for mpv: its arguments noted, its IPC socket answering a
+# position (FAKE_MPV_POS) of a 1500 s video, gone after half a second.
+{
+  echo "#!$(command -v python3)"
+  cat
+} >"$tmp/bin/fake-mpv" <<'EOF'
+import json, os, socket, sys, time
+with open(os.path.join(os.environ["STUB_DIR"], "mpv.args"), "w") as f:
+    f.write("\n".join(sys.argv[1:]) + "\n")
+path = next(a.split("=", 1)[1] for a in sys.argv if a.startswith("--input-ipc-server="))
+srv = socket.socket(socket.AF_UNIX)
+srv.bind(path)
+srv.listen(1)
+srv.settimeout(3)
+conn, _ = srv.accept()
+conn.settimeout(0.1)
+end, buf = time.time() + 0.5, b""
+while time.time() < end:
+    try:
+        buf += conn.recv(4096)
+    except OSError:
+        continue
+    while b"\n" in buf:
+        line, buf = buf.split(b"\n", 1)
+        req = json.loads(line)
+        data = float(os.environ.get("FAKE_MPV_POS", "0")) if req["command"][1] == "time-pos" else 1500.0
+        conn.sendall(b'{"event": "noise"}\n' + json.dumps({"request_id": req["request_id"], "error": "success", "data": data}).encode() + b"\n")
+EOF
+chmod +x "$tmp/bin/fake-mpv"
+export JELLYFIN_OFFLINE_MPV="$tmp/bin/fake-mpv"
+
+r=$(ofl status)
+expect_eq "offline: nothing kept yet" "$(jq -c '[.ok, (.items | length), .running]' <<<"$r")" "[true,0,false]"
+r=$(ofl keep mov-spirited ep-e2)
+expect_eq "offline keep: a film and an episode, waiting" "$(jq -r .added <<<"$r") $(state_of mov-spirited "$r") $(state_of ep-e2 "$r")" "2 queued queued"
+expect_eq "offline keep: an episode under its series' name" "$(jq -r '.items[] | select(.id == "ep-e2") | .title + " / " + (.subtitle | split(" ")[0]) + " / " + .seriesId' <<<"$r")" "Cyberpunk: Edgerunners / S1:E2 / ser-edge"
+r=$(ofl keep mov-spirited)
+expect_eq "offline keep: kept already, not twice" "$(jq -r .added <<<"$r")" "0"
+: >"$log"
+r=$(ofl run)
+expect_eq "offline run: both downloaded" "$(jq -r .downloaded <<<"$r")" "2"
+r=$(ofl status)
+expect_eq "offline: done, whole" "$(state_of mov-spirited "$r") $(jq -r '.items[] | select(.id == "mov-spirited") | "\(.size) \(.done)"' <<<"$r") $(stat -c %s "$off/mov-spirited.mp4")" "done 380000 380000 380000"
+expect_eq "offline: the file as the server has it" "$(head -c 40 "$off/ep-e2.mkv")" "ep-e2-video-ep-e2-video-ep-e2-video-ep-e"
+expect_eq "offline: its external subtitles beside it, the ones inside left there" "$(find "$off" \( -name 'ep-e2.*.srt' -o -name 'ep-e2.*.ass' \) -printf '%f ')" "ep-e2.5.fre.srt "
+img=$(jq -r '.items[] | select(.id == "mov-spirited") | .image' <<<"$r")
+if [ -s "$img" ]; then pass "offline: its picture kept too"; else fail "offline: its picture kept too" "$r"; fi
+expect_eq "offline: what it takes on the disk" "$(jq -r '.used >= 620000 and .free > 0' <<<"$r")" "true"
+expect_eq "offline: where you stopped comes with it" "$(jq -r '.items[] | select(.id == "ep-e2") | .progress' <<<"$r")" "40"
+expect_eq "offline: the index is private" "$(stat -c %a "$off/index.json")" "600"
+
+# A download that stopped goes on from there; a user who may only play gets
+# the file as a static stream.
+ofl keep mov-dune84 >/dev/null
+printf 'mov-dune84-video-' >"$off/mov-dune84.mp4.part"
+: >"$log"
+ofl run >/dev/null
+r=$(ofl status)
+expect_eq "offline: Download refused, the static stream instead, from where it stopped" \
+  "$(state_of mov-dune84 "$r") $(last_req /Videos/mov-dune84/stream | jq -r '.query.static + " " + .range') $(stat -c %s "$off/mov-dune84.mp4")" "done true bytes=17- 340000"
+expect_eq "offline: the resumed file is whole" "$(tail -c 34 "$off/mov-dune84.mp4")" "mov-dune84-video-mov-dune84-video-"
+r=$(ofl keep sea-edge-1)
+expect_eq "offline keep: a season is its episodes not kept yet" "$(jq -r .added <<<"$r")" "9"
+r=$(ofl remove ep-e1 ep-e3 ep-e4 ep-e5 ep-e6 ep-e7 ep-e8 ep-e9 ep-e10 mov-dune84)
+expect_eq "offline remove: out of the list, the file gone" "$(jq -r '"\(.removed) \(.items | length)"' <<<"$r") $([ -e "$off/mov-dune84.mp4" ] && echo there || echo gone)" "10 2 gone"
+r=$(ofl keep art-miles)
+expect_match "offline keep: an artist can't be kept" "can't be kept" "$(jq -r .error <<<"$r")"
+r=$(ofl keep '../x')
+expect_eq "offline: an id, nothing else" "$(jq -r .ok <<<"$r")" "false"
+# A download that fails says why and can be asked again.
+ofl keep mov-jazz >/dev/null
+r=$(JELLYFIN_URL="http://127.0.0.1:1" JELLYFIN_TIMEOUT=1 "${jmcp[@]}" offline run || true)
+r=$(ofl status)
+expect_eq "offline: a failed download, said" "$(state_of mov-jazz "$r") $(jq -r '.items[] | select(.id == "mov-jazz") | .error | test("reach Jellyfin")' <<<"$r")" "error true"
+r=$(ofl keep mov-jazz)
+expect_eq "offline keep: a failed one again" "$(jq -r .added <<<"$r") $(state_of mov-jazz "$r")" "1 queued"
+ofl remove mov-jazz >/dev/null
+
+# Played from the file; how far goes to the server.
+: >"$log"
+r=$(FAKE_MPV_POS=700 "${jmcp[@]}" offline play ep-e2 || true)
+expect_eq "offline play: the file, from where you stopped" "$(jq -r .ok <<<"$r") $(grep -c -- '^--start=600$' "$STUB_DIR/mpv.args") $(tail -n 1 "$STUB_DIR/mpv.args")" "true 1 $off/ep-e2.mkv"
+expect_match "offline play: named" "^--force-media-title=Cyberpunk: Edgerunners · S1:E2" "$(grep -- '--force-media-title' "$STUB_DIR/mpv.args")"
+expect_eq "offline play: how far you got, sent to the server" "$(jq -r .synced <<<"$r") $(last_req /UserItems/ep-e2/UserData | jq -r '.body.PlaybackPositionTicks')" "true 7000000000"
+# Without the server: it plays, the progress waits here, then goes.
+: >"$log"
+r=$(FAKE_MPV_POS=1450 JELLYFIN_URL="http://127.0.0.1:1" JELLYFIN_TIMEOUT=1 "${jmcp[@]}" offline play mov-spirited || true)
+expect_eq "offline play: with no server" "$(jq -r '"\(.ok) \(.synced)"' <<<"$r") $(grep -c . "$log")" "true false 0"
+r=$(JELLYFIN_URL="http://127.0.0.1:1" JELLYFIN_TIMEOUT=1 "${jmcp[@]}" offline status --sync || true)
+expect_eq "offline status: with no server, what is here (watched to the end)" "$(jq -r '"\(.ok) \(.online)"' <<<"$r") $(jq -r '.items[] | select(.id == "mov-spirited") | "\(.played) \(.progress)"' <<<"$r")" "true false true 100"
+r=$(ofl status --sync)
+expect_eq "offline status --sync: back online, watched goes to the server" "$(jq -r .online <<<"$r") $(last_req /UserPlayedItems/mov-spirited | jq -r .method)" "true POST"
+: >"$log"
+r=$(ofl status --sync)
+expect_eq "offline status --sync: sent once; the server's progress taken" "$(grep -c '"path": "/User' "$log" || true) $(jq -r '.items[] | select(.id == "ep-e2") | .progress' <<<"$r")" "0 40"
+r=$(ofl play mov-dune21)
+expect_eq "offline play: not downloaded, said" "$(jq -r .ok <<<"$r")" "false"
+
 # -- the fast path: play-query ----------------------------------------------
 write_sessions ",$SHIM_SESSION"
 pq() { "${jmcp[@]}" play-query "$@" || true; }
