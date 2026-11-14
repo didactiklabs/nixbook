@@ -1182,6 +1182,10 @@ def keep_rested(bridge, pid):
             memo[p] = descends(p, pid)
         return memo[p]
 
+    try:
+        again = float(os.environ.get("NIXBOOK_ELECTRON_REST_AGAIN") or REST_AGAIN)
+    except ValueError:
+        again = REST_AGAIN
     shown, said = True, False
     while not bridge.cdp.closed.is_set():
         view = NiriView(ours)
@@ -1189,16 +1193,24 @@ def keep_rested(bridge, pid):
             with socket.socket(socket.AF_UNIX) as s:
                 s.connect(path)
                 s.sendall(b'"EventStream"\n')
-                f = s.makefile("rb")
+                # Lines read from the socket itself: a buffered file can't be
+                # read again once a read of it timed out ("cannot read from
+                # timed out object"), which ended the stream, and the rest,
+                # each time niri had nothing to say for REST_AGAIN.
+                buf = b""
                 while not bridge.cdp.closed.is_set():
-                    s.settimeout(None if shown else REST_AGAIN)
-                    try:
-                        line = f.readline()
-                    except TimeoutError:
-                        rest(bridge, False)
+                    if b"\n" not in buf:
+                        s.settimeout(None if shown else again)
+                        try:
+                            chunk = s.recv(65536)
+                        except TimeoutError:
+                            rest(bridge, False)
+                            continue
+                        if not chunk:
+                            break
+                        buf += chunk
                         continue
-                    if not line:
-                        break
+                    line, buf = buf.split(b"\n", 1)
                     try:
                         e = json.loads(line)
                     except ValueError:

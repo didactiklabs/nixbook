@@ -477,7 +477,7 @@ for _ in $(seq 1 100); do
   sleep 0.05
 done
 : >"$FAKE_CDP_LOG"
-NIRI_SOCKET=$niri_sock start
+NIRI_SOCKET=$niri_sock NIXBOOK_ELECTRON_REST_AGAIN=0.3 start
 exec 9>"$tmp/niri.fifo"
 app_pid=$(pgrep -P "$pid" | head -n1)
 rests() { jq -c 'select(.eval == "rest") | [.visible, .isolated]' "$FAKE_CDP_LOG" | uniq | paste -sd' '; }
@@ -495,6 +495,9 @@ expect_eq "rest: nothing told while its window is on a shown workspace (another 
 echo '{"WorkspaceActivated":{"id":2,"focused":true}}' >&9
 wait_rests '[false,true]'
 expect_eq "rest: its workspace left, the pages are told (isolated world)" '[false,true]' "$(rests)"
+# niri silent for longer than the "pages loaded since" round: still resting.
+sleep 1.2
+expect_eq "rest: stays resting while niri has nothing to say" '[false,true]' "$(rests)"
 expect_eq "rest: status says what is paused" '{"visible":false,"paused":4}' "$(ask '{"cmd":"status"}' | jq -c .result.resting)"
 echo '{"WindowOpenedOrChanged":{"window":{"id":7,"pid":'"$app_pid"',"workspace_id":2}}}' >&9
 wait_rests '[false,true] [true,true]'
