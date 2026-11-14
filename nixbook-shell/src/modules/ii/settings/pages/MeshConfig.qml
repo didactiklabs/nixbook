@@ -63,6 +63,9 @@ ContentPage {
             // The admin: the last invite made.
             property string invite: ""
             property string invited: ""
+            // In a mesh, but the server no longer takes this desktop's token: a new
+            // invite is the way back, so its field shows without leaving first.
+            readonly property bool refused: Mesh.configured && Mesh.lastError.indexOf("(401)") >= 0
 
             function check() {
                 meshSection.status = Translation.tr("Checking…")
@@ -117,13 +120,15 @@ ContentPage {
             // Joining with an invite: one code, nothing else.
             ColumnLayout {
                 Layout.fillWidth: true
-                visible: !Mesh.configured && !meshSection.byHand
+                visible: (!Mesh.configured && !meshSection.byHand) || meshSection.refused
                 spacing: 6
                 StyledText {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     font.weight: Font.DemiBold
-                    text: Translation.tr("Got an invite? Paste it here and click Join: that's all.")
+                    text: meshSection.refused
+                        ? Translation.tr("The server no longer accepts this computer's access. Ask the server's admin for a new invite, paste it here and click Join: your conversations stay.")
+                        : Translation.tr("Got an invite? Paste it here and click Join: that's all.")
                 }
                 MaterialTextField {
                     id: meshInvite
@@ -149,6 +154,7 @@ ContentPage {
                         }
                     }
                     SmallButton {
+                        visible: !meshSection.refused
                         enabled: !Mesh.busy
                         materialIcon: "tune"
                         mainText: Translation.tr("Set it up by hand instead")

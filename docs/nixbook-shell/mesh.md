@@ -71,6 +71,8 @@ From the command line: `nixbook-shell ipc call mesh listenShare MEMBER` (music; 
 
 **With an invite** (the usual way): Settings > Mesh, paste the invite code someone gave you (`nixbook-mesh-invite:…`), **Join**. That's all: the server, your account and the mesh's key come from the code, and your desktop makes its own access token. An invite works once.
 
+**Refused access** (the Mesh tab says "the server refused the access token (401)"): ask the admin for a new invite under your same name and paste it in Settings > Mesh, which shows the invite field again while access is refused. You stay the same member and keep your conversations. (Before 2026-11-14 an invited desktop's token lasted 3 days; tokens made since never expire.)
+
 **Your name** (same section) is what the others see: `login@hostname` by default (for example `khoa@totoro`). It is only a name: you stay the same member under it (your login). The conversation shows each member's current name, also on their earlier messages.
 
 ## Inviting people (the server's admin)
