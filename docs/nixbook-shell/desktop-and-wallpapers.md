@@ -31,7 +31,7 @@ AI agents can read and edit notes and tasks, set timers and alarms and arrange w
 
 ## Wallpapers
 
-**Mod+W** opens the **wallpaper selector**: browse folders with thumbnails (regenerated automatically when missing), or fetch wallpapers from **online providers** — downloads continue in the background and can be applied to the desktop or the lock screen. Picking a wallpaper regenerates the palette (Material theme) with a smooth transition.
+**Mod+W** opens the **wallpaper selector**: browse folders with thumbnails (regenerated automatically when missing), or fetch wallpapers from **online providers** — downloads continue in the background and can be applied to the desktop or the lock screen. Picking a wallpaper regenerates the palette (Material theme) with a smooth transition. The transition plays on the desktop, and the blurred wallpaper seen through windows and the pinned side panels fades to the new one over the same second instead of switching at once.
 
 In folders, the **back arrow** beside the title (or Alt+Left, or the mouse's back button) returns to the previous folder, Alt+Right goes forward again and Alt+Up opens the parent folder.
 
