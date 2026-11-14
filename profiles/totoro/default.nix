@@ -63,6 +63,12 @@ in
   # finds the time zone from the public IP at boot and hourly, no scan.
   services.automatic-timezoned.enable = lib.mkForce false;
   services.tzupdate.enable = true;
+  # The USB-C status driver (UCSI) sent ~4 power_supply change events a
+  # second for one port while something was plugged in, on battery too:
+  # udev, upower, systemd and nsncd woke for each (~37 ms/s of CPU, 2 after
+  # unloading it). Charging, DisplayPort and USB are the firmware's and work
+  # without it; only /sys/class/typec and the ucsi-source-psy supplies go.
+  boot.blacklistedKernelModules = [ "ucsi_acpi" ];
   customNixOSModules = {
     # Panel Self Refresh back on for the OLED (idle battery), minus Selective
     # Update. If the amdgpu freezes return, set "off" (see core.amdgpuPsr).
