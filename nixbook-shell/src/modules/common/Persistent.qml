@@ -120,6 +120,8 @@ Singleton {
                 // The YouTube tab's volume (0-1): each video it opens in mpv
                 // starts there.
                 property real videoVolume: 1
+                // Jellyfin's player (mpv): -1 until set from the shell.
+                property real jellyfinVolume: -1
                 // Echo cancellation on (services/EchoCancel.qml): started
                 // again at the next login.
                 property bool echoCancel: false

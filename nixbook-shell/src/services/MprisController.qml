@@ -360,31 +360,66 @@ Singleton {
 		objects: Audio.outputAppNodes
 	}
 
+	// Jellyfin's player (jellyfin-mpv-shim) plays in an mpv of its own. The
+	// shim's MPRIS Volume doesn't work (written 0.8 it read 0 and mpv kept
+	// its volume, 2026-11-14), mpv's own does: the shim's volume is that mpv's.
+	function isJellyfinShim(p) {
+		return /jellyfin.?mpv.?shim|iwalton3/i.test(`${p?.dbusName ?? ""} ${p?.identity ?? ""}`);
+	}
+	function volumePlayer(player) {
+		if (!root.isJellyfinShim(player)) return player;
+		const id = (String(player.metadata?.["mpris:trackid"] ?? "").match(/track\/([\w-]+)/) ?? [])[1] ?? "";
+		const url = p => String(p.metadata?.["xesam:url"] ?? "");
+		const mpvs = Mpris.players.values.filter(p => root.appKey(p.identity) === "mpv");
+		return mpvs.find(p => id !== "" && url(p).includes(id)) ?? mpvs.find(p => /\/Videos\/[0-9a-f]{32}\//.test(url(p))) ?? player;
+	}
+	// The shim's player while it has something on, and the mpv behind it.
+	readonly property var jellyfinPlayer: Mpris.players.values.find(p => root.isJellyfinShim(p) && (p.trackTitle ?? "") !== "") ?? null
+	readonly property var jellyfinMpv: {
+		const p = root.jellyfinPlayer;
+		const own = p ? root.volumePlayer(p) : null;
+		return own && own !== p ? own : null;
+	}
+	// The volume chosen in the shell comes back with the next mpv.
+	onJellyfinMpvChanged: jellyfinVolumeTimer.restart()
+	Timer {
+		id: jellyfinVolumeTimer
+		interval: 800
+		onTriggered: {
+			const p = root.jellyfinMpv;
+			const want = Persistent.states.media.jellyfinVolume;
+			if (p && want >= 0 && p.volumeSupported && Math.abs((p.volume ?? 1) - want) > 0.01) p.volume = want;
+		}
+	}
+
 	// Which control the volume helpers act on for this player.
 	function volumeTarget(player) {
 		// No player: never fall through to the system output.
 		if (!player) return { kind: "none" };
+		const own = root.volumePlayer(player);
+		if (own !== player) return { kind: "mpris", player: own };
 		const stream = root.streamFor(player);
 		if (stream?.audio) return { kind: "stream", node: stream };
-		if (player?.volumeSupported && player?.canControl) return { kind: "mpris" };
+		if (player?.volumeSupported && player?.canControl) return { kind: "mpris", player: player };
 		return { kind: "system", node: Audio.sink };
 	}
 	function playerVolume(player) {
 		const t = root.volumeTarget(player);
-		if (t.kind === "mpris") return player.volume ?? 0;
+		if (t.kind === "mpris") return t.player.volume ?? 0;
 		return t.node?.audio?.volume ?? 0;
 	}
 	function playerMuted(player) {
 		const t = root.volumeTarget(player);
-		if (t.kind === "mpris") return (player.volume ?? 1) <= 0;
+		if (t.kind === "mpris") return (t.player.volume ?? 1) <= 0;
 		return (t.node?.audio?.muted ?? false) || (t.node?.audio?.volume ?? 1) <= 0;
 	}
 	function setPlayerVolume(player, value) {
 		if (!player) return;
 		const v = Math.max(0, Math.min(1, value));
 		const t = root.volumeTarget(player);
+		if (root.isJellyfinShim(player)) Persistent.states.media.jellyfinVolume = v;
 		if (t.kind === "mpris") {
-			player.volume = v;
+			t.player.volume = v;
 		} else if (t.node?.audio) {
 			t.node.audio.muted = false;
 			t.node.audio.volume = v;
@@ -398,12 +433,12 @@ Singleton {
 		if (!player) return;
 		const t = root.volumeTarget(player);
 		if (t.kind === "mpris") {
-			const key = player.dbusName;
-			if ((player.volume ?? 1) > 0) {
-				root.unmuteVolume[key] = player.volume;
-				player.volume = 0;
+			const key = t.player.dbusName;
+			if ((t.player.volume ?? 1) > 0) {
+				root.unmuteVolume[key] = t.player.volume;
+				t.player.volume = 0;
 			} else {
-				player.volume = root.unmuteVolume[key] ?? 1;
+				t.player.volume = root.unmuteVolume[key] ?? 1;
 			}
 		} else if (t.node?.audio) {
 			t.node.audio.muted = !t.node.audio.muted;

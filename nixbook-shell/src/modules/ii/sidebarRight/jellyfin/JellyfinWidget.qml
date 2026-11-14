@@ -209,7 +209,7 @@ Item {
 
     StyledFlickable {
         anchors.fill: parent
-        anchors.bottomMargin: statusBar.visible ? statusBar.height + 8 : 0
+        anchors.bottomMargin: root.bottomReserve
         visible: root.shelf !== null && root.detail === null && !root.showDownloads
         contentHeight: column.implicitHeight
         clip: true
@@ -451,7 +451,7 @@ Item {
     ColumnLayout {
         id: detailView
         anchors.fill: parent
-        anchors.bottomMargin: statusBar.visible ? statusBar.height + 8 : 0
+        anchors.bottomMargin: root.bottomReserve
         visible: root.detail !== null
         spacing: 8
         readonly property var seasons: root.detail?.seasons ?? []
@@ -624,7 +624,7 @@ Item {
     ColumnLayout {
         id: downloadsView
         anchors.fill: parent
-        anchors.bottomMargin: statusBar.visible ? statusBar.height + 8 : 0
+        anchors.bottomMargin: root.bottomReserve
         visible: root.showDownloads
         spacing: 8
         RowLayout {
@@ -840,6 +840,97 @@ Item {
                         : keptRow.kept.state === "error" ? Translation.tr("Try the download again") : Translation.tr("Still downloading")
                 }
             }
+        }
+    }
+
+    // What plays on this computer's Jellyfin player: pause, and its own
+    // volume (mpv's, not the system output's), wherever the page is scrolled to.
+    readonly property var player: MprisController.jellyfinPlayer
+    readonly property real bottomReserve: (statusBar.visible ? statusBar.height + 8 : 0) + (playingBar.visible ? playingBar.height + 8 : 0)
+    Rectangle {
+        id: playingBar
+        visible: root.player !== null
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: statusBar.visible ? statusBar.height + 8 : 0
+        implicitHeight: playingCol.implicitHeight + 12
+        radius: Appearance.rounding.small
+        color: Appearance.colors.colLayer2
+        ColumnLayout {
+            id: playingCol
+            anchors.fill: parent
+            anchors.leftMargin: 10
+            anchors.rightMargin: 6
+            anchors.topMargin: 6
+            anchors.bottomMargin: 6
+            spacing: 0
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                MaterialSymbol {
+                    text: "movie"
+                    iconSize: Appearance.font.pixelSize.larger
+                    color: Appearance.colors.colPrimary
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    text: [root.player?.trackArtist ?? "", root.player?.trackTitle ?? ""].filter(t => t !== "").join(" · ")
+                    elide: Text.ElideRight
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    font.weight: Font.DemiBold
+                    color: Appearance.colors.colOnLayer2
+                }
+                BarButton {
+                    symbol: root.player?.isPlaying ? "pause" : "play_arrow"
+                    tip: root.player?.isPlaying ? Translation.tr("Pause") : Translation.tr("Play")
+                    onClicked: root.player?.togglePlaying()
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                readonly property real volume: MprisController.playerVolume(root.player)
+                readonly property bool muted: MprisController.playerMuted(root.player)
+                BarButton {
+                    symbol: parent.muted ? "volume_off" : parent.volume < 0.5 ? "volume_down" : "volume_up"
+                    tip: parent.muted ? Translation.tr("Unmute") : Translation.tr("Mute")
+                    onClicked: MprisController.togglePlayerMute(root.player)
+                }
+                StyledSlider {
+                    Layout.fillWidth: true
+                    configuration: StyledSlider.Configuration.XS
+                    from: 0
+                    to: 1
+                    value: parent.volume
+                    onMoved: MprisController.setPlayerVolume(root.player, value)
+                }
+                StyledText {
+                    Layout.preferredWidth: 38
+                    horizontalAlignment: Text.AlignRight
+                    text: `${Math.round(parent.volume * 100)}%`
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                }
+            }
+        }
+    }
+    component BarButton: RippleButton {
+        id: bb
+        property string symbol
+        property string tip
+        implicitWidth: 30
+        implicitHeight: 30
+        buttonRadius: Appearance.rounding.full
+        colBackground: ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 1)
+        contentItem: MaterialSymbol {
+            horizontalAlignment: Text.AlignHCenter
+            text: bb.symbol
+            iconSize: Appearance.font.pixelSize.larger
+            color: Appearance.colors.colOnLayer2
+        }
+        StyledToolTip {
+            text: bb.tip
         }
     }
 

@@ -445,6 +445,7 @@ Singleton {
         const f = root._f;
         const svc = root.localService(s.service);
         if (svc === "") {
+            if (s.service === "jellyfin" && root.testJellyfin === null) Jellyfin.recheck();
             root.followStatus = "noapp";
             return;
         }
@@ -815,6 +816,8 @@ Singleton {
         }
         // A service this desktop doesn't know (an older shell's Spotify): not shown.
         if (d.op !== "state" || !d.track?.id || root.kindOf(`${d.service ?? ""}`) === "") return;
+        // Something from Jellyfin, and Jellyfin not known as set up here: asked again now.
+        if (d.service === "jellyfin" && root.testJellyfin === null) Jellyfin.recheck();
         // The host's other sessions are over: one at a time.
         const prev = root.sessions[sid];
         const s = { sid: sid, host: from, hostName: e.name ?? "", to: e.to ?? "", service: d.service, track: d.track,
