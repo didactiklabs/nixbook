@@ -139,6 +139,38 @@ ContentPage {
             }
         }
 
+        // The quality YouTube videos start at in mpv (media.videoQuality,
+        // which the player's quality script reads; its own menu changes it
+        // for the video playing).
+        ContentSection {
+            icon: "high_quality"
+            shape: MaterialShape.Shape.Clover4Leaf
+            title: Translation.tr("YouTube videos")
+            shown: Config.options.sidebar.youtubeTab || YouTubeMusic.linksAvailable
+
+            GroupedList {
+                ConfigSelectionArray {
+                    configKey: "media.videoQuality";
+                    enabled: !nixManaged;
+                    text: Translation.tr("Quality videos start at")
+                    icon: "high_quality"
+                    currentValue: Config.options.media.videoQuality
+                    onSelected: newValue => {
+                        Config.options.media.videoQuality = newValue;
+                    }
+                    options: [
+                        { displayName: Translation.tr("Best"), value: "best" },
+                        { displayName: "2160p", value: "2160" },
+                        { displayName: "1440p", value: "1440" },
+                        { displayName: "1080p", value: "1080" },
+                        { displayName: "720p", value: "720" },
+                        { displayName: "480p", value: "480" },
+                        { displayName: "360p", value: "360" }
+                    ]
+                }
+            }
+        }
+
         // YouTube links opened by the shell instead of the browser, on the
         // whole machine (YouTubeMusic.openLink; media.youtubeLinks, also
         // settable in Nix), shown where something brings the links here

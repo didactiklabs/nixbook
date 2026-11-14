@@ -23,6 +23,8 @@
 - **Sharpen** (adaptive-sharpen): a bit of bite for soft sources.
 - **Smooth motion**: frame interpolation, 24 fps without judder on a 60 Hz screen; with any of the above, at a GPU and battery cost.
 
+For a YouTube video (anything yt-dlp plays that comes in several qualities), a **gear** button left of HD opens the **quality** menu: one line per size and frame rate (2160p60, 1080p60, 720p…), the playing one marked, and **Every format…** for each codec and bitrate. Picking one goes on from the same moment, and stays for the next videos of the session; right click the gear for the default again. The quality videos start at is nixbook-shell's setting (Settings > Apps & accounts > YouTube videos, `media.videoQuality`: best, or a height such as 1080), the best without it.
+
 The keys: **Ctrl+1…5** for the modes, **Ctrl+0** off, **Ctrl+M** smooth motion ([keybindings](/desktop/keybindings)). `desktopApps.mpvUpscaleQuality` picks the networks: `fast` (default, for integrated GPUs) or `hq` (for a dedicated GPU). The Jellyfin player uses the same mpv, controls and menus.
 
 Default applications (MIME): PDF → zathura, images → imv, video → mpv, folders → Dolphin, text → VS Code when installed, else NixVim in kitty.
