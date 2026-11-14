@@ -44,6 +44,7 @@ base-url: "$server"
 cache-file: "$tmp/server/cache.db"
 attachment-cache-dir: "$tmp/server/attachments"
 attachment-file-size-limit: "1M"
+visitor-request-limit-exempt-hosts: "127.0.0.1"
 auth-file: "$tmp/server/user.db"
 auth-default-access: "deny-all"
 auth-access:
@@ -487,6 +488,26 @@ expect "a Jellyfin item travels with what finds it elsewhere, nothing else" '{"e
 if grep -q '"privatetrack1"' "$tmp/bob.events"; then fail "bob doesn't see carol's private session" "$(cat "$tmp/bob.events")"; else pass "bob doesn't see carol's private session"; fi
 if grep -q '"privatetrack1"' "$tmp/carol.events"; then pass "carol gets her private session"; else fail "carol gets her private session" "$(cat "$tmp/carol.events")"; fi
 if grep -q '"op": "join"' "$tmp/alice.events"; then pass "alice hears carol joined"; else fail "alice hears carol joined" "$(cat "$tmp/alice.events")"; fi
+# A private Jellyfin share with everything that finds the episode elsewhere was
+# over the server's 4096 bytes: the server made a file of it and nobody read it.
+r=$(mesh alice send "$server" listen <<<"$(jq -c '.to = "carol" | .service = "jellyfin" | .sid = "bbbbccccddddeeee" | .track.id = "357b9b6f09061bc8bc94915d92f0446e"
+  | .track.title = "Pay Attention to Economic Indicators!" | .track.artist = "FX Fighter Kurumi-chan"
+  | .jf = {serverId: "57b33788b3cb47fcac1519e45ea76b11", id: "357b9b6f09061bc8bc94915d92f0446e", type: "Episode",
+           name: "Pay Attention to Economic Indicators!", seriesName: "FX Fighter Kurumi-chan", season: 1, episode: 6, year: 2026,
+           providers: {imdb: "tt50293022", tvdb: "12013548"}, seriesProviders: {imdb: "tt43119470", tmdb: "311842", tvdb: "472962"}}' <<<"$state")")
+expect "a Jellyfin episode shared privately, with all its ids" true "$(field .ok "$r")"
+# And a private message too long even compressed: read from the file the server made of it.
+long=$("$py" -c 'import secrets; print(secrets.token_hex(495))')
+r=$(mesh alice send "$server" message <<<"$(jq -nc --arg t "$long" '{text: $t, to: "carol", name: "Alice"}')")
+expect "a very long private message is sent" true "$(field .ok "$r")"
+for _ in $(seq 50); do
+  grep -q '"bbbbccccddddeeee"' "$tmp/carol.events" && grep -q "$long" "$tmp/carol.events" && break
+  sleep 0.2
+done
+if grep -q '"bbbbccccddddeeee"' "$tmp/carol.events"; then pass "carol gets the private Jellyfin share"; else fail "carol gets the private Jellyfin share" "$(tail -3 "$tmp/carol.events")"; fi
+expect "with the ids that find it on her server" "tt50293022 472962" "$(jq -r 'select(.data.sid == "bbbbccccddddeeee") | "\(.data.jf.providers.imdb) \(.data.jf.seriesProviders.tvdb)"' "$tmp/carol.events" | head -1)"
+if grep -q "$long" "$tmp/carol.events"; then pass "carol gets the very long private message"; else fail "carol gets the very long private message" "$(tail -3 "$tmp/carol.events" | cut -c1-300)"; fi
+if grep -q '"bbbbccccddddeeee"' "$tmp/bob.events" || grep -q "$long" "$tmp/bob.events"; then fail "bob gets neither"; else pass "bob gets neither"; fi
 # A session's state from before an absence says nothing now: skipped.
 "$py" -P - "$script" "$tmp/alice/config/nixbook-shell/mesh/key" "$server" "${token[alice]}" <<'PY2'
 import base64, importlib.machinery, sys, time, urllib.request

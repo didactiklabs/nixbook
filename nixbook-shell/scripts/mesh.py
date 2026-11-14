@@ -82,6 +82,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zlib
 from pathlib import Path
 
 from cryptography.exceptions import InvalidTag
@@ -420,12 +421,37 @@ def _sealed_key(shared, eph_pk, reader_pk):
                 info=b"nixbook-mesh sealed v1\0" + eph_pk + reader_pk).derive(shared)
 
 
-def seal_private(sk, my_pk, readers, inner, topic):
+# ntfy turns a message body over 4096 bytes into a file attachment, which no
+# desktop read: a Jellyfin share's state (the item's names and ids, one box
+# per reader, base64 three times over) was 4254 bytes, so watching along with
+# Jellyfin never reached anyone (2026-11-14). A sealed message that would be
+# too long is sent compressed (PACKED + zlib; older shells can't read those,
+# but they couldn't read the attachment either), and the listener reads an
+# attachment the server made of a message that was still too long.
+BODY_MAX = 4000
+PACKED = b"\x01"
+ATTACHED_MAX = 256 * 1024
+
+
+def pack_inner(inner, compress):
+    plain = json.dumps(inner, ensure_ascii=False, separators=(",", ":")).encode()
+    if compress:
+        plain = PACKED + zlib.compress(plain, 9)
+        return plain + b"\0" * (-len(plain) % PAD)
+    return plain + b" " * (-len(plain) % PAD)
+
+
+def unpack_inner(plain):
+    if plain[:1] == PACKED:
+        plain = zlib.decompressobj().decompress(plain[1:], 1024 * 1024)
+    return json.loads(plain)
+
+
+def seal_private(sk, my_pk, readers, inner, topic, compress=False):
     eph = X25519PrivateKey.generate()
     eph_pk = eph.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
     aad = topic.encode() + eph_pk
-    plain = json.dumps(inner, ensure_ascii=False, separators=(",", ":")).encode()
-    plain += b" " * (-len(plain) % PAD)
+    plain = pack_inner(inner, compress)
     boxes = []
     for reader_pk in readers:
         n1 = secrets.token_bytes(12)
@@ -453,7 +479,7 @@ def open_private(sk, my_pk, outer, topic):
             wrapper = json.loads(AESGCM(key).decrypt(raw[:12], raw[12:], aad))
             sender_pk = pk_of(wrapper.get("s"))
             inside = base64.b64decode(str(wrapper.get("c")), validate=True)
-            inner = json.loads(AESGCM(dm_key(sk, my_pk, sender_pk)).decrypt(inside[:12], inside[12:], aad))
+            inner = unpack_inner(AESGCM(dm_key(sk, my_pk, sender_pk)).decrypt(inside[:12], inside[12:], aad))
         except Exception:
             continue
         if isinstance(inner, dict) and sender_pk:
@@ -919,6 +945,25 @@ def readers_or_fail(to, kind):
     return sk, my_pk, [their_pk] if to == myself else [their_pk, my_pk]
 
 
+def attached_body(server, token, attachment):
+    """The text of a message the server turned into an attachment (its body
+    was over the server's limit), or ""."""
+    if not isinstance(attachment, dict):
+        return ""
+    url = str(attachment.get("url") or "")
+    try:
+        size = int(attachment.get("size") or 0)
+    except (TypeError, ValueError):
+        return ""
+    if not url.startswith(f"{server}/file/") or not 0 < size <= ATTACHED_MAX:
+        return ""
+    try:
+        with request(url, token, timeout=20) as r:
+            return r.read(ATTACHED_MAX + 1).decode("ascii", "replace")
+    except (urllib.error.URLError, OSError, ValueError):
+        return ""
+
+
 def publish(server, token, key, kind, to, data, mid, name, readers):
     topic = topic_of(key)
     sk, my_pk, sealed_for = readers
@@ -935,6 +980,8 @@ def publish(server, token, key, kind, to, data, mid, name, readers):
         payload = {"kind": kind, "from": myself, "name": name, "to": to, "time": now,
                    "mid": mid, "pk": b64(my_pk), "data": data}
     body = seal(key, topic, payload).encode()
+    if sealed_for and len(body) > BODY_MAX:
+        body = seal(key, topic, seal_private(sk, my_pk, sealed_for, inner, topic, compress=True)).encode()
     try:
         with request(f"{server}/{topic}", token, data=body, method="POST") as r:
             answer = json.load(r)
@@ -1736,6 +1783,7 @@ def cmd_listen(args):
         # Resume where the last connection stopped; the first time, all the
         # server still has (a year on nixbook's server).
         since = cursor or "all"
+        old_attached = 0
         url = f"{server}/{topic}/json?since={urllib.parse.quote(since)}"
         try:
             with request(url, token, timeout=READ_TIMEOUT) as r:
@@ -1752,6 +1800,13 @@ def cmd_listen(args):
                     if mid and mid in seen_set:
                         continue
                     payload = unseal(key, topic, msg.get("message") or "")
+                    if payload is None and msg.get("attachment"):
+                        # Old ones (a catch-up, the whole history for a new
+                        # desktop): a few only, each is a request the server counts.
+                        recent = time.time() - (msg.get("time") or 0) < 600
+                        if recent or old_attached < 20:
+                            old_attached += 0 if recent else 1
+                            payload = unseal(key, topic, attached_body(server, token, msg.get("attachment")))
                     if payload is None:
                         if not warned:
                             out({"event": "error",
