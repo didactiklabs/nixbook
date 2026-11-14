@@ -16,7 +16,7 @@ Every machine uses **NetworkManager**. On top of it, Nixbook ships two mesh VPNs
 
 `customNixOSModules.netbird-tools` (on by default):
 
-- the [NetBird](https://netbird.io) WireGuard overlay daemon (no tray UI);
+- the [NetBird](https://netbird.io) WireGuard overlay daemon (no tray UI). It starts with the system but doesn't connect by itself: run `netbird up` (or `nswitch`, or the shell's VPN widget) when you need it. A reboot or a restart of the daemon disconnects it again;
 - **`nswitch`** — an fzf TUI listing NetBird networks and switching to the selected one (`netbird network select` + `netbird up`).
 
 Disable either per machine:

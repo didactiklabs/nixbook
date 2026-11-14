@@ -310,7 +310,7 @@ Wi-Fi power save on battery and off on the charger, switched as the charger is p
 - **Type:** `boolean`
 - **Default:** `true`
 
-Whether to enable NetBird VPN client with the nswitch helper. NetBird is a WireGuard-based overlay network tool for connecting machines across different networks without port-forwarding or static IPs. This module: - Enables services.netbird (daemon only, no systray UI) - Installs nswitch: an fzf-based TUI that lists available NetBird network IDs (via `netbird networks list`) and switches to the selected one with `netbird network select && netbird up` Enabled by default on all machines.
+Whether to enable NetBird VPN client with the nswitch helper. NetBird is a WireGuard-based overlay network tool for connecting machines across different networks without port-forwarding or static IPs. This module: - Enables services.netbird (daemon only, no systray UI); the daemon starts with the system but connects only on `netbird up` (or nswitch, or the desktop shell's VPN widget), and a daemon restart disconnects - Installs nswitch: an fzf-based TUI that lists available NetBird network IDs (via `netbird networks list`) and switches to the selected one with `netbird network select && netbird up` Enabled by default on all machines.
 
 ---
 
