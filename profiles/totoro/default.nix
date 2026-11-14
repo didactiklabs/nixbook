@@ -69,6 +69,15 @@ in
   # unloading it). Charging, DisplayPort and USB are the firmware's and work
   # without it; only /sys/class/typec and the ucsi-source-psy supplies go.
   boot.blacklistedKernelModules = [ "ucsi_acpi" ];
+  # The keyboard lit while the disk's password is asked: its backlight is off
+  # at power-on and its driver was only loaded once the disk was open. The
+  # driver comes into the initrd and a udev rule there sets level 2 of 3 when
+  # the light appears; after the unlock systemd-backlight puts back the level
+  # the last session ended with, as before.
+  boot.initrd.kernelModules = [ "asus_nb_wmi" ];
+  boot.initrd.services.udev.rules = ''
+    ACTION=="add", SUBSYSTEM=="leds", KERNEL=="asus::kbd_backlight", ATTR{brightness}="2"
+  '';
   customNixOSModules = {
     # Panel Self Refresh back on for the OLED (idle battery), minus Selective
     # Update. If the amdgpu freezes return, set "off" (see core.amdgpuPsr).
