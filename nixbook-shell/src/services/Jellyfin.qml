@@ -52,10 +52,34 @@ Singleton {
             property int run: 0
             running: true
             onExited: code => {
-                if (check.run === root._checkRun) root.ready = code === 0;
+                if (check.run === root._checkRun) {
+                    root.ready = code === 0;
+                    if (root.ready) root._retries = 0;
+                    else if (root.available) retryTimer.restart();
+                }
                 check.destroy();
             }
         }
+    }
+    // Not set up, as far as the one check at start could tell: asked again
+    // (5 s, 15 s, 45 s… then every 5 min). The login is in the keyring, which
+    // may not answer yet when the shell starts, and "not ready" then lasted
+    // the whole session: no Jellyfin tab, and a friend's Watch along had no
+    // player here. Also asked when one is needed (recheck()).
+    property int _retries: 0
+    Timer {
+        id: retryTimer
+        interval: Math.min(300000, 5000 * Math.pow(3, root._retries))
+        onTriggered: {
+            root._retries = Math.min(root._retries + 1, 6);
+            if (root.available && !root.ready) root.refresh();
+        }
+    }
+    property real _recheckedAt: 0
+    function recheck() {
+        if (root.ready || !root.available || Date.now() - root._recheckedAt < 5000) return;
+        root._recheckedAt = Date.now();
+        root.refresh();
     }
     // Created at startup (shell.qml), for the player's streaming limit below.
     function load() {}
