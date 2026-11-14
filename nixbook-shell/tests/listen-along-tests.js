@@ -354,7 +354,7 @@ function seekAt(f, now, pos, target, opts) {
   const f = m.fresh();
   f.openedFor = "x";
   const jumps = [];
-  // Spotify right after it starts: "Playing", its position stuck at 0.
+  // Still loading: "Playing", its position stuck at 0.
   for (let t = 1000; t <= 20000; t += 1000)
     if (seekAt(f, t, 0, 40 + t / 1000) >= 0) jumps.push(t);
   check("a position not moving: no jump", jumps.length === 0, jumps);

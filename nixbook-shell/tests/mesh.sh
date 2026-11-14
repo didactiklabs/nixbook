@@ -445,7 +445,7 @@ expect "alice gets it, to everyone" "bob  4321" "$(field .from "$everyone") $(fi
 
 # -- Listening together ---------------------------------------------------------
 
-state='{"op": "state", "sid": "0123456789abcdef", "service": "spotify", "track": {"id": "4uLU6hMCjMI75M1A2tKUQC", "title": "Song", "artist": "Band", "length": 200, "art": "http://plain/x.jpg"}, "position": 12.5, "playing": true, "name": "Alice"}'
+state='{"op": "state", "sid": "0123456789abcdef", "service": "youtube-music", "track": {"id": "dQw4w9WgXcQ", "title": "Song", "artist": "Band", "length": 200, "art": "http://plain/x.jpg"}, "position": 12.5, "playing": true, "name": "Alice"}'
 r=$(mesh alice send "$server" listen <<<"$state")
 expect "alice shares her music with everyone" true "$(field .ok "$r")"
 r=$(mesh alice send "$server" listen <<<"$(jq -c '.to = "carol" | .sid = "fedcba9876543210" | .track.id = "privatetrack1"' <<<"$state")")
@@ -456,10 +456,12 @@ r=$(mesh alice send "$server" listen <<<"$(jq -c '.service = "jellyfin" | .sid =
 expect "a Jellyfin episode can be shared too" true "$(field .ok "$r")"
 r=$(mesh alice send "$server" listen <<<"$(jq -c '.service = "youtube" | .sid = "aaaabbbbcccceeee" | .track.id = "MK3GL-B8mRs" | .track.art = "https://i.ytimg.com/vi/MK3GL-B8mRs/mqdefault.jpg"' <<<"$state")")
 expect "a YouTube video (watched in mpv) can be shared too" true "$(field .ok "$r")"
-r=$(mesh alice send "$server" listen <<<"$(jq -c '.service = "youtube" | .track.id = "4uLU6hMCjMI75M1A2tKUQC"' <<<"$state")" || true)
+r=$(mesh alice send "$server" listen <<<"$(jq -c '.service = "youtube" | .track.id = "notelevencharacters"' <<<"$state")" || true)
 expect "a YouTube video's id is 11 characters" false "$(field .ok "$r")"
 r=$(mesh alice send "$server" listen <<<"$(jq -c '.service = "deezer"' <<<"$state")" || true)
-expect "only YouTube Music and Spotify are shared" false "$(field .ok "$r")"
+expect "only YouTube Music, Jellyfin and YouTube videos are shared" false "$(field .ok "$r")"
+r=$(mesh alice send "$server" listen <<<"$(jq -c '.service = "spotify"' <<<"$state")" || true)
+expect "Spotify isn't shared any more" false "$(field .ok "$r")"
 r=$(mesh alice send "$server" listen <<<"$(jq -c '.op = "steal"' <<<"$state")" || true)
 expect "an unknown listening event is refused" false "$(field .ok "$r")"
 r=$(mesh carol send "$server" listen <<<'{"op": "join", "sid": "fedcba9876543210", "to": "alice"}')
@@ -469,7 +471,7 @@ for _ in $(seq 50); do
   sleep 0.2
 done
 shared=$(grep '"kind": "listen"' "$tmp/bob.events" | head -1)
-expect "bob gets the shared song, its position" "4uLU6hMCjMI75M1A2tKUQC 12.5 true" "$(field .data.track.id "$shared") $(field .data.position "$shared") $(field .data.playing "$shared")"
+expect "bob gets the shared song, its position" "dQw4w9WgXcQ 12.5 true" "$(field .data.track.id "$shared") $(field .data.position "$shared") $(field .data.playing "$shared")"
 expect "a cover that isn't https is dropped" "" "$(field .data.track.art "$shared")"
 for _ in $(seq 50); do
   grep -q '"aaaabbbbccccdddd"' "$tmp/bob.events" && break
@@ -497,7 +499,7 @@ for _ in $(seq 50); do
   sleep 0.2
 done
 if grep -q '"old-listen"' "$tmp/bob.events"; then fail "an old session state is skipped" "$(grep old-listen "$tmp/bob.events")"; else pass "an old session state is skipped"; fi
-# Finding a Spotify song on YouTube Music: the closest title, artist, length.
+# Finding a song on YouTube Music: the closest title, artist, length.
 best=$(
   "$py" -P - "$script" <<'PY2'
 import importlib.machinery, sys
@@ -514,7 +516,7 @@ c, _ = mesh.best_match({"title": "Harder Better Faster Stronger", "artist": "Daf
 print(a["videoId"], b["videoId"], c)
 PY2
 )
-expect "a Spotify song is matched on YouTube Music by title, artist and length" "album000000 radio000000 None" "$best"
+expect "a song is matched on YouTube Music by title, artist and length" "album000000 radio000000 None" "$best"
 # Another version, for a listener whose YouTube Music can't play the host's:
 # by the same artist, never someone else's cover.
 alt=$(

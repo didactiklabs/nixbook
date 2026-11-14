@@ -46,7 +46,7 @@ Commands (JSON on stdout; secrets only ever on stdin):
                                 on, to}): an emoji, on or off
   profile SERVER                your picture for the others (stdin: {path,
                                 force}): see "Profile pictures"
-  match                         a song on YouTube Music like a Spotify one
+  match                         a song on YouTube Music like the one given
                                 (stdin: {title, artist, album, length,
                                 exclude: [videoId…]}), for listening
                                 together: {videoId, title, …}
@@ -855,8 +855,8 @@ def listen_data(data):
     clean = {"op": op, "sid": sid}
     if op == "state":
         service = str(data.get("service") or "")
-        if service not in ("spotify", "youtube-music", "jellyfin", "youtube"):
-            fail("only YouTube Music, Spotify, Jellyfin and YouTube videos can be shared")
+        if service not in ("youtube-music", "jellyfin", "youtube"):
+            fail("only YouTube Music, Jellyfin and YouTube videos can be shared")
         t = data.get("track") if isinstance(data.get("track"), dict) else {}
         track = {k: str(t.get(k) or "")[:300] for k in ("id", "title", "artist", "album", "art")}
         if not re.match(r"^[A-Za-z0-9_-]{1,64}$", track["id"]):
@@ -1429,12 +1429,13 @@ def cmd_prune(_args):
     out({"ok": True, "removed": removed})
 
 
-# -- Listening together: a Spotify track on YouTube Music -------------------
+# -- Listening together: another version of a song on YouTube Music ---------
 #
-# A listener without the host's app follows on the other one. Spotify has no
-# search without an account, YouTube Music's own web client (InnerTube) has:
-# `match`, stdin {title, artist, album, length}, finds the song there (the
-# closest title, artist and length) and answers its videoId.
+# A song that doesn't play in a listener's YouTube Music (not available to
+# their account or country) is looked for again through YouTube Music's own
+# web client (InnerTube): `match`, stdin {title, artist, album, length,
+# exclude}, finds the song there (the closest title, artist and length) and
+# answers its videoId.
 
 YT_SEARCH = "https://music.youtube.com/youtubei/v1/search?prettyPrint=false"
 # The "Songs" filter of YouTube Music's search.
