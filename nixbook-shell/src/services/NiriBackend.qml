@@ -94,6 +94,12 @@ Scope {
     }
 
     function fullscreenOnMonitor(monitorName) {
+        // A window's size changes in place (WindowLayoutsChanged), which a
+        // binding on windowList doesn't see: the revisions say it changed.
+        // Without them a pinned side panel never noticed a window going
+        // fullscreen and stayed on top of it.
+        root.tiledLayoutRevision;
+        root.floatingLayoutRevision;
         const mon = root.monitors.find(m => m.name === monitorName);
         if (!mon || !mon.logical) return false;
         const ws = root.workspaces.find(w => w.output === monitorName && w.is_active);
