@@ -2391,7 +2391,7 @@ def cli_play_id(args):
 # the server (and the server's own progress comes back) at the next
 # `offline status --sync` that reaches it, the later of the two winning.
 #
-# $XDG_DATA_HOME/jellyfin-mcp/offline: <id>.<ext> (.part while it downloads),
+# $XDG_DATA_HOME/jellyfin-offline: <id>.<ext> (.part while it downloads),
 # <id>.<track>.<language>.<srt|ass|vtt>, and index.json {items: {id: {id,
 # title, subtitle, kind, seriesId, season, episode, server, source, state
 # (queued|downloading|done|error), error, size, done, file, subs, image,
@@ -2416,7 +2416,14 @@ def offline_dir():
     path = os.environ.get("JELLYFIN_OFFLINE_DIR")
     if not path:
         base = os.environ.get("XDG_DATA_HOME") or os.path.join(os.path.expanduser("~"), ".local", "share")
-        path = os.path.join(base, "jellyfin-mcp", "offline")
+        path = os.path.join(base, "jellyfin-offline")
+        # Where they were at first (under this helper's own name).
+        former = os.path.join(base, "jellyfin-mcp", "offline")
+        if os.path.isdir(former) and not os.path.exists(path):
+            try:
+                os.rename(former, path)
+            except OSError:
+                pass
     os.makedirs(path, mode=0o700, exist_ok=True)
     return path
 
