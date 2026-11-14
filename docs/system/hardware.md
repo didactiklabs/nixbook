@@ -14,6 +14,8 @@
 - **scx_lavd**, a sched_ext CPU scheduler built for interactivity and battery life (latency-critical tasks first, fewer cores awake);
 - SATA link power management, deep sleep, and `powertop` for analysis.
 
+totoro also blacklists the `ucsi_acpi` kernel module (USB-C status reporting): its firmware made it send about four "power supply changed" events a second while something was plugged into one port, waking udev, upower and systemd each time. Charging, DisplayPort and USB devices work without it; only `/sys/class/typec` is gone.
+
 Hardware quirks come from [nixos-hardware](https://github.com/NixOS/nixos-hardware), imported by each profile (e.g. `framework/13-inch/amd-ai-300-series`).
 
 ## Bluetooth audio auto-connect
