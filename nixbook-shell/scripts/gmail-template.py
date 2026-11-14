@@ -208,6 +208,34 @@ EXTRA = """
 :root body.xE :has(> * > * > * > [role="toolbar"]) {
   background-color: {{colors.surface.default.hex}} !important;
 }
+/* The same window on a Gmail theme with a picture (mailto: links open it
+ * full size, ?fs=1&tf=cm): the picture, on one of the page's outer
+ * wrappers, showed through every container made transparent above. Its
+ * formatting toolbar kept Gmail's own light pill (Catppuccin's .J-Z rule
+ * loses to Gmail's there) under icons made light, so they vanished; so did
+ * the "Aa" of the pressed formatting button, light on its light fill (a
+ * pseudo-element). The font picker and the subject field had a box of
+ * their own colour. */
+:root body.xE > *,
+:root body.xE > * > *,
+:root body.xE > * > * > *,
+:root body.xE > * > * > * > * {
+  background-image: none !important;
+}
+:root body.xE [role="toolbar"] {
+  background-color: {{colors.surface_container_high.default.hex}} !important;
+}
+:root body.xE [role="toolbar"] :is([role="listbox"], [role="option"], [role="listbox"] *, [role="option"] *),
+:root body.xE input {
+  background-color: transparent !important;
+}
+:root body.xE [role="button"][aria-pressed="true"],
+:root body.xE [role="button"][aria-pressed="true"]::before,
+:root body.xE [role="button"][aria-pressed="true"]::after,
+:root body.xE [role="button"][aria-pressed="true"] *::before,
+:root body.xE [role="button"][aria-pressed="true"] *::after {
+  background-color: {{colors.surface_container_highest.default.hex}} !important;
+}
 """
 
 
