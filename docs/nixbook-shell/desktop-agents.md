@@ -283,7 +283,7 @@ An admin's **API key** (Jellyfin: **Dashboard → API Keys**) still works:
 or `ai.jellyfin.apiKeyFile` in Nix. It reaches every user's library, so a
 sign-in is the better choice for anyone but the server's admin.
 
-**Where it plays.** In a maximized window on this computer (`f` for fullscreen), in your own mpv
+**Where it plays.** In a window on this computer as wide as the free space, as `Mod+Z` would make it (`f` for fullscreen), in your own mpv
 (its `mpv.conf`, scripts and keys): the `jellyfin-mpv-shim` user service
 (`jellyfinMcp.player.enable`), started once signed in, which Jellyfin's own
 apps can cast to as well. It saves where you stopped, marks watched and goes

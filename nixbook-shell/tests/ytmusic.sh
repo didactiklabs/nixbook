@@ -691,7 +691,7 @@ cat >"$tmp/bin/mpv" <<EOF
 printf '%s\n' "\$*" >"$tmp/mpv-argv"
 EOF
 chmod +x "$tmp/bin/mpv"
-PATH="$tmp/bin:$PATH" ytm watch home1111111 --start 42 --volume 35 >/dev/null
+PATH="$tmp/bin:$PATH" NIRI_SOCKET='' ytm watch home1111111 --start 42 --volume 35 >/dev/null
 expect "watch: the user's mpv, the video, from the time and at the volume asked" \
   "--script-opts-append=ytdl_hook-ytdl_path=$tmp/bin/yt-dlp --script-opts-append=ytdl_hook-force_all_formats=no --force-window=immediate --window-maximized=yes --start=42 --volume=35 https://www.youtube.com/watch?v=home1111111" \
   "$(cat "$tmp/mpv-argv")"
@@ -702,6 +702,57 @@ expect "watch: not a video id, refused" "1" "$(
   PATH="$tmp/bin:$PATH" ytm watch 'bad id' >/dev/null
   echo $?
 )"
+
+# video-window: under niri, the column of each window the process opens is
+# maximized (Mod+Z's action), once; not a window already there, a floating
+# one or another process's. A stand-in for niri's socket: the first
+# connection gets the events, the others' requests are kept.
+niri_sock="$tmp/niri.sock"
+sleep 30 &
+video_pid=$!
+python3 - "$niri_sock" "$video_pid" "$tmp/niri-requests" <<'EOF' &
+import json, socket, sys, time
+path, pid, log = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+s = socket.socket(socket.AF_UNIX); s.bind(path); s.listen(4)
+c, _ = s.accept()
+assert c.makefile().readline().strip() == '"EventStream"'
+def say(event): c.sendall(json.dumps(event).encode() + b"\n")
+c.sendall(b'{"Ok":"Handled"}\n')
+say({"WindowsChanged": {"windows": [{"id": 1, "pid": pid, "is_focused": True, "is_floating": False}]}})
+say({"WindowOpenedOrChanged": {"window": {"id": 1, "pid": pid, "is_focused": True, "is_floating": False}}})   # already there
+say({"WindowOpenedOrChanged": {"window": {"id": 2, "pid": 1, "is_focused": True, "is_floating": False}}})     # not its window
+say({"WindowOpenedOrChanged": {"window": {"id": 3, "pid": pid, "is_focused": True, "is_floating": True}}})    # floating
+say({"WindowOpenedOrChanged": {"window": {"id": 4, "pid": pid, "is_focused": True, "is_floating": False}}})   # maximized
+say({"WindowOpenedOrChanged": {"window": {"id": 4, "pid": pid, "is_focused": True, "is_floating": False}}})   # once
+say({"WindowOpenedOrChanged": {"window": {"id": 5, "pid": pid, "is_focused": False, "is_floating": False}}})  # when it gets the focus
+say({"WindowFocusChanged": {"id": 5}})
+s.settimeout(3)
+with open(log, "w") as out:
+    try:
+        while True:
+            r, _ = s.accept()
+            out.write(r.makefile().readline()); out.flush()
+            r.sendall(b'{"Ok":"Handled"}\n'); r.close()
+    except TimeoutError:
+        pass
+EOF
+niri_pid=$!
+for _ in $(seq 1 100); do
+  [ -S "$niri_sock" ] && break
+  sleep 0.05
+done
+NIRI_SOCKET=$niri_sock ytm video-window "$video_pid" &
+window_pid=$!
+wait "$niri_pid"
+expect "video-window: its new tiled windows' columns maximized, each once" \
+  '{"Action":{"MaximizeColumn":{}}} {"Action":{"MaximizeColumn":{}}}' "$(paste -sd' ' "$tmp/niri-requests")"
+kill "$video_pid" 2>/dev/null || true
+wait "$window_pid" 2>/dev/null
+expect "video-window: ends with the process (or niri)" "0" "$?"
+# watch under niri: mpv isn't asked to maximize (niri's maximize-to-edges).
+PATH="$tmp/bin:$PATH" NIRI_SOCKET="$tmp/no-such.sock" ytm watch home1111111 >/dev/null
+expect "watch under niri: the column is maximized instead of mpv's own request" "0" \
+  "$(grep -c -- '--window-maximized' "$tmp/mpv-argv")"
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures failure(s)"

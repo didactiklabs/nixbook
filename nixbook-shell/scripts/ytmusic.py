@@ -97,7 +97,11 @@ friend's song with it.
                                        the last copy, at once
   nixbook-ytmusic watch VIDEO [--start SECONDS] [--volume 0-100]
                                        a YouTube video in mpv (yours: your
-                                       config), the background player paused
+                                       config), the background player paused;
+                                       its window as wide as the work area
+  nixbook-ytmusic video-window PID     under niri, until process PID ends:
+                                       the column of each window it opens is
+                                       maximized (what Mod+Z does)
 
 Secrets live in the keyring (secret-tool, service=nixbook-ytmusic, kind
 session|lastfm), never in a file but the cookie file yt-dlp reads while the
@@ -1653,6 +1657,85 @@ def cmd_videos(args):
     out(answer)
 
 
+def video_window(pid, path):
+    """Under niri, the windows process `pid` opens (a video's mpv) get their
+    column maximized, what Mod+Z does: the whole width of the work area,
+    gaps and bar kept, where mpv's own --window-maximized is niri's
+    maximize-to-edges. niri has no such rule for one window only and its
+    action is for the focused column, so this follows niri's events until the
+    process ends: a new tiled window of it that is focused (or gets the focus
+    within 3 s of opening) is maximized, once."""
+    def alive():
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except OSError:
+            pass
+        return True
+
+    def maximize():
+        with contextlib.suppress(OSError):
+            with socket.socket(socket.AF_UNIX) as s:
+                s.settimeout(3)
+                s.connect(path)
+                s.sendall(b'{"Action":{"MaximizeColumn":{}}}\n')
+                s.recv(4096)
+
+    seen, waiting, buf = set(), {}, b""
+    with socket.socket(socket.AF_UNIX) as s:
+        s.connect(path)
+        s.sendall(b'"EventStream"\n')
+        while alive():
+            if b"\n" not in buf:
+                s.settimeout(2)
+                try:
+                    chunk = s.recv(65536)
+                except TimeoutError:
+                    continue
+                if not chunk:
+                    return
+                buf += chunk
+                continue
+            line, buf = buf.split(b"\n", 1)
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(event, dict):
+                continue
+            if "WindowsChanged" in event:
+                # The windows already there: not ours to touch.
+                seen.update(w.get("id") for w in event["WindowsChanged"].get("windows", []))
+            elif "WindowOpenedOrChanged" in event:
+                w = event["WindowOpenedOrChanged"].get("window", {})
+                wid = w.get("id")
+                if w.get("pid") != pid or wid in seen:
+                    continue
+                seen.add(wid)
+                if w.get("is_floating"):
+                    continue
+                if w.get("is_focused"):
+                    maximize()
+                else:
+                    waiting[wid] = time.monotonic()
+            elif "WindowFocusChanged" in event:
+                wid = event["WindowFocusChanged"].get("id")
+                if wid in waiting and time.monotonic() - waiting.pop(wid) < 3:
+                    maximize()
+
+
+def cmd_video_window(args):
+    """`video-window PID`: see video_window (used by `watch`, and by the
+    Jellyfin player's mpv, which nixbook starts through a wrapper)."""
+    path = os.environ.get("NIRI_SOCKET")
+    if not args or not args[0].isdigit():
+        out({"error": "usage: nixbook-ytmusic video-window PID"}, 1)
+    if path:
+        with contextlib.suppress(OSError):
+            video_window(int(args[0]), path)
+
+
 def cmd_watch(args):
     """A video in mpv, on its own (the shell starts this through niri, so it
     outlives the shell): the user's mpv first, for their configuration, its
@@ -1680,17 +1763,32 @@ def cmd_watch(args):
     mpv = shutil.which("mpv") or MPV
     # Every format of the video is a track (mpv's all_formats), but not those
     # yt-dlp gives no codec for (YouTube's HLS audio, 233/234): picked in the
-    # audio menu, they played silence. The window opens maximized (niri
-    # honours the request: the whole work area, beside a pinned side panel).
+    # audio menu, they played silence.
     argv = [mpv, f"--script-opts-append=ytdl_hook-ytdl_path={YT_DLP}",
-            "--script-opts-append=ytdl_hook-force_all_formats=no", "--force-window=immediate",
-            "--window-maximized=yes"]
+            "--script-opts-append=ytdl_hook-force_all_formats=no", "--force-window=immediate"]
+    # The window takes the whole width, as Mod+Z would make it (beside a
+    # pinned side panel, gaps kept): under niri a child of this process, which
+    # mpv replaces, maximizes its column when it opens (video_window);
+    # elsewhere mpv asks the compositor itself.
+    niri = os.environ.get("NIRI_SOCKET")
+    if not niri:
+        argv.append("--window-maximized=yes")
     if start:
         argv.append(f"--start={start}")
     if volume is not None:
         argv.append(f"--volume={volume}")
     argv.append(YOUTUBE_WATCH.format(vid))
     sys.stdout.flush()
+    if niri:
+        pid = os.getpid()
+        if os.fork() == 0:
+            with contextlib.suppress(Exception):
+                os.setsid()
+                null = os.open(os.devnull, os.O_RDWR)
+                for fd in (0, 1, 2):
+                    os.dup2(null, fd)
+                video_window(pid, niri)
+            os._exit(0)
     os.execv(mpv, argv)
 
 # -- Last.fm ----------------------------------------------------------------
@@ -2625,7 +2723,7 @@ COMMANDS = {"browsers": cmd_browsers, "login-from-browser": cmd_login, "forget":
             "playlists": cmd_playlists, "playlist": cmd_playlist, "search": cmd_search, "lyrics": cmd_lyrics, "add": cmd_add, "remove": cmd_remove, "create": cmd_create, "play": cmd_play,
             "play-tracks": cmd_play_tracks, "play-id": cmd_play_id, "control": cmd_control,
             "lastfm": cmd_lastfm, "offline": cmd_offline, "serve": serve, "videos": cmd_videos,
-            "watch": cmd_watch}
+            "watch": cmd_watch, "video-window": cmd_video_window}
 
 
 def main(argv):
