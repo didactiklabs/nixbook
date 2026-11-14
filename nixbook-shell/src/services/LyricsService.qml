@@ -8,7 +8,8 @@ import Quickshell.Services.Mpris
 import qs.modules.common
 import qs.modules.common.functions
 
-// Synced lyrics from lrclib, per song. Each Lyrics view asks for the song of
+// Synced lyrics per song: YouTube Music's own for a YouTube Music song (made
+// for that recording; `nixbook-ytmusic lyrics`), else lrclib's (lyrics.py). Each Lyrics view asks for the song of
 // its own player (need()) and reads that song's entry: several views showing
 // different players (the YouTube Music tab, the media popup, the desktop
 // widget) no longer share one answer — it used to be one state for the whole
@@ -39,6 +40,14 @@ Singleton {
         const artist = player?.trackArtist ?? ""
         if (!title || !artist) return ""
         return `${title}\u0001${artist}`
+    }
+
+    // The YouTube Music id of the song a player plays ("" for another
+    // player's): from its link (the background player and the app give it).
+    function youtubeMusicId(player) {
+        const m = String(player?.metadata?.["xesam:url"] ?? "")
+            .match(/^https:\/\/music\.youtube\.com\/watch\?(?:.*&)?v=([A-Za-z0-9_-]{11})(?:[&#]|$)/)
+        return m ? m[1] : ""
     }
 
     function entry(key) {
@@ -97,7 +106,8 @@ Singleton {
             key: key,
             title: player?.trackTitle ?? "",
             artist: player?.trackArtist ?? "",
-            length: Math.floor(player?.length ?? 0)
+            length: Math.floor(player?.length ?? 0),
+            video: root.youtubeMusicId(player)
         }
         root._queue = [request].concat(root._queue.filter(r => r.key !== key))
         root._next()
@@ -112,7 +122,7 @@ Singleton {
         lyricsProc.exec([
             "python3",
             `${Directories.scriptPath}/lyrics/lyrics.py`,
-            request.title, request.artist, String(request.length)
+            request.title, request.artist, String(request.length), request.video
         ])
     }
 

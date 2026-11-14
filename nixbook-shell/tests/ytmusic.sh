@@ -118,6 +118,17 @@ class YTMusic:
         if filter == "videos":
             return [_r("video", "video111111", query + " live")]
         raise AssertionError(filter)
+    # Lyrics: timed111111 has timed ones, plain111111 only text, none1111111 none.
+    def get_watch_playlist(self, vid):
+        self._log("watch", vid)
+        return {"lyrics": None if vid == "none1111111" else "MPLY" + vid}
+    def get_lyrics(self, browse, timestamps=False):
+        from types import SimpleNamespace as L
+        if browse == "MPLYtimed111111" and timestamps:
+            return {"hasTimestamps": True, "source": "Source: Fake", "lyrics": [
+                L(text="second", start_time=20870, end_time=25170, id=2), L(text="", start_time=0, end_time=16360, id=0),
+                L(text=" first ", start_time=16360, end_time=20870, id=1)]}
+        return {"hasTimestamps": False, "source": "Source: Fake", "lyrics": "first\nsecond"}
     # Playlist edits, logged: PLtheirs isn't yours, dupe1111111 is already in.
     def _log(self, *what):
         import os
@@ -163,6 +174,44 @@ a = json.load(sys.stdin)
 print(a["query"], [(t["videoId"], t["kind"], t["album"], t["duration"], t["art"]) for t in a["songs"] + a["videos"]])')"
 expect "search: songs then videos, each once, available ones only, art as links" \
   "persona 5 [('song1111111', 'song', 'Album', 61, 'https://img.example/l.jpg'), ('song2222222', 'song', '', 61, 'https://img.example/l.jpg'), ('video111111', 'video', '', 61, 'https://img.example/l.jpg')]" "$found"
+# YouTube Music's own timed lyrics: in order, in seconds, kept once timed.
+export FAKE_YTM_LOG="$tmp/lyrics-api.log"
+: >"$FAKE_YTM_LOG"
+ly() { PYTHONPATH="$tmp/fakeapi" "$py" -P "$script" lyrics "$@" | "$py" -c 'import json,sys
+a = json.load(sys.stdin)
+print(a.get("timed"), a.get("source"), [(l["time"], l["text"]) for l in a.get("lines", [])], a.get("error", "")[:5])'; }
+expect "lyrics: timed lines in order, in seconds" \
+  "True Source: Fake [(0.0, ''), (16.36, 'first'), (20.87, 'second')] " "$(ly timed111111)"
+expect "lyrics: timed ones are kept (asked once)" \
+  "True Source: Fake [(0.0, ''), (16.36, 'first'), (20.87, 'second')]  1" "$(ly timed111111) $(grep -c 'watch timed111111' "$FAKE_YTM_LOG")"
+expect "lyrics: untimed text isn't lines" "False Source: Fake [] " "$(ly plain111111)"
+expect "lyrics: a song without lyrics" "False  [] " "$(ly none1111111)"
+expect "lyrics: not a video id, refused" "None None [] usage" "$(ly nope)"
+# lyrics.py: YouTube Music's first, else lrclib's entry of the song's length
+# whose timing most entries agree on.
+lyrics_py="$(dirname "$script")/../src/scripts/lyrics/lyrics.py"
+printf '#!/usr/bin/env bash\nPYTHONPATH="%s" exec "%s" -P "%s" "$@"\n' "$tmp/fakeapi" "$py" "$script" >"$tmp/bin/fake-ytm-lyrics"
+chmod +x "$tmp/bin/fake-ytm-lyrics"
+expect "lyrics.py: a YouTube Music song's own timed lyrics" "0.0§§16.36§first§20.87§second§ok" \
+  "$("$py" "$lyrics_py" Title Artist 227 timed111111 "$tmp/bin/fake-ytm-lyrics")"
+expect "lyrics.py: lrclib's choice by length, title and agreement" "16.3 39.4 16.3 34.9 5.0 none" "$(
+  "$py" - "$lyrics_py" <<'PYEOF'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("lyrics", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+def c(duration, start, name="Song"):
+    return {"duration": duration, "trackName": name, "lines": [{"time": 0.0, "text": "♪"}, {"time": start, "text": "words"}]}
+def first(cands, duration, title="Song"):
+    lines = m.pick(cands, title, duration)
+    return str(m._first_words(lines)) if lines else "none"
+many = [c(227, 34.9), c(284, 39.4), c(227, 16.3), c(227, 16.33), c(245, 34.9), c(227, 16.32), c(227, 39.4)]
+print(first(many, 227),                      # most of the 227 s entries agree on 16.3
+      first(many, 284),                      # the long cut's own entry
+      first([c(227, 16.3), c(227, 34.9)], 227),   # a tie: the first asked
+      first([c(245, 34.9), c(300, 50.0)], 227),   # none of that length: the nearest
+      first([c(227, 9.0, "Song (Live)"), c(227, 5.0)], 227),  # the exact title first
+      first([], 227))
+PYEOF
+)"
 expect "search: no words refused" "1" "$(
   PYTHONPATH="$tmp/fakeapi" "$py" -P "$script" search >/dev/null 2>&1
   echo $?

@@ -23,6 +23,10 @@ friend's song with it.
   nixbook-ytmusic playlist ID          its songs, JSON
   nixbook-ytmusic search WORDS...      songs and videos found on YouTube
                                        Music, JSON
+  nixbook-ytmusic lyrics VIDEO         YouTube Music's own timed lyrics of a
+                                       song, JSON {timed, source, lines:
+                                       [{time, text}]} (no sign-in needed;
+                                       timed ones are kept)
   nixbook-ytmusic add PLAYLIST VIDEO   a song into one of your playlists
                                        (LM, Liked Music: the song liked)
   nixbook-ytmusic remove PLAYLIST VIDEO [SET_VIDEO]
@@ -840,6 +844,38 @@ def cmd_search(args):
     # answer doesn't wait for 40 downloads.
     out({"query": query, "songs": search_results(songs, ("song",)),
          "videos": search_results(videos, ("video",))})
+
+
+def cmd_lyrics(args):
+    """YouTube Music's own lyrics of a song, with their times when it has
+    them (Musixmatch and the like, made for this very recording: lrclib's
+    entries for a title often belong to another cut, tens of seconds off).
+    Timed answers are kept: a song's lyrics don't change, and a song kept
+    offline has them without the network."""
+    if not args or not VIDEO_ID.match(args[0]):
+        out({"error": "usage: nixbook-ytmusic lyrics VIDEO"}, 1)
+    vid = args[0]
+    kept = os.path.join(cache_dir("lyrics"), f"{vid}.json")
+    saved = read_json(kept)
+    if isinstance(saved, dict) and saved.get("timed") and saved.get("lines"):
+        out(saved)
+    try:
+        yt = ytmusic(signed_in=False)
+        browse = (yt.get_watch_playlist(vid) or {}).get("lyrics")
+        found = yt.get_lyrics(browse, timestamps=True) if browse else None
+    except Exception as exc:  # noqa: BLE001 — ytmusicapi raises many kinds
+        out({"error": f"YouTube Music didn't answer for the lyrics: {exc}"}, 1)
+    lines = []
+    if found and found.get("hasTimestamps") and isinstance(found.get("lyrics"), list):
+        for line in found["lyrics"]:
+            start, text = getattr(line, "start_time", None), getattr(line, "text", "")
+            if isinstance(start, (int, float)):
+                lines.append({"time": round(start / 1000, 2), "text": str(text or "").strip()})
+        lines.sort(key=lambda l: l["time"])
+    answer = {"videoId": vid, "timed": bool(lines), "source": str((found or {}).get("source") or ""), "lines": lines}
+    if lines:
+        write_private(kept, answer)
+    out(answer)
 
 
 def song(vid):
@@ -2586,7 +2622,7 @@ def serve(_args):
 
 
 COMMANDS = {"browsers": cmd_browsers, "login-from-browser": cmd_login, "forget": cmd_forget, "status": cmd_status,
-            "playlists": cmd_playlists, "playlist": cmd_playlist, "search": cmd_search, "add": cmd_add, "remove": cmd_remove, "create": cmd_create, "play": cmd_play,
+            "playlists": cmd_playlists, "playlist": cmd_playlist, "search": cmd_search, "lyrics": cmd_lyrics, "add": cmd_add, "remove": cmd_remove, "create": cmd_create, "play": cmd_play,
             "play-tracks": cmd_play_tracks, "play-id": cmd_play_id, "control": cmd_control,
             "lastfm": cmd_lastfm, "offline": cmd_offline, "serve": serve, "videos": cmd_videos,
             "watch": cmd_watch}
