@@ -8,160 +8,184 @@ import Quickshell.Services.Mpris
 import qs.modules.common
 import qs.modules.common.functions
 
+// Synced lyrics from lrclib, per song. Each Lyrics view asks for the song of
+// its own player (need()) and reads that song's entry: several views showing
+// different players (the YouTube Music tab, the media popup, the desktop
+// widget) no longer share one answer — it used to be one state for the whole
+// shell, the song of whichever view asked last, so a view could show another
+// player's lyrics, or "No song playing", or nothing. Songs are fetched one at
+// a time, the latest asked first, and kept (the last `keep`).
 Singleton {
     id: root
-
-    // The player whose lyrics are shown: the one the last shown Lyrics view
-    // asked for (the YouTube Music tab shows its own player's song, whatever
-    // the shell's current player is), else the shell's current player.
-    property var _requests: [] // [{view, player}], the latest last
-    readonly property MprisPlayer activePlayer: root._requests.length > 0
-        ? (root._requests[root._requests.length - 1].player ?? MprisController.activePlayer)
-        : MprisController.activePlayer
-
-    property var lyricsLines: []
-    property int activeIndex: -1
-    property string status: "loading"
-    property var slots: ["", "", "", "", "", "", ""]
-
-    // Shown Lyrics views (Lyrics.qml asks with want() and lets go with
-    // release()): fetched and synced only for them, a track change marking
-    // the lyrics stale otherwise (lyrics are off by default, and each fetch
-    // is a Python + lrclib call).
-    readonly property bool wanted: root._requests.length > 0
-    function want(view, player) {
-        root._requests = root._requests.filter(r => r.view !== view).concat([{ view: view, player: player ?? null }])
-    }
-    function release(view) {
-        root._requests = root._requests.filter(r => r.view !== view)
-    }
-    property bool _stale: true
-    onWantedChanged: if (root.wanted && root._stale) root.restartLyrics()
 
     readonly property int before: 3
     readonly property int after:  3
     readonly property int total:  7
+    readonly property int keep: 40
 
-    function buildSlots(idx) {
+    // key → { status: "loading" | "ok" | "not_found", lines: [{time, text}] }
+    // A plain object changed in place; `revision` tells the views.
+    property var _entries: ({})
+    property var _order: [] // keys, oldest first (for trimming)
+    property int revision: 0
+
+    // Waiting to be fetched: [{key, title, artist, length}], the next first.
+    property var _queue: []
+    property var _current: null // the request lyricsProc is running for
+    property bool _answered: false
+
+    function keyOf(player) {
+        const title = player?.trackTitle ?? ""
+        const artist = player?.trackArtist ?? ""
+        if (!title || !artist) return ""
+        return `${title}\u0001${artist}`
+    }
+
+    function entry(key) {
+        return key !== "" ? (root._entries[key] ?? null) : null
+    }
+
+    // A shown view wants this song's lyrics.
+    function need(key, player) {
+        if (key === "" || root._entries[key]) return
+        root._set(key, { status: "loading", lines: [], retries: 0 })
+        root._enqueue(key, player)
+    }
+
+    // Fetched again (a click on the spinner, or after "no lyrics").
+    function refetch(key, player) {
+        if (key === "") return
+        if (root._current?.key === key) return
+        root._set(key, { status: "loading", lines: [], retries: 0 })
+        root._enqueue(key, player)
+    }
+
+    // Lines around `idx` for the seven slots of a view.
+    function slotsFor(lines, idx) {
         let result = []
         for (let i = 0; i < root.total; i++) {
-            let lineIdx = idx - root.before + i
-            if (lineIdx >= 0 && lineIdx < root.lyricsLines.length)
-                result.push(root.lyricsLines[lineIdx].text || "♪")
+            const lineIdx = idx - root.before + i
+            if (lineIdx >= 0 && lineIdx < lines.length)
+                result.push(lines[lineIdx].text || "♪")
             else
                 result.push("")
         }
         return result
     }
 
-    // The line follows the song to a tenth of a second (300 ms let a line
-    // come up to a third of a second late); it runs only while lyrics are
-    // shown, and each tick is a scan of a few dozen times.
-    Timer {
-        id: syncTimer
-        interval: 100
-        repeat: true
-        running: root.wanted && root.status === "ok" && root.lyricsLines.length > 0 && !Idle.screensOff
-        onTriggered: {
-            const pos = root.activePlayer?.position ?? 0
-            let idx = -1
-            for (let i = 0; i < root.lyricsLines.length; i++) {
-                if (root.lyricsLines[i].time <= pos) idx = i
-                else break
-            }
-            if (idx !== root.activeIndex) {
-                root.activeIndex = idx
-                root.slots = root.buildSlots(idx)
-            }
+    function lineAt(lines, pos) {
+        let idx = -1
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].time <= pos) idx = i
+            else break
         }
+        return idx
+    }
+
+    function _set(key, value) {
+        if (!root._entries[key]) root._order.push(key)
+        root._entries[key] = value
+        while (root._order.length > root.keep) {
+            const old = root._order.shift()
+            if (root._current?.key !== old) delete root._entries[old]
+        }
+        root.revision++
+    }
+
+    function _enqueue(key, player) {
+        const request = {
+            key: key,
+            title: player?.trackTitle ?? "",
+            artist: player?.trackArtist ?? "",
+            length: Math.floor(player?.length ?? 0)
+        }
+        root._queue = [request].concat(root._queue.filter(r => r.key !== key))
+        root._next()
+    }
+
+    function _next() {
+        if (root._current !== null || root._queue.length === 0) return
+        const request = root._queue[0]
+        root._queue = root._queue.slice(1)
+        root._current = request
+        root._answered = false
+        lyricsProc.exec([
+            "python3",
+            `${Directories.scriptPath}/lyrics/lyrics.py`,
+            request.title, request.artist, String(request.length)
+        ])
+    }
+
+    function _answer(trimmed) {
+        const request = root._current
+        if (!request) return
+        const old = root._entries[request.key]
+        if (!old) return // trimmed meanwhile
+        root._answered = true
+
+        if (trimmed === "error") {
+            // lrclib couldn't be reached: asked again a little later.
+            if ((old.retries ?? 0) < 2) {
+                root._entries[request.key] = { status: "loading", lines: [], retries: (old.retries ?? 0) + 1 }
+                retryTimer.pending.push(request)
+                retryTimer.restart()
+            } else {
+                root._entries[request.key] = { status: "not_found", lines: [] }
+            }
+            root.revision++
+            return
+        }
+        if (trimmed === "not_found" || trimmed === "no_info") {
+            root._entries[request.key] = { status: "not_found", lines: [] }
+            root.revision++
+            return
+        }
+
+        const parts = trimmed.split("§")
+        if (parts.length < 3 || parts[parts.length - 1].trim() !== "ok") {
+            root._answered = false
+            return
+        }
+        let lines = []
+        for (let i = 0; i < parts.length - 1; i += 2) {
+            const t = parseFloat(parts[i])
+            if (!isNaN(t)) lines.push({ time: t, text: parts[i + 1] || "" })
+        }
+        root._entries[request.key] = lines.length > 0
+            ? { status: "ok", lines: lines }
+            : { status: "not_found", lines: [] }
+        root.revision++
     }
 
     Process {
         id: lyricsProc
-        running: false
         stdout: SplitParser {
-            onRead: data => {
-                const trimmed = data.trim()
-                if (trimmed === "not_found") { root.status = "not_found"; return }
-                if (trimmed === "no_info")   { root.status = "no_info";   return }
-                // lrclib couldn't be reached: asked again a little later
-                // (it used to say "no lyrics" until the next song).
-                if (trimmed === "error") {
-                    if (root._retries < 2) { root._retries++; retryTimer.restart() }
-                    else root.status = "not_found"
-                    return
-                }
-
-                const parts = trimmed.split("§")
-                if (parts.length < 3) return
-                if (parts[parts.length - 1].trim() !== "ok") return
-
-                let lines = []
-                for (let i = 0; i < parts.length - 1; i += 2) {
-                    const t = parseFloat(parts[i])
-                    const txt = parts[i + 1] || ""
-                    if (!isNaN(t)) lines.push({ time: t, text: txt })
-                }
-
-                if (lines.length === 0) { root.status = "not_found"; return }
-
-                root.lyricsLines = lines
-                root.activeIndex = -1
-                root.slots = root.buildSlots(-1)
-                root.status = "ok"
+            onRead: data => root._answer(data.trim())
+        }
+        onExited: {
+            // Ended without a usable answer (Python failed): not left spinning.
+            const request = root._current
+            if (request && !root._answered && root._entries[request.key]?.status === "loading") {
+                root._entries[request.key] = { status: "not_found", lines: [] }
+                root.revision++
             }
+            root._current = null
+            root._next()
         }
     }
 
-    property int _retries: 0
     Timer {
         id: retryTimer
+        property var pending: []
         interval: 6000
-        onTriggered: if (root.wanted && root.status === "loading") root._fetch()
-    }
-
-    function restartLyrics() {
-        root._retries = 0
-        retryTimer.stop()
-        root._stale = false
-        lyricsProc.running = false
-        root.lyricsLines = []
-        root.activeIndex = -1
-        root.slots = ["", "", "", "", "", "", ""]
-        root.status = "loading"
-
-        const title    = root.activePlayer?.trackTitle  ?? ""
-        const artist   = root.activePlayer?.trackArtist ?? ""
-        const duration = root.activePlayer?.length       ?? 0
-
-        if (!title || !artist) { root.status = "no_info"; return }
-        root._fetch()
-    }
-    function _fetch() {
-        const title    = root.activePlayer?.trackTitle  ?? ""
-        const artist   = root.activePlayer?.trackArtist ?? ""
-        const duration = root.activePlayer?.length       ?? 0
-        if (!title || !artist) { root.status = "no_info"; return }
-        lyricsProc.exec([
-            "python3",
-            `${Directories.scriptPath}/lyrics/lyrics.py`,
-            title, artist, String(Math.floor(duration))
-        ])
-    }
-
-    Connections {
-        target: root.activePlayer
-        function onTrackTitleChanged() {
-            if (root.wanted) root.restartLyrics()
-            else root._stale = true
+        onTriggered: {
+            const due = pending
+            pending = []
+            for (const request of due) {
+                if (root._entries[request.key]?.status !== "loading") continue
+                root._queue = root._queue.filter(r => r.key !== request.key).concat([request])
+            }
+            root._next()
         }
-    }
-    // Re-evaluated on every want()/release(): only a different player counts.
-    property MprisPlayer _lastPlayer: null
-    onActivePlayerChanged: {
-        if (root.activePlayer === root._lastPlayer) return
-        root._lastPlayer = root.activePlayer
-        if (root.wanted) root.restartLyrics()
-        else root._stale = true
     }
 }
