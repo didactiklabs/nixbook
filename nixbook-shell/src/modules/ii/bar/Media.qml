@@ -83,7 +83,7 @@ Item {
         running: activePlayer?.playbackState == MprisPlaybackState.Playing && !Idle.screensOff
         interval: Config.options.resources.updateInterval
         repeat: true
-        onTriggered: activePlayer.positionChanged()
+        onTriggered: MprisController.readPosition(activePlayer)
     }
 
     // Clickable, no popup of its own: the bar's click cue.

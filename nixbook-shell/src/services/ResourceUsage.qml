@@ -133,6 +133,9 @@ Singleton {
     }
 
     property int _diskTick: 0
+    // Each reading: what else the bar shows live (the network speed) reads on
+    // it too, so the bar changes in one frame instead of one per figure.
+    signal polled()
     Timer {
         interval: 1
         // Paused while the screens are off (Idle): it only feeds the display.
@@ -142,6 +145,7 @@ Singleton {
         // (reading text() right after it gave the previous sample, and an
         // empty one on the first tick).
         onTriggered: {
+            root.polled()
             fileMeminfo.reload()
             fileStat.reload()
 
