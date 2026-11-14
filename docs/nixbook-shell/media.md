@@ -51,7 +51,7 @@ The right sidebar's **YouTube** tab (Mod+N; Settings > Panels turns the tab off)
 
 Every video shows its channel, its views and when it came out ("3 d ago", "5 mo ago", "6 y ago"): approximate, as YouTube itself says it; shorts have no date.
 
-Click a video to play it in **mpv**, your mpv with its settings (controls, upscaling…); the music playing [in the background](#youtube-music-in-the-background) pauses. While it plays, a card at the top of the tab shows it with **play/pause** and **its own volume** (mpv's, not the system's); the next video starts at the volume you left there.
+Click a video to play it in **mpv**, your mpv with its settings (controls, upscaling…), in a maximized window (beside the side panel when it is pinned; `f` for fullscreen); the music playing [in the background](#youtube-music-in-the-background) pauses. While it plays, a card at the top of the tab shows it with **play/pause** and **its own volume** (mpv's, not the system's); the next video starts at the volume you left there.
 
 Click a video's **channel name** (or a channel in Subscriptions) to open its page, with its tabs: **Latest** (newest first), **Popular** (its most viewed, YouTube's own list), **Shorts**, **Live** (its streams) and **Playlists** (click one for its videos); **More videos** goes further. While a channel is open the search field searches **in that channel**. The arrow (or Escape) goes back: out of a playlist, then out of a search, then out of the channel. A channel's page has **Subscribe** (or **Subscribed**: click it, then **Unsubscribe?** to confirm), your YouTube subscriptions themselves.
 
