@@ -85,7 +85,15 @@ let
   # progress, marks watched and goes on to the next episode itself. These
   # keys are merged into its conf.json on each activation (it rewrites the
   # file, so it stays a real one), the others are its own.
-  shim = pkgs.jellyfin-mpv-shim;
+  # Patched (nixbookShellConfig/jellyfin-mpv-shim-quality.patch): the quality
+  # choices its own HUD offers (the file as it is, or a copy the server
+  # converts on the fly, 1080p 20 Mbps down to 320p) are given to the external
+  # mpv in user-data/jellyfin-quality, and a choice comes back as the script
+  # message "nixbook-jellyfin-quality <id>": the gear button and menu of
+  # mpv/quality.lua (mpvConfig.nix) work for Jellyfin as for YouTube.
+  shim = pkgs.jellyfin-mpv-shim.overridePythonAttrs (old: {
+    patches = (old.patches or [ ]) ++ [ ./nixbookShellConfig/jellyfin-mpv-shim-quality.patch ];
+  });
   shimDir = "${config.xdg.configHome}/jellyfin-mpv-shim";
   mpvExe =
     if config.programs.mpv.enable then

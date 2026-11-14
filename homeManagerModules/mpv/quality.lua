@@ -12,6 +12,14 @@
 -- config.json, read at each video), else the best. A height means the best
 -- format that is not taller. A quality picked in the menu stays for the next
 -- videos of the session. The button reads the state from user-data/quality.
+--
+-- Jellyfin (jellyfin-mpv-shim's mpv): the same button and menu, with the
+-- server's choices instead. A film or an episode always starts as the file
+-- is (direct play); the menu asks the server for a smaller copy made on the
+-- fly (1080p 20 Mbps down to 320p), for the one playing only, and "Original"
+-- goes back. The shim (patched in nixbookShellConfig.nix) gives the choices
+-- in user-data/jellyfin-quality and takes the answer as the script message
+-- "nixbook-jellyfin-quality <id>", then starts again from the same moment.
 
 local options = require("mp.options")
 local input = require("mp.input")
@@ -92,6 +100,36 @@ local function pick(list, limit)
     return list[#list]
 end
 
+-- Jellyfin's choices, when this mpv is its player's: {options: [{id, label,
+-- selected}]}, id "none" (the file as it is), "max" (converted, at the best
+-- quality) or a bitrate in kbit/s.
+local function jellyfin()
+    -- A string holding JSON (what the shim's "set" command stores).
+    local state = mp.get_property_native("user-data/jellyfin-quality")
+    if type(state) == "string" then state = utils.parse_json(state) end
+    if type(state) ~= "table" or type(state.options) ~= "table" or #state.options == 0 then return nil end
+    return state
+end
+local function jellyfin_label(option)
+    if option.id == "none" then return "Original (direct play)" end
+    if option.id == "max" then return "Converted, best quality" end
+    return tostring(option.label or option.id)
+end
+local function jellyfin_current(state)
+    for _, option in ipairs(state.options) do
+        if option.selected then return option end
+    end
+    return nil
+end
+local function jellyfin_set(option)
+    -- Each choice starts the film again where it was: not for the one in use.
+    local server = jellyfin()
+    local now = server and jellyfin_current(server)
+    if now and tostring(now.id) == tostring(option.id) then return end
+    mp.commandv("script-message", "nixbook-jellyfin-quality", tostring(option.id))
+    mp.osd_message("Quality: " .. jellyfin_label(option))
+end
+
 -- What the session asked for in the menu: "best", a height, or nil (the default).
 local chosen = nil
 local function wanted_limit()
@@ -107,6 +145,17 @@ local function current(list)
 end
 
 local function publish()
+    local server = jellyfin()
+    if server then
+        local now = jellyfin_current(server)
+        mp.set_property_native("user-data/quality", {
+            available = true,
+            name = now and jellyfin_label(now) or "",
+            limit = now and tostring(now.id) or "",
+            default = now == nil or now.id == "none",
+        })
+        return
+    end
     local list = formats()
     local now = current(list)
     local limit = wanted_limit()
@@ -139,6 +188,12 @@ end
 
 -- limit: "best", a height, or nil for the default again.
 local function set(limit)
+    local server = jellyfin()
+    if server then
+        -- The default, for Jellyfin: the file as it is.
+        if limit == nil then jellyfin_set({ id = "none" }) end
+        return
+    end
     chosen = limit
     local list = formats()
     if #list == 0 then
@@ -164,7 +219,26 @@ local function every_format()
     })
 end
 
+local function jellyfin_menu(server)
+    local items, default_item = {}, 1
+    for i, option in ipairs(server.options) do
+        items[i] = (option.selected and "● " or "   ") .. jellyfin_label(option)
+        if option.selected then default_item = i end
+    end
+    input.select({
+        prompt = "Quality:",
+        items = items,
+        default_item = default_item,
+        submit = function(i) if server.options[i] then jellyfin_set(server.options[i]) end end,
+    })
+end
+
 local function menu()
+    local server = jellyfin()
+    if server then
+        jellyfin_menu(server)
+        return
+    end
     local list = formats()
     if #list == 0 then
         mp.osd_message("Quality: this video has one only")
@@ -225,3 +299,4 @@ mp.register_event("end-file", function(event)
 end)
 mp.observe_property("current-edition", "number", publish)
 mp.observe_property("edition-list", "native", start)
+mp.observe_property("user-data/jellyfin-quality", "native", publish)
