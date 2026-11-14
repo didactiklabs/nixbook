@@ -23,6 +23,11 @@ library and the players playing from it.
                                      the password on stdin: signs the player
                                      (jellyfin-mpv-shim) in, then restarts it
   jellyfin-mcp shim-status | shim-logout
+  jellyfin-mcp offline status [--sync] | keep ID… | remove ID… | play ID | resume | run
+                                     films and episodes kept on this computer
+                                     (their files as they are, downloaded in
+                                     the background) and played from there,
+                                     with or without the server
 
 The server is JELLYFIN_URL; the credential is JELLYFIN_API_KEY, else the
 file JELLYFIN_API_KEY_FILE names (`~/` allowed), else the keyring's
@@ -43,10 +48,13 @@ exactly the items it is sent, so a series, season, album, artist or playlist
 is turned into its playable items here.
 """
 
+import fcntl
 import hashlib
+import http.client
 import json
 import os
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -2371,9 +2379,565 @@ def cli_play_id(args):
     played = res.get("played", True) is not False
     out(dict(res, ok=played, error=res.get("reason", "") if not played else ""), 0 if played else 1)
 
+# -- Offline: films and episodes kept on this computer -------------------------
+#
+# `offline keep ID…` (a film, an episode; a season or a series: its episodes)
+# queues them and starts `offline run` in the background (a transient user
+# unit, so it outlives whoever asked; one at a time): each file as the server
+# has it (GET /Items/{id}/Download, else the static stream, for a user who
+# may play but not download), resumed where it stopped (Range), its external
+# subtitles beside it. `offline play ID` plays the file in mpv, no server
+# needed, from where you stopped, and notes how far you got; that goes to
+# the server (and the server's own progress comes back) at the next
+# `offline status --sync` that reaches it, the later of the two winning.
+#
+# $XDG_DATA_HOME/jellyfin-mcp/offline: <id>.<ext> (.part while it downloads),
+# <id>.<track>.<language>.<srt|ass|vtt>, and index.json {items: {id: {id,
+# title, subtitle, kind, seriesId, season, episode, server, source, state
+# (queued|downloading|done|error), error, size, done, file, subs, image,
+# added, length, position (seconds), played, watchedAt, dirty (watched here
+# since the last sync)}}}, read and written under a lock (.lock); .run is
+# held by the downloader.
+
+OFFLINE_TYPES = ("Movie", "Episode", "MusicVideo", "Video")
+OFFLINE_MAX = 100
+OFFLINE_TRIES = 4
+OFFLINE_UNIT = "jellyfin-mcp-offline"
+SYSTEMD_RUN = "systemd-run"
+SUB_FORMATS = {"srt": "srt", "subrip": "srt", "ass": "ass", "ssa": "ssa", "vtt": "vtt", "webvtt": "vtt"}
+ID_RX = re.compile(r"^[\w-]{1,64}$")
+
+
+class Removed(Exception):
+    """The item was taken out of the downloads meanwhile."""
+
+
+def offline_dir():
+    path = os.environ.get("JELLYFIN_OFFLINE_DIR")
+    if not path:
+        base = os.environ.get("XDG_DATA_HOME") or os.path.join(os.path.expanduser("~"), ".local", "share")
+        path = os.path.join(base, "jellyfin-mcp", "offline")
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    return path
+
+
+class OfflineIndex:
+    """The downloads' index, under its lock; written back on a clean exit
+    (never leave the block through out(): it exits)."""
+
+    def __init__(self, write=True):
+        self.write = write
+        self.dir = offline_dir()
+        self.path = os.path.join(self.dir, "index.json")
+
+    def __enter__(self):
+        self.lock = open(os.path.join(self.dir, ".lock"), "w", encoding="utf-8")
+        fcntl.flock(self.lock, fcntl.LOCK_EX)
+        data = read_json(self.path)
+        items = data.get("items") if isinstance(data, dict) else None
+        self.items = items if isinstance(items, dict) else {}
+        return self
+
+    def __exit__(self, exc_type, *rest):
+        try:
+            if self.write and exc_type is None:
+                write_private(self.path, {"version": 1, "items": self.items})
+        finally:
+            self.lock.close()
+
+
+def offline_update(item_id, **fields):
+    with OfflineIndex() as idx:
+        entry = idx.items.get(item_id)
+        if entry is None:
+            raise Removed()
+        entry.update(fields)
+        return dict(entry)
+
+
+def offline_run_lock():
+    """The downloader's lock (an open file), or None while one runs."""
+    f = open(os.path.join(offline_dir(), ".run"), "w", encoding="utf-8")
+    try:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        f.close()
+        return None
+    return f
+
+
+def offline_running():
+    f = offline_run_lock()
+    if f:
+        f.close()
+        return False
+    return True
+
+
+def offline_delete_files(item_id):
+    folder = offline_dir()
+    for name in os.listdir(folder):
+        if name.startswith(f"{item_id}.") and name != "index.json":
+            try:
+                os.unlink(os.path.join(folder, name))
+            except OSError:
+                pass
+
+
+def offline_status(extra=None):
+    folder = offline_dir()
+    with OfflineIndex(write=False) as idx:
+        entries = [dict(e) for e in idx.items.values()]
+    running = offline_running()
+    rows = []
+    for e in entries:
+        state, error = e.get("state"), e.get("error") or ""
+        if state == "downloading" and not running:
+            state = "queued"
+        if state == "done" and not os.path.isfile(os.path.join(folder, e.get("file") or "-")):
+            state, error = "error", "its file is gone: download it again"
+        length = e.get("length") or 0
+        watched = 100 if e.get("played") else round(100 * (e.get("position") or 0) / length) if length else 0
+        rows.append({"id": e.get("id"), "title": e.get("title") or "", "subtitle": e.get("subtitle") or "",
+                     "kind": e.get("kind") or "", "seriesId": e.get("seriesId") or "", "state": state, "error": error,
+                     "size": e.get("size") or 0, "done": e.get("done") or 0, "image": e.get("image") or "",
+                     "played": bool(e.get("played")), "progress": max(0, min(100, watched)),
+                     "season": e.get("season"), "episode": e.get("episode"), "added": e.get("added") or 0})
+    rows.sort(key=lambda r: (fold(r["title"]), r["season"] if isinstance(r["season"], int) else 0,
+                             r["episode"] if isinstance(r["episode"], int) else 0, r["added"]))
+    used = 0
+    for name in os.listdir(folder):
+        if not name.startswith(".") and name != "index.json":
+            try:
+                used += os.path.getsize(os.path.join(folder, name))
+            except OSError:
+                pass
+    try:
+        free = shutil.disk_usage(folder).free
+    except OSError:
+        free = 0
+    return {"ok": True, "running": running, "dir": folder, "used": used, "free": free, "items": rows, **(extra or {})}
+
+
+def offline_entry(jf, it):
+    row = shelf_item(jf, it, True)
+    ud = it.get("UserData") or {}
+    return {"id": it["Id"], "title": row["title"], "subtitle": row["subtitle"], "kind": row["kind"],
+            "seriesId": row.get("seriesId") or "", "season": it.get("ParentIndexNumber"), "episode": it.get("IndexNumber"),
+            "server": jf.url, "source": "", "state": "queued", "error": "", "size": 0, "done": 0, "file": "", "subs": [],
+            "image": "", "added": time.time(), "length": (it.get("RunTimeTicks") or 0) / TICKS,
+            "position": (ud.get("PlaybackPositionTicks") or 0) / TICKS, "played": bool(ud.get("Played")),
+            "watchedAt": 0, "dirty": False}
+
+
+def offline_spawn():
+    """Starts the downloader unless one runs: a transient user unit (it
+    outlives the shell and this process), else a detached process."""
+    if os.environ.get("JELLYFIN_OFFLINE_SPAWN") == "0" or offline_running():
+        return
+    me = [sys.executable, "-I", os.path.abspath(__file__), "offline", "run"]
+    # By name only: systemd-run takes the values from this environment, so
+    # none is on a command line.
+    names = [n for n in ("JELLYFIN_URL", "JELLYFIN_USER", "JELLYFIN_API_KEY", "JELLYFIN_API_KEY_FILE",
+                         "JELLYFIN_OFFLINE_DIR", "JELLYFIN_TIMEOUT", "XDG_DATA_HOME", "XDG_CACHE_HOME",
+                         "XDG_CONFIG_HOME", "PATH") if os.environ.get(n)]
+    try:
+        res = subprocess.run([SYSTEMD_RUN, "--user", "--collect", "--quiet", f"--unit={OFFLINE_UNIT}",
+                              "--property=Nice=10", *[f"--setenv={n}" for n in names], *me],
+                             capture_output=True, timeout=10, stdin=subprocess.DEVNULL)
+        if res.returncode == 0:
+            return
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    subprocess.Popen(me, start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL)
+
+
+def offline_keep(ids):
+    jf = listen_client()
+    found = []
+    try:
+        res = jf.items({"Ids": ",".join(ids), "Limit": len(ids)})
+        for it in res.get("Items") or []:
+            kind = it.get("Type")
+            if kind in OFFLINE_TYPES:
+                found.append(it)
+            elif kind in ("Series", "Season"):
+                series = it["Id"] if kind == "Series" else (it.get("SeriesId") or it.get("ParentId"))
+                found += jf.episodes(series, None if kind == "Series" else it["Id"])
+            else:
+                raise JfError(f"a {TYPE_OUT.get(kind, kind)} can't be kept on this computer")
+    except JfError as exc:
+        out({"ok": False, "error": jf.hide(exc)}, 1)
+    if not found:
+        out({"ok": False, "error": "nothing to download with that id"}, 1)
+    added = 0
+    with OfflineIndex() as idx:
+        for it in found[:OFFLINE_MAX]:
+            old = idx.items.get(it["Id"])
+            # Kept already, or on its way: left alone. One that failed: again.
+            if old and old.get("state") != "error":
+                continue
+            idx.items[it["Id"]] = offline_entry(jf, it)
+            added += 1
+    offline_spawn()
+    out(offline_status({"added": added}))
+
+
+def offline_remove(ids):
+    with OfflineIndex() as idx:
+        gone = [i for i in ids if idx.items.pop(i, None) is not None]
+    for item_id in gone:
+        offline_delete_files(item_id)
+    out(offline_status({"removed": len(gone)}))
+
+
+def offline_open(jf, path, start=0):
+    headers = jf.headers()
+    headers["Accept"] = "*/*"
+    if start:
+        headers["Range"] = f"bytes={start}-"
+    req = urllib.request.Request(jf.url + path, headers=headers)
+    return urllib.request.urlopen(req, timeout=max(jf.timeout, 30))
+
+
+def offline_subs(jf, it, src, folder):
+    """The external subtitles (files beside the video on the server; the
+    others are inside the file), saved beside it: their names."""
+    names = []
+    for st in src.get("MediaStreams") or []:
+        fmt = SUB_FORMATS.get(str(st.get("Codec") or "").lower())
+        if st.get("Type") != "Subtitle" or not st.get("IsExternal") or not fmt:
+            continue
+        try:
+            index = int(st.get("Index"))
+            lang = re.sub(r"[^a-z]", "", str(st.get("Language") or "").lower())[:3] or "und"
+            name = f"{it['Id']}.{index}.{lang}.{fmt}"
+            with offline_open(jf, f"/Videos/{q(it['Id'])}/{q(src.get('Id') or it['Id'])}/Subtitles/{index}/Stream.{fmt}") as resp:
+                data = resp.read(16 * 1024 * 1024)
+            if data:
+                with open(os.path.join(folder, name), "wb") as f:
+                    f.write(data)
+                names.append(name)
+        except (OSError, ValueError, TypeError, http.client.HTTPException):
+            continue
+    return names
+
+
+def offline_fetch(jf, item_id):
+    it = jf.item(item_id)
+    if it.get("Type") not in OFFLINE_TYPES:
+        raise HttpError(f"a {TYPE_OUT.get(it.get('Type'), it.get('Type'))} can't be kept on this computer", 404)
+    src = media_source(it)
+    ext = str(src.get("Container") or "").split(",")[0].lower()
+    if not re.match(r"^[a-z0-9]{1,5}$", ext):
+        ext = "mkv"
+    total = int(src.get("Size") or 0)
+    folder = offline_dir()
+    name = f"{item_id}.{ext}"
+    row = shelf_item(jf, it, True)
+    image = fetch_image(jf, *row["image"], 360) if row["image"] else ""
+    offline_update(item_id, file=name, size=total, source=src.get("Id") or "", image=image, title=row["title"],
+                   subtitle=row["subtitle"], length=(it.get("RunTimeTicks") or 0) / TICKS)
+    path, part = os.path.join(folder, name), os.path.join(folder, name + ".part")
+    have = os.path.getsize(part) if os.path.isfile(part) else 0
+    if total and have > total:
+        os.unlink(part)
+        have = 0
+    if total and shutil.disk_usage(folder).free < total - have + 200 * 1024 * 1024:
+        raise HttpError("not enough free space on this computer for it", 507)
+    if not (total and have == total):
+        static = f"/Videos/{q(item_id)}/stream?" + urllib.parse.urlencode(
+            {"static": "true", "mediaSourceId": src.get("Id") or item_id})
+        candidates = [f"/Items/{q(item_id)}/Download", static]
+        resp = None
+        for n, candidate in enumerate(candidates):
+            try:
+                resp = offline_open(jf, candidate, have)
+                break
+            except urllib.error.HTTPError as exc:
+                if exc.code == 416:
+                    # The part no longer fits the file: from the start.
+                    os.unlink(part)
+                    raise JfError("the download starts again") from None
+                if exc.code in (401, 403, 404, 405) and n + 1 < len(candidates):
+                    continue
+                if exc.code in (401, 403):
+                    raise HttpError("Jellyfin doesn't let this user download or play it", exc.code) from None
+                raise HttpError(f"Jellyfin answered HTTP {exc.code} to the download", exc.code) from None
+        with resp:
+            if have and resp.status != 206:
+                have = 0  # sent whole, not from where it stopped
+            if not total and resp.headers.get("Content-Length", "").isdigit():
+                total = have + int(resp.headers["Content-Length"])
+            last = time.monotonic()
+            with open(part, "ab" if have else "wb") as f:
+                while True:
+                    chunk = resp.read(1 << 20)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    have += len(chunk)
+                    if time.monotonic() - last >= 1:
+                        # Also how a removal reaches the download (Removed).
+                        offline_update(item_id, done=have, size=total)
+                        last = time.monotonic()
+        if total and have < total:
+            raise JfError("the download stopped before its end")
+    os.replace(part, path)
+    subs = offline_subs(jf, it, src, folder)
+    offline_update(item_id, state="done", done=have, size=have, subs=subs, error="")
+
+
+def offline_download(jf, item_id):
+    wait = float(os.environ.get("JELLYFIN_OFFLINE_RETRY_WAIT") or 5)
+    why = ""
+    for attempt in range(OFFLINE_TRIES):
+        try:
+            offline_fetch(jf, item_id)
+            return
+        except Removed:
+            offline_delete_files(item_id)
+            return
+        except HttpError as exc:
+            why = jf.hide(exc)
+            if exc.code in (401, 403, 404, 507):
+                break
+        except (JfError, OSError, http.client.HTTPException) as exc:
+            why = jf.hide(exc)
+        if attempt + 1 < OFFLINE_TRIES:
+            time.sleep(wait * (attempt + 1))
+    try:
+        offline_update(item_id, state="error", error=why or "the download failed")
+    except Removed:
+        offline_delete_files(item_id)
+
+
+def offline_run():
+    lock = offline_run_lock()
+    if not lock:
+        out({"ok": True, "already": True})
+    jf = listen_client()
+    tried = set()
+    while True:
+        with OfflineIndex() as idx:
+            nxt = next((e for e in idx.items.values()
+                        if e.get("state") in ("queued", "downloading") and e.get("id") not in tried), None)
+            if nxt:
+                nxt["state"], nxt["error"] = "downloading", ""
+            item_id = nxt.get("id") if nxt else None
+        if not item_id:
+            break
+        tried.add(item_id)
+        offline_download(jf, item_id)
+    lock.close()
+    out({"ok": True, "downloaded": len(tried)})
+
+
+def stamp(iso):
+    """A server date (2026-10-28T10:00:00.1234567Z, UTC) as epoch seconds; 0 when it has none."""
+    try:
+        import calendar
+        return calendar.timegm(time.strptime(str(iso)[:19], "%Y-%m-%dT%H:%M:%S"))
+    except (ValueError, TypeError):
+        return 0
+
+
+def offline_push(jf, entry):
+    """What was watched here, to the server."""
+    uid = jf.uid()
+    item_id = entry["id"]
+    if entry.get("played"):
+        jf.compat("POST", [(f"/UserPlayedItems/{q(item_id)}", {"userId": uid}),
+                           (f"/Users/{uid}/PlayedItems/{q(item_id)}", {})])
+        return
+    ticks = int((entry.get("position") or 0) * TICKS)
+    when = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(entry.get("watchedAt") or time.time()))
+    try:
+        jf.compat("POST", [(f"/UserItems/{q(item_id)}/UserData", {"userId": uid}),
+                           (f"/Users/{uid}/Items/{q(item_id)}/UserData", {})],
+                  {"PlaybackPositionTicks": ticks, "LastPlayedDate": when})
+    except NotFound:
+        # A server without that route: as a player that just stopped there.
+        jf.request("POST", "/Sessions/Playing/Stopped", None,
+                   {"ItemId": item_id, "MediaSourceId": entry.get("source") or item_id, "PositionTicks": ticks})
+
+
+def offline_sync(jf):
+    """Progress both ways for what is kept from this server: what was watched
+    here since the last sync goes up unless the server saw it played later
+    elsewhere; the rest takes the server's."""
+    with OfflineIndex(write=False) as idx:
+        entries = [dict(e) for e in idx.items.values() if (e.get("server") or jf.url) == jf.url]
+    if not entries:
+        # Nothing from this server: still whether it answers.
+        jf.public_info()
+    for at in range(0, len(entries), 50):
+        batch = entries[at:at + 50]
+        res = jf.items({"Ids": ",".join(e["id"] for e in batch), "Limit": len(batch)})
+        server = {i.get("Id"): i.get("UserData") or {} for i in res.get("Items") or []}
+        for e in batch:
+            ud = server.get(e["id"])
+            if ud is None:
+                continue
+            try:
+                if e.get("dirty") and (e.get("watchedAt") or 0) >= stamp(ud.get("LastPlayedDate")):
+                    offline_push(jf, e)
+                    offline_update(e["id"], dirty=False)
+                else:
+                    offline_update(e["id"], dirty=False, played=bool(ud.get("Played")),
+                                   position=(ud.get("PlaybackPositionTicks") or 0) / TICKS)
+            except Removed:
+                continue
+
+
+def offline_try_sync(timeout=4):
+    """True when the server took and gave the progress, False when it can't
+    be reached (or isn't set up)."""
+    key, _ = load_key()
+    url = os.environ.get("JELLYFIN_URL", "")
+    if not key or not url:
+        return False
+    try:
+        offline_sync(Jellyfin(url, key, os.environ.get("JELLYFIN_USER", ""), timeout=timeout))
+        return True
+    except JfError:
+        return False
+
+
+def offline_watched(item_id, pos, dur):
+    if pos is None:
+        return
+    fields = {"watchedAt": time.time(), "dirty": True}
+    if dur and pos >= 0.9 * dur:
+        fields.update(played=True, position=0)
+    else:
+        fields.update(position=max(0.0, float(pos)))
+    try:
+        offline_update(item_id, **fields)
+    except Removed:
+        pass
+
+
+class MpvIpc:
+    """mpv's JSON IPC, for its position."""
+
+    def __init__(self, path):
+        self.conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.conn.settimeout(2)
+        self.conn.connect(path)
+        self.file = self.conn.makefile("rb")
+        self.n = 0
+
+    def get(self, prop):
+        self.n += 1
+        self.conn.sendall(json.dumps({"command": ["get_property", prop], "request_id": self.n}).encode() + b"\n")
+        for _ in range(200):
+            line = self.file.readline()
+            if not line:
+                raise OSError("mpv closed its socket")
+            try:
+                msg = json.loads(line)
+            except ValueError:
+                continue
+            if msg.get("request_id") == self.n:
+                return msg.get("data") if msg.get("error") == "success" else None
+        return None
+
+    def close(self):
+        try:
+            self.conn.close()
+        except OSError:
+            pass
+
+
+def offline_play(item_id):
+    with OfflineIndex(write=False) as idx:
+        entry = dict(idx.items.get(item_id) or {})
+    folder = offline_dir()
+    path = os.path.join(folder, entry.get("file") or "-")
+    if entry.get("state") != "done" or not os.path.isfile(path):
+        out({"ok": False, "error": "it isn't downloaded on this computer"}, 1)
+    # The mpv the Jellyfin player uses (nixbook's: the user's mpv, its window
+    # as wide as the work area), else the user's own.
+    conf = read_json(os.path.join(shim_dir(), "conf.json")) or {}
+    mpv = os.environ.get("JELLYFIN_OFFLINE_MPV") or conf.get("mpv_ext_path") or ""
+    plain = not (mpv and os.access(mpv, os.X_OK))
+    if plain:
+        mpv = shutil.which("mpv")
+    if not mpv:
+        out({"ok": False, "error": "mpv isn't installed"}, 1)
+    sock = os.path.join(runtime_dir(), f"offline-mpv-{os.getpid()}.sock")
+    title = " · ".join(x for x in (entry.get("title"), entry.get("subtitle")) if x)
+    argv = [mpv, f"--input-ipc-server={sock}", "--force-window=immediate", "--sub-auto=fuzzy",
+            f"--force-media-title={title}"]
+    if plain and not os.environ.get("NIRI_SOCKET"):
+        argv.append("--window-maximized=yes")
+    length, start = entry.get("length") or 0, entry.get("position") or 0
+    if not entry.get("played") and start > 5 and (not length or start < 0.95 * length):
+        argv.append(f"--start={int(start)}")
+    try:
+        proc = subprocess.Popen([*argv, "--", path], stdin=subprocess.DEVNULL)
+    except OSError as exc:
+        out({"ok": False, "error": f"mpv didn't start: {exc}"}, 1)
+    poll = float(os.environ.get("JELLYFIN_OFFLINE_POLL") or 2)
+    ipc, pos, dur, saved = None, None, None, time.monotonic()
+    while proc.poll() is None:
+        try:
+            if ipc is None:
+                ipc = MpvIpc(sock)
+            p, d = ipc.get("time-pos"), ipc.get("duration")
+            if isinstance(p, (int, float)):
+                pos = p
+            if isinstance(d, (int, float)) and d > 0:
+                dur = d
+        except OSError:
+            if ipc:
+                ipc.close()
+            ipc = None
+        # Kept as it goes: a crash or a power cut loses half a minute at most.
+        if pos is not None and time.monotonic() - saved > 30:
+            offline_watched(item_id, pos, dur)
+            saved = time.monotonic()
+        try:
+            proc.wait(timeout=poll if ipc else 0.2)
+        except subprocess.TimeoutExpired:
+            pass
+    if ipc:
+        ipc.close()
+    try:
+        os.unlink(sock)
+    except OSError:
+        pass
+    offline_watched(item_id, pos, dur)
+    synced = offline_try_sync() if pos is not None else False
+    out({"ok": True, "position": pos, "synced": synced})
+
+
+def cli_offline(args):
+    cmd, rest = (args[0] if args else ""), args[1:]
+    if cmd == "status" and rest in ([], ["--sync"]):
+        extra = {"online": offline_try_sync()} if rest else {}
+        out(offline_status(extra))
+    if cmd in ("keep", "remove") and rest and all(ID_RX.match(i) for i in rest):
+        (offline_keep if cmd == "keep" else offline_remove)(rest)
+    if cmd == "play" and len(rest) == 1 and ID_RX.match(rest[0]):
+        offline_play(rest[0])
+    if cmd == "resume" and not rest:
+        with OfflineIndex(write=False) as idx:
+            waiting = any(e.get("state") in ("queued", "downloading") for e in idx.items.values())
+        if waiting:
+            offline_spawn()
+        out(offline_status())
+    if cmd == "run" and not rest:
+        offline_run()
+    out({"ok": False, "error": "usage: offline status [--sync] | keep ID… | remove ID… | play ID | resume | run"}, 2)
+
 
 def main():
     args = sys.argv[1:]
+    if args[:1] == ["offline"]:
+        cli_offline(args[1:])
     if args[:1] == ["shelf"]:
         cli_shelf(args[1:])
     if args[:1] == ["play-id"]:
@@ -2408,7 +2972,7 @@ def main():
         print(VERSION)
         return
     sys.stderr.write("usage: jellyfin-mcp [serve] | configured | play-query TEXT | credentials … | shim-login|shim-status|shim-logout"
-                     " | shim-bitrate MBPS | listen-info ID | listen-play | shelf | play-id ID | episodes ID\n")
+                     " | shim-bitrate MBPS | listen-info ID | listen-play | shelf | play-id ID | episodes ID | offline …\n")
     sys.exit(2)
 
 
