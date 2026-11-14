@@ -73,12 +73,9 @@ ColumnLayout {
         case "opening": return root.video ? Translation.tr("Opening it in mpv…") : Translation.tr("Opening the song in %1…").arg(svc);
         case "starting": return Translation.tr("Starting %1…").arg(svc);
         case "next": return Translation.tr("Waiting for their next song…");
-        case "matching": return Translation.tr("Looking for it on YouTube Music…");
-        case "nomatch": return Translation.tr("Not found on YouTube Music: waiting for the next song");
         case "unavailable": return Translation.tr("This song doesn't play in your %1 (not available to your account or country): waiting for the next one").arg(svc);
-        case "search": return Translation.tr("Spotify can't open YouTube Music songs: pick it in Spotify's search");
         case "noapp": return root.video ? Translation.tr("Set up Jellyfin (Settings > Apps & accounts > Jellyfin) to watch along")
-            : Translation.tr("Install YouTube Music or Spotify to listen along");
+            : Translation.tr("Install YouTube Music to listen along");
         case "notonserver": return Translation.tr("It isn't on your Jellyfin server");
         case "jferror": return Translation.tr("Jellyfin couldn't play it: %1").arg(MeshListen.followError);
         default: return "";
@@ -274,7 +271,7 @@ ColumnLayout {
         Layout.rightMargin: 8
         visible: root.adding && root.canAdd
         songTitle: root.trackText(root.track)
-        // The song shown when it is picked: a Spotify one looked for there.
+        // The song shown when it is picked.
         resolve: then => MeshListen.youtubeIdOf(root.session, then)
         onClosed: root.adding = false
     }

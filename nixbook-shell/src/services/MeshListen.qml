@@ -11,12 +11,10 @@ import QtQuick
 
 /**
  * Listening together over the mesh (services/Mesh.qml): one person shares
- * what their YouTube Music or Spotify plays, in a conversation (everyone, or
- * one person); the others listen along: their own player opens the same
+ * what their YouTube Music plays, in a conversation (everyone, or one
+ * person); the others listen along: their own YouTube Music opens the same
  * song, at the same moment, and follows the host's pauses, seeks and next
- * songs. A listener with the other app follows there: a Spotify song is
- * found on YouTube Music (`nixbook-mesh match`); a YouTube Music song opens
- * Spotify's search (Spotify has no search without an account).
+ * songs.
  *
  * The host sends a `listen` event {op: state, sid, service, track, position,
  * playing, at} when something changes and every 20 s; listeners say join /
@@ -48,11 +46,10 @@ Singleton {
         const names = `${p?.dbusName ?? ""} ${p?.identity ?? ""} ${p?.desktopEntry ?? ""}`;
         if (/jellyfin.?mpv.?shim|iwalton3/i.test(names)) return "jellyfin";
         if (/youtube.?music|pear.?desktop|th.ch/i.test(names)) return "youtube-music";
-        if (/spotify/i.test(names)) return "spotify";
         return "";
     }
     function serviceName(service) {
-        return service === "spotify" ? "Spotify" : service === "youtube-music" ? "YouTube Music"
+        return service === "youtube-music" ? "YouTube Music"
             : service === "jellyfin" ? "Jellyfin" : service === "youtube" ? "YouTube" : "";
     }
     // A YouTube video's id from its link (youtube.com/watch?v=, youtu.be/), "".
@@ -108,11 +105,9 @@ Singleton {
         if (service === "jellyfin") {
             // jellyfin-mpv-shim: the Jellyfin item's id, in the track path.
             id = (path.match(/\/jellyfin_mpv_shim\/track\/([\w-]+)$/) ?? [])[1] ?? "";
-        } else if (root.serviceOf(p) === "youtube-music") {
+        } else {
             id = (String(md["xesam:url"] ?? "").match(/[?&]v=([\w-]{11})/) ?? [])[1]
                 ?? (path.match(/\/([\w-]{11})$/) ?? [])[1] ?? "";
-        } else {
-            id = (path.match(/^\/com\/spotify\/track\/(\w+)$/) ?? [])[1] ?? "";
         }
         if (id === "") return null;
         return { id: id, title: p.trackTitle ?? "", artist: p.trackArtist ?? "", album: p.trackAlbum ?? "",
@@ -121,13 +116,12 @@ Singleton {
     // `at`: where to start (seconds), so the song opens at the host's
     // position instead of a jump right after it starts.
     function uriFor(service, id, at) {
-        if (service === "spotify") return `spotify:track:${id}`;
         const t = Math.floor(at ?? 0);
         return `https://music.youtube.com/watch?v=${id}${t > 3 ? `&t=${t}` : ""}`;
     }
     function installed(service) {
-        const ids = service === "spotify" ? ["spotify", "com.spotify.Client"]
-            : ["com.github.th-ch.youtube-music", "pear-desktop", "youtube-music"];
+        if (service !== "youtube-music") return null;
+        const ids = ["com.github.th-ch.youtube-music", "pear-desktop", "youtube-music"];
         return ids.map(id => DesktopEntries.byId(id)).find(e => !!e) ?? null;
     }
     // Starts `service`'s app (with `uri` on its command line: a bridged app,
@@ -141,20 +135,14 @@ Singleton {
         else AppLaunch.spawn([...argv, uri]);
         return true;
     }
-    // Where this desktop listens to `service`'s songs: an app already open
-    // (the host's, else the other), else one to start (the host's first).
+    // Where this desktop listens to `service`'s songs ("" = nowhere).
     function localService(service) {
         // Jellyfin: this computer's mpv, once Jellyfin is set up here.
         if (service === "jellyfin") return root.jellyfinReady() ? "jellyfin" : "";
         // A YouTube video: this computer's mpv (nixbook-ytmusic watch).
         if (service === "youtube") return "youtube";
-        if (service === "youtube-music" && root.backgroundYt()) return service;
-        const other = service === "spotify" ? "youtube-music" : "spotify";
-        if (root.playerFor(service)) return service;
-        if (root.playerFor(other)) return other;
-        if (root.installed(service)) return service;
-        if (root.installed(other)) return other;
-        return "";
+        if (service !== "youtube-music") return "";
+        return root.backgroundYt() || root.playerFor(service) || root.installed(service) ? service : "";
     }
     // Jellyfin set up here (services/Jellyfin.qml, Settings > Apps & accounts >
     // Jellyfin): a plain service, whatever the AI switches say.
@@ -175,11 +163,11 @@ Singleton {
     // What a Jellyfin item is, for listeners on other servers: { id: info | null }.
     property var _jfInfo: ({})
 
-    // Music (YouTube Music, Spotify: Listen together) or video (Jellyfin's
+    // Music (YouTube Music: Listen together) or video (Jellyfin's
     // mpv, a YouTube video in mpv: Watch together): two buttons, each
     // sharing its own players only.
     function kindOf(service) {
-        return service === "jellyfin" || service === "youtube" ? "video" : service === "" ? "" : "music";
+        return service === "jellyfin" || service === "youtube" ? "video" : service === "youtube-music" ? "music" : "";
     }
     // What can be shared now, of a kind: a player with something on
     // (playing first, the one in front first among equals), else an empty one.
@@ -213,7 +201,7 @@ Singleton {
     // This desktop's own: { sid, to, bus, listeners } or null.
     property var hosting: null
     // The session followed ("" = none), and how it goes: "synced",
-    // "opening", "starting", "matching", "search", "nomatch", "unavailable",
+    // "opening", "starting", "next", "held", "unavailable",
     // "noapp".
     property string following: ""
     property string followStatus: ""
@@ -241,7 +229,7 @@ Singleton {
     // -- Hosting ------------------------------------------------------------------------
 
     // Share in the conversation `conv` ("" = everyone) what plays: `kind`
-    // "music" (YouTube Music, Spotify) or "video" (Jellyfin). Returns "" or
+    // "music" (YouTube Music) or "video" (Jellyfin, YouTube). Returns "" or
     // why not.
     function start(conv, kind) {
         kind = kind ?? "music";
@@ -256,8 +244,8 @@ Singleton {
             // Music in a browser tab (YouTube Music's website): it tells no
             // song id over MPRIS, so it can't be shared.
             if (root.players().some(x => x.isPlaying && MprisController.playerSource(x) === "browser"))
-                return Translation.tr("Music playing in the browser can't be shared: play it in the YouTube Music (or Spotify) app instead");
-            return Translation.tr("Play something in YouTube Music or Spotify first");
+                return Translation.tr("Music playing in the browser can't be shared: play it in the YouTube Music app instead");
+            return Translation.tr("Play something in YouTube Music first");
         }
         let moved = "";
         if (root.following !== "") {
@@ -447,8 +435,6 @@ Singleton {
     }
     // The host listened along to has said nothing for a minute.
     property bool quiet: false
-    // Spotify songs found on YouTube Music: { "spotify:<id>": videoId | null }.
-    property var _matches: ({})
     function _followTick() {
         const s = root.sessions[root.following];
         const now = Date.now();
@@ -474,30 +460,7 @@ Singleton {
         // The host's states come every 20 s: none for a minute is a host gone
         // quiet (their shell restarting, a network drop), not a next song.
         root.quiet = now - s.recv > 60000;
-        const key = `${s.service}:${s.track.id}`;
-        let wantId = s.track.id;
-        if (svc !== s.service) {
-            if (svc === "youtube-music") {
-                if (!(key in root._matches)) {
-                    root.followStatus = "matching";
-                    root._match(key, s.track);
-                    return;
-                }
-                if (root._matches[key] === null) {
-                    root.followStatus = "nomatch";
-                    return;
-                }
-                wantId = root._matches[key];
-            } else {
-                // YouTube Music → Spotify: its search, the listener picks.
-                if (f.searched !== key) {
-                    f.searched = key;
-                    AppLaunch.openUrl(`spotify:search:${encodeURIComponent(`${s.track.artist} ${s.track.title}`.trim())}`);
-                }
-                root.followStatus = "search";
-                return;
-            }
-        }
+        const wantId = s.track.id;
         const p = root.followerFor(svc);
         // The app closed while listening along (it was there): the listener
         // closed it, so they stop (5 s: an app restarting itself comes back);
@@ -534,15 +497,13 @@ Singleton {
                 // loaded); never its website.
                 if (svc === "youtube-music" && root.backgroundYt()) {
                     root._openSong(svc, wantId, target + 6, f);
-                } else if (!root.openInApp(svc, svc === "youtube-music" ? root.uriFor(svc, wantId, target + 5) : "")) {
+                } else if (!root.openInApp(svc, root.uriFor(svc, wantId, target + 5))) {
                     root.followStatus = "noapp";
                     return;
                 }
-                if (svc === "youtube-music") {
-                    f.openedFor = wantId;
-                    f.openedAt = now;
-                    f.opens = 1;
-                }
+                f.openedFor = wantId;
+                f.openedAt = now;
+                f.opens = 1;
             }
             root.followStatus = "starting";
             return;
@@ -553,8 +514,7 @@ Singleton {
         // the host's next one is coming), or leave (something else played
         // here for 3 s). TrackMatch (track_match.js, tested under node).
         // A player that just appeared (the app starting): a moment to settle,
-        // so the one open takes (Spotify's first, right after it starts,
-        // didn't).
+        // so the one open takes.
         if (f.opens === 0 && f.playerSince && now - f.playerSince < 2500 && root.trackOf(p)?.id !== wantId) {
             root.followStatus = "starting";
             return;
@@ -584,7 +544,7 @@ Singleton {
                 // The second try on YouTube Music (the link landed on another
                 // song: that version doesn't play there): another version of
                 // the song.
-                if (svc === "youtube-music" && f.opens >= 2) root._openAlternative(s, f, svc, wantId);
+                if (f.opens >= 2) root._openAlternative(s, f, svc, wantId);
                 else root._openSong(svc, wantId, target + 1, f);
             }
             // Tried twice: not playable here; waits for the next song.
@@ -625,8 +585,7 @@ Singleton {
         // Its schemes not known yet (just started) or not https: the app's
         // own command, never xdg-open (a browser, where no link routing sends
         // music.youtube.com to the app).
-        else if (svc === "youtube-music") root.openInApp(svc, uri);
-        else AppLaunch.openUrl(uri);
+        else root.openInApp(svc, uri);
     }
     // The bridge's answer: not there or refused, MPRIS then.
     Component {
@@ -810,34 +769,12 @@ Singleton {
         }
         root._keepInSync(p, s, f, now, target, id);
     }
-    function _match(key, track) {
-        if (root._matching[key]) return;
-        root._matching = Object.assign({}, root._matching, { [key]: true });
-        Mesh.run(["match"], JSON.stringify({ title: track.title, artist: track.artist, album: track.album, length: track.length }),
-            (ok, answer) => {
-                root._matches = Object.assign({}, root._matches, { [key]: ok ? answer.videoId : null });
-                const m = Object.assign({}, root._matching);
-                delete m[key];
-                root._matching = m;
-            });
-    }
-    property var _matching: ({})
     // The YouTube Music id of a session's song (to add it to a playlist of
-    // yours): its own on YouTube Music, else the match listening along
-    // found, else looked for now; then(videoId) ("" when none).
+    // yours); then(videoId) ("" when none). A YouTube video's id is YouTube
+    // Music's too (a video can go in a playlist).
     function youtubeIdOf(s, then) {
         const t = s?.track;
-        if (!t || s.service === "jellyfin") { then(""); return; }
-        // A YouTube video's id is YouTube Music's too (a video can go in a playlist).
-        if (s.service === "youtube-music" || s.service === "youtube") { then(`${t.id ?? ""}`); return; }
-        const key = `${s.service}:${t.id}`;
-        if (key in root._matches) { then(root._matches[key] ?? ""); return; }
-        Mesh.run(["match"], JSON.stringify({ title: t.title, artist: t.artist, album: t.album, length: t.length }),
-            (ok, answer) => {
-                const id = ok ? `${answer.videoId ?? ""}` : "";
-                root._matches = Object.assign({}, root._matches, { [key]: id || null });
-                then(id);
-            });
+        then(t && (s.service === "youtube-music" || s.service === "youtube") ? `${t.id ?? ""}` : "");
     }
 
     // -- What arrives (Mesh._event) -------------------------------------------------------
@@ -876,7 +813,8 @@ Singleton {
                 root.leave(Translation.tr("%1 stopped sharing their music").arg(s.hostName || Mesh.nameOf(s.host)));
             return;
         }
-        if (d.op !== "state" || !d.track?.id) return;
+        // A service this desktop doesn't know (an older shell's Spotify): not shown.
+        if (d.op !== "state" || !d.track?.id || root.kindOf(`${d.service ?? ""}`) === "") return;
         // The host's other sessions are over: one at a time.
         const prev = root.sessions[sid];
         const s = { sid: sid, host: from, hostName: e.name ?? "", to: e.to ?? "", service: d.service, track: d.track,

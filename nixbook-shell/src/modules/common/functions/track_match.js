@@ -121,8 +121,7 @@ function followStep(f, x) {
     }
     // Once per song, at the host's position; a second time only if after
     // 12 s it still isn't on it (YouTube Music: another version of the song,
-    // that one not playable here; Spotify: its first open after it starts
-    // doesn't take), and that's all: never a retry loop.
+    // that one not playable here), and that's all: never a retry loop.
     // The open landed on some other song (the player moved off what it
     // played, not to the host's): that try failed, the second one now
     // rather than in 12 s.
@@ -148,7 +147,7 @@ function followStep(f, x) {
 // kept to those, and some slack is allowed (a network's delays): a drift
 // under 5 s stays, the host's news and the first jump under 2.5 s and 3 s.
 // Never while the player here isn't really playing yet (its position not
-// moving: still loading, or Spotify reporting 0 right after it starts).
+// moving: still loading).
 // x: { now, pos, target, len, hostRecv, playing }.
 function seekStep(f, x) {
     var moving = x.playing && f.prevPos !== undefined && x.pos !== f.prevPos

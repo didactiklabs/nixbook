@@ -289,7 +289,7 @@ Item {
                 }
             }
             // Listening / watching together: share what plays here, music
-            // (YouTube Music, Spotify) or Jellyfin, one button each.
+            // (YouTube Music) or video (Jellyfin, YouTube), one button each.
             ShareButton {
                 kind: "music"
                 symbol: "headphones"
@@ -297,7 +297,7 @@ Item {
                 tip: MeshListen.canShareMusic
                     ? Translation.tr("Listen together: share what your %1 plays with %2; they can listen along")
                         .arg(MeshListen.serviceName(MeshListen.serviceOf(MeshListen.shareablePlayer("music")))).arg(Mesh.nameOf(root.conv))
-                    : Translation.tr("Listen together: play something in YouTube Music or Spotify, then share it here")
+                    : Translation.tr("Listen together: play something in YouTube Music, then share it here")
             }
             ShareButton {
                 kind: "video"
