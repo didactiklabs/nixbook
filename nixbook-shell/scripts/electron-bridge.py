@@ -324,6 +324,8 @@ class Bridge:
         # The styled pages' sessions; the next load of one sets restyle
         # (keep_styled puts the style back).
         self.styled_sessions, self.restyle = set(), threading.Event()
+        # What keep_rested last told the pages.
+        self.resting = {"visible": True, "paused": 0}
         cdp.on_event = self.event
 
     def event(self, msg):
@@ -487,7 +489,7 @@ class Bridge:
         version = self.cdp.call("Browser.getVersion")
         pages = self.pages()
         return {"app": self.app, "running": True, "pid": os.getpid(), "pages": len(pages),
-                "product": version.get("product"), "adapter": bool(self.adapter_js)}
+                "product": version.get("product"), "adapter": bool(self.adapter_js), "resting": self.resting}
 
     def op_pages(self, req):
         return [{k: p[k] for k in ("id", "title", "url", "main")} for p in self.pages()]
@@ -1064,6 +1066,161 @@ def keep_styled(bridge):
             time.sleep(0.5)
 
 
+# ── Resting while no one can see the app ──
+
+# niri keeps a window on another workspace "visible" for Chromium: its page
+# goes on decoding the silent looping videos it shows (Discord's GIFs: one
+# thread at 60 ms/s around the clock on totoro). Those (muted, and looping or
+# started by the page itself: never one with sound) are paused while no
+# window of the app is on a shown workspace and played again when one is.
+# Nothing else is touched: timers, the network and sound go on, so messages,
+# notifications, calls and music are as before.
+REST_JS = """((visible) => {
+  const s = globalThis.__nixbookRest || (globalThis.__nixbookRest = { visible: true, paused: new Set() });
+  const silent = (v) => v instanceof HTMLVideoElement && v.muted && (v.loop || v.autoplay);
+  if (!s.hooked) {
+    s.hooked = true;
+    // A video starting meanwhile (a new message's GIF).
+    document.addEventListener("play", (e) => {
+      if (!s.visible && silent(e.target)) { s.paused.add(e.target); e.target.pause(); }
+    }, true);
+  }
+  s.visible = visible;
+  if (visible) {
+    for (const v of s.paused) if (v.isConnected && v.paused) v.play().catch(() => {});
+    s.paused.clear();
+  } else {
+    for (const v of document.querySelectorAll("video")) if (!v.paused && silent(v)) { s.paused.add(v); v.pause(); }
+  }
+  return s.paused.size;
+})"""
+REST_AGAIN = 60.0  # while resting: pages that loaded since rest too
+
+
+def descends(pid, ancestor):
+    """Whether process `pid` is `ancestor` or started (indirectly) by it."""
+    for _ in range(8):
+        if pid == ancestor:
+            return True
+        try:
+            with open(f"/proc/{pid}/stat") as f:
+                pid = int(f.read().rsplit(")", 1)[1].split()[1])
+        except (OSError, ValueError, IndexError):
+            return False
+        if pid <= 1:
+            return False
+    return False
+
+
+class NiriView:
+    """niri's windows and workspaces, kept from its event stream: whether a
+    window of ours is on a workspace that is shown."""
+
+    def __init__(self, ours):
+        self.ours, self.windows, self.active, self.outputs = ours, {}, set(), {}
+
+    def event(self, e):
+        """True when the event may have changed the answer."""
+        if "WorkspacesChanged" in e:
+            self.active = {w["id"] for w in e["WorkspacesChanged"]["workspaces"] if w.get("is_active")}
+            self.outputs = {w["id"]: w.get("output") for w in e["WorkspacesChanged"]["workspaces"]}
+        elif "WorkspaceActivated" in e:
+            wid = e["WorkspaceActivated"]["id"]
+            self.active = {a for a in self.active if self.outputs.get(a) != self.outputs.get(wid)} | {wid}
+        elif "WindowsChanged" in e:
+            self.windows = {w["id"]: w for w in e["WindowsChanged"]["windows"]}
+        elif "WindowOpenedOrChanged" in e:
+            w = e["WindowOpenedOrChanged"]["window"]
+            self.windows[w["id"]] = w
+        elif "WindowClosed" in e:
+            self.windows.pop(e["WindowClosed"]["id"], None)
+        else:
+            return False
+        return True
+
+    def visible(self):
+        mine = [w for w in self.windows.values() if w.get("pid") and self.ours(w["pid"])]
+        # No window (yet, or closed to the tray): nothing to pause for.
+        return not mine or any(w.get("workspace_id") in self.active for w in mine)
+
+
+def rest(bridge, visible):
+    """Tell every page of the app whether it can be seen; how many videos
+    are paused."""
+    paused = 0
+    with bridge.lock:
+        pages = bridge.pages()
+    for page in pages:
+        expr = f"{REST_JS}({json.dumps(bool(visible))})"
+        for attempt in (0, 1):
+            try:
+                sid = bridge.session(page)
+                # The same world each time: it remembers what it paused.
+                n = bridge.evaluate(sid, expr, bridge.world(sid, fresh=attempt == 1), timeout=5)
+                paused += n if isinstance(n, int) else 0
+                break
+            except CdpError as e:
+                if "context" not in str(e).lower():
+                    break
+            except Refused:
+                break  # a page loading or going: the next round
+    bridge.resting = {"visible": bool(visible), "paused": paused}
+    return paused
+
+
+def keep_rested(bridge, pid):
+    """Follow niri: the app's silent videos paused while none of its windows
+    is on a shown workspace. Without niri, or when it stops answering, the
+    app is left playing."""
+    path = os.environ.get("NIRI_SOCKET")
+    if not path or os.environ.get("NIXBOOK_ELECTRON_REST") == "0":
+        return
+    memo = {}
+
+    def ours(p):
+        if p not in memo:
+            memo[p] = descends(p, pid)
+        return memo[p]
+
+    shown, said = True, False
+    while not bridge.cdp.closed.is_set():
+        view = NiriView(ours)
+        try:
+            with socket.socket(socket.AF_UNIX) as s:
+                s.connect(path)
+                s.sendall(b'"EventStream"\n')
+                f = s.makefile("rb")
+                while not bridge.cdp.closed.is_set():
+                    s.settimeout(None if shown else REST_AGAIN)
+                    try:
+                        line = f.readline()
+                    except TimeoutError:
+                        rest(bridge, False)
+                        continue
+                    if not line:
+                        break
+                    try:
+                        e = json.loads(line)
+                    except ValueError:
+                        continue
+                    if not isinstance(e, dict) or not view.event(e):
+                        continue
+                    said = False
+                    now = view.visible()
+                    if now != shown:
+                        shown = now
+                        rest(bridge, shown)
+        except (OSError, KeyError, TypeError) as e:
+            if not said:
+                log(f"{bridge.app}: niri's events stopped ({e!r}); its videos play on")
+            said = True
+        if not shown:
+            shown = True
+            with contextlib.suppress(Exception):
+                rest(bridge, True)
+        bridge.cdp.closed.wait(5)
+
+
 def run_bridged(opts, app, command, markers, link=None):
     """The app through the bridge, again when it relaunches itself (its
     app.relaunch(), an update applied): that new instance, unbridged, is
@@ -1161,6 +1318,7 @@ def run_once(opts, app, command, path, page_js, adapter_js, state):
                     threading.Thread(target=open_when_loaded, args=(bridge, state.pop("open")), daemon=True).start()
                 if app in STYLED_APPS:
                     threading.Thread(target=keep_styled, args=(bridge,), daemon=True).start()
+                threading.Thread(target=keep_rested, args=(bridge, child.pid), daemon=True).start()
                 break
             except (Refused, CdpError):
                 time.sleep(0.2)

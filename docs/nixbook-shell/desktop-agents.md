@@ -124,6 +124,15 @@ youtube-music`, `-t discord`…), and when the app quits on its own the
     `page_list` shows such an app as `unbridged`; an agent calling it gets the
     hint (and you the notification again, at most every 10 minutes), and
     never restarts or closes it itself.
+- **Resting out of sight** (niri): for Chromium a window on another workspace
+  is still visible, so its page went on decoding the silent videos it shows
+  (Discord's GIFs: about 6 % of a core around the clock). While no window of a
+  bridged app is on a shown workspace, its muted videos that loop or started
+  by themselves are paused, also the ones that arrive meanwhile, and they play
+  again the moment you go back to it. Nothing else changes: messages,
+  notifications, calls, music and videos with sound go on. `{"cmd": "status"}`
+  on the app's socket says what is paused (`resting`);
+  `NIXBOOK_ELECTRON_REST=0` in the app's environment turns it off.
 - **Discord**: the `discord` tool reads and writes messages through Discord's
   own client in Vesktop (Vencord's modules), not its window: `find` a channel,
   a person or a DM (→ ids; when nobody has that name, the Discord name in
