@@ -21,6 +21,23 @@ Singleton {
 	property list<MprisPlayer> players: Mpris.players.values.filter(player => isRealPlayer(player));
 	property MprisPlayer trackedPlayer: null;
 
+	// One reading of a player's position for everything that shows it.
+	// positionChanged() makes MprisPlayer work its position out again and
+	// reaches every binding and handler on it, so each view's own
+	// once-a-second timer redrew all the others too, at its own moment: two
+	// views of a song drew two frames a second each. A reading asked within
+	// 0.9 s of the last one is left out (the views already have it), so they
+	// all change in the same frame. `force` for a change that can't wait (a
+	// seek, another track, play/pause).
+	property var _positionRead: ({})
+	function readPosition(player, force) {
+		if (!player) return;
+		const key = player.dbusName ?? "", now = Date.now();
+		if (!force && now - (root._positionRead[key] ?? 0) < 900) return;
+		root._positionRead[key] = now;
+		player.positionChanged();
+	}
+
 	readonly property string preferredPlayerName: Config.options.bar.media.preferredPlayer.trim().toLowerCase();
 	readonly property MprisPlayer preferredPlayer: {
 		if (preferredPlayerName.length === 0) return null;

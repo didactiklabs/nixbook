@@ -167,10 +167,14 @@ Item {
             z: 2
         }
 
-        // Where the song is: a thin line along the card's bottom, read once a
-        // second while it shows and plays (no animation: the dock is always
-        // mapped, and each frame of it makes niri recomposite the output);
-        // a click or a drag on the bottom strip seeks, hovering it says the time.
+        // Where the song is: a thin line along the card's bottom, read while
+        // it shows and plays as often as it takes to grow by half a pixel (a
+        // second at least: a 40-minute video moves a pixel every 7 s), and
+        // drawn in half pixels, so another reader of the position (they all
+        // hear positionChanged) doesn't redraw it either. No animation: the
+        // dock is always mapped, and each frame of it makes niri recomposite
+        // the output. A click or a drag on the bottom strip seeks, hovering
+        // it says the time.
         Item {
             id: progress
             z: 4
@@ -181,21 +185,21 @@ Item {
             readonly property real length: root.player?.length ?? 0
             property real position: 0
             visible: root.shown && progress.length > 0
-            function read() {
-                if (root.player) root.player.positionChanged();
+            function read(force) {
+                MprisController.readPosition(root.player, force);
             }
             Connections {
                 target: root.player
                 function onPositionChanged() { progress.position = root.player.position; }
-                function onPostTrackChanged() { progress.read(); }
-                function onPlaybackStateChanged() { progress.read(); }
+                function onPostTrackChanged() { progress.read(true); }
+                function onPlaybackStateChanged() { progress.read(true); }
             }
             Timer {
-                interval: 1000
+                interval: Math.max(1000, Math.min(30000, progress.length * 1000 / Math.max(1, progress.width * 2)))
                 repeat: true
                 triggeredOnStart: true
                 running: progress.visible && root.isPlaying && ObjectUtils.shown(progress)
-                onTriggered: progress.read()
+                onTriggered: progress.read(false)
             }
             Rectangle {
                 anchors.left: parent.left
@@ -207,7 +211,7 @@ Item {
                     anchors.left: parent.left
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
-                    width: parent.width * Math.max(0, Math.min(1, progress.position / Math.max(1, progress.length)))
+                    width: Math.round(parent.width * Math.max(0, Math.min(1, progress.position / Math.max(1, progress.length))) * 2) / 2
                     color: root.blendedColors.colPrimary
                 }
             }

@@ -18,7 +18,7 @@ The bar's layout (left, centre, right) is edited in **Settings → Bar** (or pin
 | Visualizer          | Audio spectrum                                                                                            |
 | Weather             | Current weather                                                                                           |
 | Resources           | CPU, memory, temperatures                                                                                 |
-| Network speed       | Up/down throughput                                                                                        |
+| Network speed       | Up/down throughput, read every 3 s together with the resources                                            |
 | System icons        | Volume, microphone, network, Bluetooth, unread notifications — each with a hover card                     |
 | [Battery](#battery) | Charge and state; its panel sets the power profile and the charge limit                                   |
 | Bluetooth           | Connected devices                                                                                         |

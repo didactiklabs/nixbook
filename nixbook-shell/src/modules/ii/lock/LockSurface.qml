@@ -382,7 +382,7 @@ MouseArea {
                     running: activePlayer?.playbackState == MprisPlaybackState.Playing && !Idle.screensOff
                     interval: Config.options.resources.updateInterval
                     repeat: true
-                    onTriggered: activePlayer.positionChanged()
+                    onTriggered: MprisController.readPosition(activePlayer)
                 }
                 
                 RowLayout {

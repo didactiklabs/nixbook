@@ -1,3 +1,4 @@
+import qs.services
 import qs.modules.common
 import qs.modules.common.functions
 import QtQuick
@@ -33,22 +34,22 @@ ColumnLayout {
     }
     // positionChanged makes MprisPlayer work out the position again (it is
     // the time since the last report while playing); a seek reports it too.
-    function read() {
-        if (root.player) root.player.positionChanged();
+    function read(force) {
+        MprisController.readPosition(root.player, force);
     }
     onPlayerChanged: root.position = root.player?.position ?? 0
     Connections {
         target: root.player
         function onPositionChanged() { root.position = root.player.position; }
-        function onPostTrackChanged() { root.read(); }
-        function onPlaybackStateChanged() { root.read(); }
+        function onPostTrackChanged() { root.read(true); }
+        function onPlaybackStateChanged() { root.read(true); }
     }
     Timer {
         interval: 1000
         repeat: true
         triggeredOnStart: true
         running: root.visible && (root.player?.isPlaying ?? false) && ObjectUtils.shown(root)
-        onTriggered: root.read()
+        onTriggered: root.read(false)
     }
 
     Loader {

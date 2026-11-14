@@ -95,7 +95,10 @@ Scope {
                 (Config.options.bar.dynamicIsland.visualizerStyle === "dots" && !Config.options.bar.dynamicIsland.showMediaControls))) ||
             Config.options.bar.layouts.rightLayout.includes("visualizer") ||
             GlobalStates.desktopVisualizersAnimating > 0)
-    readonly property bool playing: MprisController.activePlayer?.isPlaying ?? false
+    // Something playing on this computer: a phone's player relayed by KDE
+    // Connect makes no sound here, and cava ran on silence for as long as the
+    // phone played.
+    readonly property bool playing: MprisController.players.some(p => p.isPlaying && MprisController.playerSource(p) !== "phone")
     onCavaWantedChanged: if (!cavaWanted) cavaGrace.restart()
     Timer {
         id: cavaGrace

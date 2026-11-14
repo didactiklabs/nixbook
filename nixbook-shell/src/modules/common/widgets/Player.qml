@@ -49,7 +49,7 @@ Item {
         running: root.player?.playbackState == MprisPlaybackState.Playing && ObjectUtils.shown(root)
         interval: Config.options.resources.updateInterval
         repeat: true
-        onTriggered: root.player.positionChanged()
+        onTriggered: MprisController.readPosition(root.player)
     }
 
     onArtFilePathChanged: {

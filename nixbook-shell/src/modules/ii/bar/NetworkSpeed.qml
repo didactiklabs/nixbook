@@ -91,12 +91,16 @@ MouseArea {
         onLoaded: root.updateRate(text())
     }
 
-    Timer {
-        interval: 1000
-        repeat: true
-        running: root.visible && !Idle.screensOff
-        onTriggered: networkStats.reload()
+    // Read when the resources next to it are (every 3 s, `resources.updateInterval`;
+    // not while the screens are off), not on a timer of its own: each new
+    // figure is a frame of the bar, which is always on screen, and two timers
+    // made two. The rate is over the time between two readings, whatever it is.
+    Connections {
+        target: ResourceUsage
+        enabled: root.visible
+        function onPolled() { networkStats.reload(); }
     }
+    Component.onCompleted: networkStats.reload()
 
     TextMetrics {
         id: regularRateMetrics
