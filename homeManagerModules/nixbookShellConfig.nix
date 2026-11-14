@@ -79,7 +79,8 @@ let
   # The Jellyfin player of this computer: jellyfin-mpv-shim, a cast target
   # (the server, the phone app or jellyfin-mcp send it what to play) that
   # plays in the user's own mpv (mpv_ext + mpv_ext_no_ovr: the same mpv.conf,
-  # scripts and keys), fullscreen, without its own window or tray. It keeps
+  # scripts and keys), in a maximized window (shimMpv: the whole work area,
+  # beside a pinned side panel; f for fullscreen), without its own window or tray. It keeps
   # progress, marks watched and goes on to the next episode itself. These
   # keys are merged into its conf.json on each activation (it rewrites the
   # file, so it stays a real one), the others are its own.
@@ -90,13 +91,18 @@ let
       lib.getExe config.programs.mpv.finalPackage
     else
       lib.getExe pkgs.mpv;
+  # The shim starts its mpv with its own arguments and has no "maximized"
+  # setting: this adds mpv's, which niri honours when the window opens.
+  shimMpv = pkgs.writeShellScript "jellyfin-mpv-shim-mpv" ''
+    exec ${mpvExe} --window-maximized=yes "$@"
+  '';
   shimSettings = {
     player_name = "${if os != null then hostName else "nixbook"} mpv";
     mpv_ext = true;
-    mpv_ext_path = mpvExe;
+    mpv_ext_path = "${shimMpv}";
     mpv_ext_no_ovr = true;
     mpv_ext_start = true;
-    fullscreen = true;
+    fullscreen = false;
     # Not `remote_kbps` (the streaming limit): the shell's setting
     # ai.jellyfin.maxBitrateMbps, written by `jellyfin-mcp shim-bitrate`
     # (nixbook-shell's services/Jellyfin.qml), so the menu can change it.
@@ -366,7 +372,7 @@ in
       description = ''
         Whether this computer is a Jellyfin player: jellyfin-mpv-shim as the
         `jellyfin-mpv-shim` user service, playing in your own mpv
-        (fullscreen, your mpv config), castable from Jellyfin's apps, and
+        (a maximized window, your mpv config), castable from Jellyfin's apps, and
         the only place jellyfin-mcp plays. It saves progress, marks watched
         and plays the next episode itself. It starts once signed in, from
         Settings > Assistant > Apps it can use ("Connect the player").

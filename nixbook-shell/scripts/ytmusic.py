@@ -1644,9 +1644,11 @@ def cmd_watch(args):
     mpv = shutil.which("mpv") or MPV
     # Every format of the video is a track (mpv's all_formats), but not those
     # yt-dlp gives no codec for (YouTube's HLS audio, 233/234): picked in the
-    # audio menu, they played silence.
+    # audio menu, they played silence. The window opens maximized (niri
+    # honours the request: the whole work area, beside a pinned side panel).
     argv = [mpv, f"--script-opts-append=ytdl_hook-ytdl_path={YT_DLP}",
-            "--script-opts-append=ytdl_hook-force_all_formats=no", "--force-window=immediate"]
+            "--script-opts-append=ytdl_hook-force_all_formats=no", "--force-window=immediate",
+            "--window-maximized=yes"]
     if start:
         argv.append(f"--start={start}")
     if volume is not None:

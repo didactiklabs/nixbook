@@ -644,7 +644,7 @@ EOF
 chmod +x "$tmp/bin/mpv"
 PATH="$tmp/bin:$PATH" ytm watch home1111111 --start 42 --volume 35 >/dev/null
 expect "watch: the user's mpv, the video, from the time and at the volume asked" \
-  "--script-opts-append=ytdl_hook-ytdl_path=$tmp/bin/yt-dlp --script-opts-append=ytdl_hook-force_all_formats=no --force-window=immediate --start=42 --volume=35 https://www.youtube.com/watch?v=home1111111" \
+  "--script-opts-append=ytdl_hook-ytdl_path=$tmp/bin/yt-dlp --script-opts-append=ytdl_hook-force_all_formats=no --force-window=immediate --window-maximized=yes --start=42 --volume=35 https://www.youtube.com/watch?v=home1111111" \
   "$(cat "$tmp/mpv-argv")"
 expect "watch: the video seen (out of New)" "true" \
   "$(jq '.seen | has("home1111111")' "$tmp/state/nixbook-ytmusic/videos-seen.json")"
