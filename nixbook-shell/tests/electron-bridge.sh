@@ -45,6 +45,8 @@ expect_not_contains() {
   if grep -qF -- "$3" <<<"$2"; then fail "$1" "unexpected: $3"$'\n'"in:"$'\n'"$2"; else pass "$1"; fi
 }
 
+# Never the session's niri (keep_rested follows NIRI_SOCKET).
+unset NIRI_SOCKET
 export XDG_RUNTIME_DIR="$tmp/run" XDG_STATE_HOME="$tmp/state" FAKE_CDP_LOG="$tmp/cdp.log"
 mkdir -p "$XDG_RUNTIME_DIR" "$XDG_STATE_HOME"
 chmod 700 "$XDG_RUNTIME_DIR"
@@ -454,6 +456,66 @@ out=$(sock=$gm_sock ask '{"cmd":"style"}')
 expect_eq "style gmail: says how many pages" '{"ok": true, "result": {"styled": true, "pages": 2}}' "$out"
 kill "$gm_pid" 2>/dev/null || true
 wait "$gm_pid" 2>/dev/null || true
+
+# -- resting while no window of the app is on a shown workspace ----------------
+# A stand-in for niri's socket: what is written to its fifo goes to the bridge
+# as events. The stand-in app has two pages: each is told (uniq).
+niri_sock="$tmp/niri.sock"
+mkfifo "$tmp/niri.fifo"
+python3 - "$niri_sock" "$tmp/niri.fifo" <<'EOF' &
+import socket, sys
+s = socket.socket(socket.AF_UNIX); s.bind(sys.argv[1]); s.listen(1)
+c, _ = s.accept()
+assert c.makefile().readline().strip() == '"EventStream"'
+c.sendall(b'{"Ok":"Handled"}\n')
+for line in open(sys.argv[2]):
+    c.sendall(line.encode())
+EOF
+niri_pid=$!
+for _ in $(seq 1 100); do
+  [ -S "$niri_sock" ] && break
+  sleep 0.05
+done
+: >"$FAKE_CDP_LOG"
+NIRI_SOCKET=$niri_sock start
+exec 9>"$tmp/niri.fifo"
+app_pid=$(pgrep -P "$pid" | head -n1)
+rests() { jq -c 'select(.eval == "rest") | [.visible, .isolated]' "$FAKE_CDP_LOG" | uniq | paste -sd' '; }
+wait_rests() {
+  for _ in $(seq 1 100); do
+    [ "$(rests)" = "$1" ] && break
+    sleep 0.05
+  done
+}
+echo '{"WorkspacesChanged":{"workspaces":[{"id":1,"output":"A","is_active":true},{"id":2,"output":"A","is_active":false},{"id":3,"output":"B","is_active":true}]}}' >&9
+echo '{"WindowsChanged":{"windows":[{"id":7,"pid":'"$app_pid"',"workspace_id":1},{"id":8,"pid":1,"workspace_id":2}]}}' >&9
+echo '{"WorkspaceActivated":{"id":3,"focused":true}}' >&9
+sleep 0.3
+expect_eq "rest: nothing told while its window is on a shown workspace (another screen's switch too)" "" "$(rests)"
+echo '{"WorkspaceActivated":{"id":2,"focused":true}}' >&9
+wait_rests '[false,true]'
+expect_eq "rest: its workspace left, the pages are told (isolated world)" '[false,true]' "$(rests)"
+expect_eq "rest: status says what is paused" '{"visible":false,"paused":4}' "$(ask '{"cmd":"status"}' | jq -c .result.resting)"
+echo '{"WindowOpenedOrChanged":{"window":{"id":7,"pid":'"$app_pid"',"workspace_id":2}}}' >&9
+wait_rests '[false,true] [true,true]'
+expect_eq "rest: its window moved to the shown workspace, playing again" '[false,true] [true,true]' "$(rests)"
+echo '{"WorkspaceActivated":{"id":1,"focused":true}}' >&9
+wait_rests '[false,true] [true,true] [false,true]'
+echo '{"WindowClosed":{"id":7}}' >&9
+wait_rests '[false,true] [true,true] [false,true] [true,true]'
+expect_eq "rest: no window left (closed to the tray), nothing held paused" \
+  '[false,true] [true,true] [false,true] [true,true]' "$(rests)"
+echo '{"WindowOpenedOrChanged":{"window":{"id":9,"pid":'"$app_pid"',"workspace_id":2}}}' >&9
+wait_rests '[false,true] [true,true] [false,true] [true,true] [false,true]'
+# niri gone: the app is left playing.
+exec 9>&-
+wait "$niri_pid" 2>/dev/null || true
+wait_rests '[false,true] [true,true] [false,true] [true,true] [false,true] [true,true]'
+expect_eq "rest: niri gone, the videos play on" \
+  '[false,true] [true,true] [false,true] [true,true] [false,true] [true,true]' "$(rests)"
+kill "$pid" 2>/dev/null || true
+wait "$pid" 2>/dev/null || true
+pid=""
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures failure(s)"

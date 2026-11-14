@@ -210,6 +210,11 @@ def answer(msg):
             log({"eval": "style", "length": len(css), "isolated": params.get("contextId") is not None,
                  "session": msg.get("sessionId")})
             return {"result": {"type": "object", "value": {"styled": bool(css)}}}
+        if "__nixbookRest" in expr:
+            # keep_rested: whether the app can be seen is the argument.
+            visible = json.loads(re.search(r"\}\)\((true|false)\)$", expr).group(1))
+            log({"eval": "rest", "visible": visible, "isolated": params.get("contextId") is not None})
+            return {"result": {"type": "number", "value": 0 if visible else 2}}
         last = expr.rsplit("\n", 1)[-1]
         m = re.match(r"^;(nixbookPage|nixbookApp)\((.*)\)$", last, re.S)
         if not m:
