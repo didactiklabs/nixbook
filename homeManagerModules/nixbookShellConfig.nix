@@ -79,8 +79,9 @@ let
   # The Jellyfin player of this computer: jellyfin-mpv-shim, a cast target
   # (the server, the phone app or jellyfin-mcp send it what to play) that
   # plays in the user's own mpv (mpv_ext + mpv_ext_no_ovr: the same mpv.conf,
-  # scripts and keys), in a maximized window (shimMpv: the whole work area,
-  # beside a pinned side panel; f for fullscreen), without its own window or tray. It keeps
+  # scripts and keys), in a window as wide as the work area (shimMpv: its
+  # column maximized, as Mod+Z does, beside a pinned side panel; f for
+  # fullscreen), without its own window or tray. It keeps
   # progress, marks watched and goes on to the next episode itself. These
   # keys are merged into its conf.json on each activation (it rewrites the
   # file, so it stays a real one), the others are its own.
@@ -92,8 +93,16 @@ let
     else
       lib.getExe pkgs.mpv;
   # The shim starts its mpv with its own arguments and has no "maximized"
-  # setting: this adds mpv's, which niri honours when the window opens.
+  # setting. Under niri, mpv's own --window-maximized is maximize-to-edges
+  # (no gaps, over the bar's frame): what is wanted is the column maximized,
+  # which niri only does for the focused column, so nixbook-ytmusic's
+  # video-window follows this process (mpv keeps the pid) and does it for
+  # each window it opens. Elsewhere, mpv's own request.
   shimMpv = pkgs.writeShellScript "jellyfin-mpv-shim-mpv" ''
+    if [ -n "''${NIRI_SOCKET:-}" ]; then
+      ${lib.getExe config.programs.nixbook-shell.package.passthru.ytmusic} video-window $$ >/dev/null 2>&1 &
+      exec ${mpvExe} "$@"
+    fi
     exec ${mpvExe} --window-maximized=yes "$@"
   '';
   shimSettings = {
