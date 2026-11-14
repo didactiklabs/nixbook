@@ -16,6 +16,8 @@
 
 totoro also blacklists the `ucsi_acpi` kernel module (USB-C status reporting): its firmware made it send about four "power supply changed" events a second while something was plugged into one port, waking udev, upower and systemd each time. Charging, DisplayPort and USB devices work without it; only `/sys/class/typec` is gone.
 
+On totoro the keyboard is lit while the disk's password is asked at boot: its driver (`asus_nb_wmi`) is in the initrd and a udev rule there turns the backlight on (level 2 of 3). After the unlock the level your last session ended with comes back.
+
 Hardware quirks come from [nixos-hardware](https://github.com/NixOS/nixos-hardware), imported by each profile (e.g. `framework/13-inch/amd-ai-300-series`).
 
 ## Bluetooth audio auto-connect
