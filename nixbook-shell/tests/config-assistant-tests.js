@@ -116,6 +116,10 @@ check(
 );
 check("wo sehe ich meine YouTube Abos", howTos.youtubeVideos);
 check("xem video youtube ở đâu", howTos.youtubeVideos);
+check("how do I change the video quality", howTos.youtubeVideos);
+check("comment changer la qualité des vidéos", howTos.youtubeVideos);
+check("wie ändere ich die Videoqualität", howTos.youtubeVideos);
+check("đổi chất lượng video ở đâu", howTos.youtubeVideos);
 check("trình hiển thị nhạc không hiện", howTos.visualizer);
 check(
   "how do I open youtube links in mpv instead of the browser",

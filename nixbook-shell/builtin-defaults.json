@@ -689,6 +689,7 @@
   },
   "media": {
     "filterDuplicatePlayers": true,
+    "videoQuality": "best",
     "youtubeLinks": {
       "enable": false,
       "music": true,

@@ -9,7 +9,9 @@ let
   cfg = config.customHomeManagerModules;
   # modernx, patched (mpv/modernx-nixbook.patch): an HD button left of info
   # opening mpv/upscale.lua's picture menu (right click: upscaling off; the
-  # icon dimmed while nothing is on), and the audio and subtitle buttons
+  # icon dimmed while nothing is on), a gear left of it opening
+  # mpv/quality.lua's quality menu (right click: the default again; only
+  # drawn for a video with several qualities), and the audio and subtitle buttons
   # opening mpv's own track picker (select.lua; right click: the next one)
   # instead of stepping through the tracks. Its source has Windows line
   # endings: made plain before the patch.
@@ -56,11 +58,21 @@ let
     src = ./mpv;
     scriptPath = "upscale.lua";
   };
+  # The quality of what yt-dlp plays (YouTube…), from a menu, and the one a
+  # video starts at (mpv/quality.lua): mpv's yt-dlp hook already lists every
+  # format as an edition, this picks among them.
+  quality = pkgs.mpvScripts.buildLua {
+    pname = "nixbook-quality";
+    version = "1";
+    src = ./mpv;
+    scriptPath = "quality.lua";
+  };
   mpvScripts = with pkgs.mpvScripts; [
     thumbfast
     mpris
     modernx
     upscale
+    quality
   ];
 in
 {

@@ -1214,6 +1214,12 @@ Singleton {
                 // videos in mpv, YouTube Music songs and playlists in the
                 // background player; openPanel: the right panel opened on the
                 // YouTube Music tab for those.
+                // The quality YouTube videos start at in mpv: "best", or a
+                // height (2160, 1440, 1080, 720, 480, 360: the best format
+                // that isn't taller). Read from config.json by the mpv script
+                // that offers the quality menu (nixbook's mpv/quality.lua),
+                // at each video; a player without it plays the best.
+                property string videoQuality: "best"
                 property JsonObject youtubeLinks: JsonObject {
                     property bool enable: false
                     property bool videos: true
