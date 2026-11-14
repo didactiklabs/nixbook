@@ -54,7 +54,9 @@ in
         across different networks without port-forwarding or static IPs.
 
         This module:
-        - Enables services.netbird (daemon only, no systray UI)
+        - Enables services.netbird (daemon only, no systray UI); the daemon
+          starts with the system but connects only on `netbird up` (or nswitch,
+          or the desktop shell's VPN widget), and a daemon restart disconnects
         - Installs nswitch: an fzf-based TUI that lists available NetBird network
           IDs (via `netbird networks list`) and switches to the selected one with
           `netbird network select && netbird up`
@@ -69,6 +71,12 @@ in
       netbird = {
         enable = true;
         ui.enable = false;
+        # Manual, like Tailscale: the daemon runs (so `netbird up`, nswitch
+        # and the shell's VPN widget work) but doesn't connect by itself at
+        # boot or after a restart (DisableAutoConnect). Connected, it holds
+        # management/signal/relay links open around the clock: ~7 ms/s of
+        # CPU and ~150 wakeups a second on totoro.
+        clients.default.autoStart = false;
       };
     };
 
