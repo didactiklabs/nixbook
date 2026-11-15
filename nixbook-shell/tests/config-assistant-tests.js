@@ -94,6 +94,8 @@ check("can DAI build features", howTos.agentFeatures);
 check("how do fixes work", howTos.agentFixes);
 check("how do I find a file", howTos.findAnything);
 check("how do I send a gif in the mesh", howTos.mesh);
+check("how do I appear offline in the mesh", howTos.mesh);
+check("how do I disconnect from the mesh without leaving it", howTos.mesh);
 check("how do we listen together in the mesh", howTos.mesh);
 check("how do we watch together on jellyfin in the mesh", howTos.mesh);
 check("how do I turn on echo cancellation", howTos.echoCancel);
