@@ -58,6 +58,55 @@ Singleton {
     readonly property bool enabled: Config.options?.mesh?.enable ?? true
     readonly property bool sharePresence: Config.options?.mesh?.sharePresence ?? true
     readonly property bool shareAvatar: Config.options?.mesh?.shareAvatar ?? true
+    // Still in the mesh, without being there for the others:
+    // - appearing offline (mesh.appearOffline): connected, messages come and
+    //   go, but the others see "Offline" (said once, then no heartbeat) and
+    //   get no read receipt until you are back;
+    // - disconnected (mesh.enable off): "Offline" said once, then nothing is
+    //   received nor sent until you reconnect; what came meanwhile is caught
+    //   up then (the server keeps it).
+    // Neither touches the token, the mesh key nor the conversation.
+    readonly property bool appearOffline: Config.options?.mesh?.appearOffline ?? false
+    readonly property string mode: !root.enabled ? "disconnected" : root.appearOffline ? "invisible" : "online"
+    // A mode a Nix-set key forbids changing to.
+    function modeLocked(mode) {
+        const want = { enable: mode !== "disconnected", appearOffline: mode === "invisible" };
+        if (NixManaged.isPinned("mesh.enable") && want.enable !== root.enabled) return true;
+        return mode !== "disconnected" && NixManaged.isPinned("mesh.appearOffline") && want.appearOffline !== root.appearOffline;
+    }
+    // "online" | "invisible" | "disconnected"; false when it can't be set.
+    function setMode(mode) {
+        if (["online", "invisible", "disconnected"].indexOf(mode) < 0 || root.modeLocked(mode)) return false;
+        if (mode !== "disconnected") Config.options.mesh.appearOffline = mode === "invisible";
+        Config.options.mesh.enable = mode !== "disconnected";
+        return true;
+    }
+    function modeText(mode) {
+        switch (mode) {
+        case "invisible": return Translation.tr("Appear offline");
+        case "disconnected": return Translation.tr("Disconnect");
+        default: return Translation.tr("Online");
+        }
+    }
+    onEnabledChanged: {
+        if (!root.configured) return;
+        if (root.enabled) {
+            // Later: `myState` follows `enabled` through bindings that may
+            // not have run yet.
+            root._sentState = "";
+            Qt.callLater(() => root._sharePresence(false));
+            return;
+        }
+        // Leaving for now: what is shared ends, and the others are told
+        // once (they would count this desktop in for 25 more minutes).
+        MeshListen.stop();
+        MeshListen.leave("");
+        root._sentState = "offline";
+        root._send("presence", { state: "offline" });
+        root.connected = false;
+        root.lastError = "";
+    }
+    onModeChanged: if (root.mode === "online") root._flushReads()
     // Nudges (the Mesh tab's ✨ picker): { id, emoji, text }. The id travels
     // with the message (`quick`) and the receiver shows its own words for
     // it; an unknown id (a newer sender) shows the text sent.
@@ -369,9 +418,21 @@ Singleton {
         if (!last || (root.readAt[conv] ?? 0) >= last.time) return;
         root.readAt = Object.assign({}, root.readAt, { [conv]: last.time });
         root._save();
+        // Not there for the others: the receipt waits until you are.
+        if (root.mode !== "online") {
+            root._heldReads = Object.assign({}, root._heldReads, { [conv]: last.time });
+            return;
+        }
         // Everyone's conversation too: "seen by" under your last message
         // there (seenBy); the receipt then goes open to the mesh.
         root._send("read", { to: conv, upTo: last.time });
+    }
+    property var _heldReads: ({})
+    function _flushReads() {
+        if (root.mode !== "online") return;
+        const held = root._heldReads;
+        root._heldReads = ({});
+        for (const conv in held) root._send("read", { to: conv, upTo: held[conv] });
     }
     // Who read your message `m`: a private one, its member (seen); one to
     // everyone, the members who read the conversation up to it (seenBy).
@@ -392,7 +453,7 @@ Singleton {
     // `reply`: the message answered (replyOf), shown quoted above this one.
     function sendText(text, to, quick, reply) {
         text = (text ?? "").trim();
-        if (text === "" || !root.configured) return false;
+        if (text === "" || !root.configured || !root.enabled) return false;
         const mid = root._mid();
         const m = { mid: mid, from: root.me, name: root.myName, to: to ?? "", time: Date.now(), text: text.slice(0, 1000),
             mine: true, status: "sending" };
@@ -425,7 +486,7 @@ Singleton {
     // first.
     function sendFiles(paths, text, to, reply) {
         paths = (paths ?? []).map(p => FileUtils.trimFileProtocol(`${p}`)).filter(p => p !== "");
-        if (paths.length === 0 || !root.configured) return false;
+        if (paths.length === 0 || !root.configured || !root.enabled) return false;
         const added = paths.map((path, i) => Object.assign({ mid: root._mid(), from: root.me, name: root.myName, to: to ?? "",
             time: Date.now() + i, text: i === 0 ? (text ?? "").trim().slice(0, 1000) : "", mine: true, status: "sending",
             file: { source: path, name: path.split("/").pop() } }, i === 0 && reply ? { reply: reply } : {}));
@@ -714,6 +775,7 @@ Singleton {
 
     // Coarse on purpose: never which app or which window.
     readonly property string myState: {
+        if (root.mode !== "online") return "offline";
         if (!root.sharePresence) return "hidden";
         if (GlobalStates.screenLocked || Idle.screensOff) return "away";
         if (Notifications.silent) return "dnd";
@@ -725,11 +787,18 @@ Singleton {
         return "free";
     }
     // How the others see you.
-    readonly property string myStateText: root.myState === "hidden" ? Translation.tr("Not shared")
+    readonly property string myStateText: root.mode === "disconnected" ? Translation.tr("Disconnected")
+        : root.mode === "invisible" ? Translation.tr("Appearing offline")
+        : root.myState === "hidden" ? Translation.tr("Not shared")
         : root.stateText(root.myState)
     property string _sentState: ""
     property real _sentAt: 0
-    onMyStateChanged: presenceDebounce.restart()
+    // Going offline (appearing so) or coming back is said at once: the
+    // debounce would leave you shown, or hidden, for 15 more seconds.
+    onMyStateChanged: {
+        if (root.myState === "offline" || root._sentState === "offline") root._sharePresence(false);
+        else presenceDebounce.restart();
+    }
     onConfiguredChanged: if (root.configured) {
         presenceDebounce.restart();
         profileSoon.restart();
@@ -746,8 +815,8 @@ Singleton {
     }
     function _sharePresence(heartbeat) {
         if (!root.configured || !root.enabled) return;
-        // Not sharing: said once, then nothing.
-        if (root.myState === "hidden" && root._sentState === "hidden") return;
+        // Not sharing, or appearing offline: said once, then nothing.
+        if ((root.myState === "hidden" || root.myState === "offline") && root._sentState === root.myState) return;
         if (!heartbeat && root.myState === root._sentState) return;
         root._sentState = root.myState;
         root._sentAt = Date.now();
@@ -756,7 +825,7 @@ Singleton {
     Timer {
         // Still here: members count anyone silent for 25 min as offline.
         interval: 10 * 60 * 1000
-        running: root.configured && root.enabled && root.sharePresence
+        running: root.configured && root.mode === "online" && root.sharePresence
         repeat: true
         onTriggered: root._sharePresence(true)
     }
@@ -1304,10 +1373,13 @@ Singleton {
         onTriggered: root._save()
     }
 
-    // `nixbook-shell ipc call mesh status|send TEXT|sendTo MEMBER TEXT|sendFile PATH|sendFileTo MEMBER PATH|open|openConversation MEMBER|deleteMessage MID|react MID EMOJI|nudge MEMBER ID|reply MID TEXT`,
+    // `nixbook-shell ipc call mesh status|mode [online|invisible|disconnected]|send TEXT|sendTo MEMBER TEXT|sendFile PATH|sendFileTo MEMBER PATH|open|openConversation MEMBER|deleteMessage MID|react MID EMOJI|nudge MEMBER ID|reply MID TEXT`,
     // and listening together: `listenShare MEMBER|watchShare MEMBER|listenStop|listenJoin MEMBER|listenLeave|listenStatus` ("" = everyone).
     // Denied to the desktop agents (desktop-mcp's shellIpcDenyTargets): they
     // would speak in the user's name.
+    function _whyNot() {
+        return root.configured && !root.enabled ? "error: disconnected from the mesh (mesh mode online reconnects)" : "error: the mesh isn't set up";
+    }
     IpcHandler {
         target: "mesh"
 
@@ -1319,6 +1391,7 @@ Singleton {
                 server: root.server,
                 me: root.me,
                 myState: root.myState,
+                mode: root.mode,
                 members: root.memberList.map(m => ({ id: m.id, name: m.name, state: root.stateOf(m.id) })),
                 unread: root.unread,
                 account: root.account,
@@ -1327,20 +1400,30 @@ Singleton {
             });
         }
         function send(text: string): string {
-            return root.sendText(text, "") ? "ok: sent to everyone" : "error: the mesh isn't set up";
+            return root.sendText(text, "") ? "ok: sent to everyone" : root._whyNot();
         }
         function sendTo(member: string, text: string): string {
-            return root.sendText(text, member) ? `ok: sent to ${member}` : "error: the mesh isn't set up";
+            return root.sendText(text, member) ? `ok: sent to ${member}` : root._whyNot();
         }
         // A file (its path) to everyone / to a member.
         function sendFile(path: string): string {
-            return root.sendFiles([path], "", "") ? "ok: sending to everyone" : "error: the mesh isn't set up";
+            return root.sendFiles([path], "", "") ? "ok: sending to everyone" : root._whyNot();
         }
         function sendFileTo(member: string, path: string): string {
-            return root.sendFiles([path], "", member) ? `ok: sending to ${member}` : "error: the mesh isn't set up";
+            return root.sendFiles([path], "", member) ? `ok: sending to ${member}` : root._whyNot();
         }
         function open(): void {
             root.open();
+        }
+        // How you are in the mesh: online, invisible (connected, shown
+        // offline) or disconnected (nothing received nor sent; still a
+        // member). No argument: what it is now.
+        function mode(mode: string): string {
+            if (mode === "") return root.mode;
+            if (mode === "offline") mode = "invisible";
+            if (mode === "disconnect") mode = "disconnected";
+            if (mode === "connect") mode = root.appearOffline ? "invisible" : "online";
+            return root.setMode(mode) ? `ok: ${mode}` : "error: online, invisible or disconnected (or the setting is set in Nix)";
         }
         // Listening together: share what YouTube Music / Spotify plays with
         // everyone ("") or a member, stop; follow a member's session, leave.
@@ -1379,7 +1462,7 @@ Singleton {
         function reply(mid: string, text: string): string {
             const m = root.messageOf(mid);
             if (!m || m.deleted) return "error: no such message";
-            return root.sendText(text, root.conversationOf(m), "", root.replyOf(m)) ? "ok" : "error: the mesh isn't set up";
+            return root.sendText(text, root.conversationOf(m), "", root.replyOf(m)) ? "ok" : root._whyNot();
         }
         // A nudge (its id: love, hug, …) to everyone ("") or a member.
         function nudge(member: string, id: string): string {

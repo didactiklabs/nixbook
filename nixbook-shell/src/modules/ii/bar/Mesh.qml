@@ -20,7 +20,7 @@ BarWidgetSwitcher {
             spacing: 4
             MaterialSymbol {
                 Layout.alignment: Qt.AlignVCenter
-                text: Mesh.connected ? "hub" : "cloud_off"
+                text: !Mesh.connected ? "cloud_off" : Mesh.mode === "invisible" ? "visibility_off" : "hub"
                 iconSize: Appearance.font.pixelSize.larger
                 fill: root.hasUnread ? 1 : 0
                 color: Mesh.connected ? root.accent : Appearance.colors.colSubtext
@@ -41,7 +41,7 @@ BarWidgetSwitcher {
             spacing: 0
             MaterialSymbol {
                 Layout.alignment: Qt.AlignHCenter
-                text: Mesh.connected ? "hub" : "cloud_off"
+                text: !Mesh.connected ? "cloud_off" : Mesh.mode === "invisible" ? "visibility_off" : "hub"
                 iconSize: Appearance.font.pixelSize.larger
                 fill: root.hasUnread ? 1 : 0
                 color: Mesh.connected ? root.accent : Appearance.colors.colSubtext
@@ -89,7 +89,7 @@ BarWidgetSwitcher {
                 }
 
                 StyledText {
-                    visible: !Mesh.connected
+                    visible: !Mesh.connected && Mesh.enabled
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
                     text: Mesh.lastError || Translation.tr("Not connected to the mesh's server")

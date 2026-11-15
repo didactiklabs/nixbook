@@ -89,6 +89,16 @@ The token and the mesh key are kept in your keyring (GNOME Keyring, `service=nix
 
 The same section turns off sharing your status (the others then see "Not sharing their status"), the notifications, or the whole mesh.
 
+## Appearing offline, disconnecting
+
+To be left alone without leaving the mesh, click your status line at the top of the Mesh tab (**You (name): …**) and pick:
+
+- **Online**: connected, your status shown.
+- **Appear offline**: still connected. Messages come in and you can write, but the others see you as offline, and the read receipts for what you read wait until you are online again. A message you send does show up, of course. The bar's mesh icon becomes a crossed-out eye.
+- **Disconnect**: the others are told once that you are offline, then nothing comes in or goes out (the field is disabled; listening together ends). You stay a member: the token, the mesh key and the conversation are kept, and what was sent meanwhile arrives when you click **Reconnect** (the server keeps messages a year).
+
+The choice survives restarts. They are the settings `mesh.appearOffline` and `mesh.enable` (Settings > Mesh; set in Nix, the choice is locked), and `nixbook-shell ipc call mesh mode online|invisible|disconnected` (no argument: the current one).
+
 ## Security
 
 - Everything a desktop sends is encrypted with AES-256-GCM, with the mesh's key, before it leaves the computer. The server only stores and passes on ciphertext, on a topic whose name is derived from the key, so it doesn't say who is talking either.
@@ -115,6 +125,6 @@ The same section turns off sharing your status (the others then see "Not sharing
 | `nixbook-mesh fetch SERVER`               | download a received file (`{file}` on stdin)  |
 | `nixbook-mesh match`                      | a song's versions on YouTube Music (on stdin) |
 
-And the shell's IPC target `mesh`: `nixbook-shell ipc call mesh status`, `send TEXT`, `sendTo MEMBER TEXT`, `sendFile PATH`, `sendFileTo MEMBER PATH`, `open`, `openConversation MEMBER`.
+And the shell's IPC target `mesh`: `nixbook-shell ipc call mesh status`, `mode [online|invisible|disconnected]`, `send TEXT`, `sendTo MEMBER TEXT`, `sendFile PATH`, `sendFileTo MEMBER PATH`, `open`, `openConversation MEMBER`.
 
 The conversation is kept in `~/.local/state/quickshell/user/mesh-conversation.json` (the last 500 messages).

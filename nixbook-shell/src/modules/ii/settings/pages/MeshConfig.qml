@@ -225,7 +225,8 @@ ContentPage {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     text: Mesh.setup.joined
-                        ? (Mesh.connected ? Translation.tr("In the mesh, connected. Members seen: %1.").arg(Mesh.memberList.length)
+                        ? (!Mesh.enabled ? Translation.tr("In the mesh, disconnected (the switch below reconnects).")
+                            : Mesh.connected ? Translation.tr("In the mesh, connected. Members seen: %1.").arg(Mesh.memberList.length)
                             : Translation.tr("In the mesh, not connected yet.") + (Mesh.lastError ? ` ${Mesh.lastError}` : ""))
                         : Translation.tr("Not in a mesh yet: create one (then show its code to the others), or enter the code a member shows you.")
                 }
@@ -443,6 +444,16 @@ ContentPage {
                     }
                 }
                 ConfigSwitch {
+                    configKey: "mesh.appearOffline";
+                    enabled: !nixManaged;
+                    buttonIcon: "visibility_off"
+                    text: Translation.tr("Appear offline (still connected: messages come and go, no status, no read receipts)")
+                    checked: Config.options.mesh.appearOffline
+                    onCheckedChanged: {
+                        Config.options.mesh.appearOffline = checked;
+                    }
+                }
+                ConfigSwitch {
                     configKey: "mesh.shareAvatar";
                     enabled: !nixManaged;
                     buttonIcon: "account_circle"
@@ -476,7 +487,7 @@ ContentPage {
                     configKey: "mesh.enable";
                     enabled: !nixManaged;
                     buttonIcon: "power_settings_new"
-                    text: Translation.tr("Connected to the mesh")
+                    text: Translation.tr("Connected to the mesh (off: nothing received or sent; you stay a member)")
                     checked: Config.options.mesh.enable
                     onCheckedChanged: {
                         Config.options.mesh.enable = checked;

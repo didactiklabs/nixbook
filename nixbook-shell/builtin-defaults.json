@@ -701,6 +701,7 @@
     }
   },
   "mesh": {
+    "appearOffline": false,
     "enable": true,
     "name": "",
     "notify": true,

@@ -55,6 +55,8 @@ Item {
         root.replyTo = null;
     }
 
+    // The status line's chooser (online / appear offline / disconnect) is open.
+    property bool choosingMode: false
     // Files to send with the next message: [path].
     property var pending: []
     function attach(path) {
@@ -233,7 +235,8 @@ Item {
             }
         }
 
-        // How the others see you.
+        // How the others see you; a click chooses it (online, appearing
+        // offline, disconnected: Mesh.setMode).
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
@@ -249,6 +252,62 @@ Item {
                 elide: Text.ElideRight
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
+            }
+            MaterialSymbol {
+                text: root.choosingMode ? "expand_less" : "expand_more"
+                iconSize: Appearance.font.pixelSize.normal
+                color: Appearance.colors.colSubtext
+            }
+            TapHandler {
+                onTapped: root.choosingMode = !root.choosingMode
+            }
+            HoverHandler {
+                cursorShape: Qt.PointingHandCursor
+            }
+        }
+        Flow {
+            Layout.fillWidth: true
+            visible: root.choosingMode
+            spacing: 6
+            Repeater {
+                model: [
+                    { id: "online", icon: "circle", tip: Translation.tr("Connected, your status shown to the others") },
+                    { id: "invisible", icon: "visibility_off", tip: Translation.tr("Connected: you still get and send messages, but the others see you offline and don't see what you read") },
+                    { id: "disconnected", icon: "cloud_off", tip: Translation.tr("Nothing comes in or goes out until you reconnect. You stay in the mesh: what was sent meanwhile arrives when you are back") }
+                ]
+                delegate: RippleButton {
+                    id: modeChip
+                    required property var modelData
+                    readonly property bool on: Mesh.mode === modeChip.modelData.id
+                    implicitHeight: 26
+                    implicitWidth: modeRow.implicitWidth + 18
+                    buttonRadius: Appearance.rounding.full
+                    enabled: modeChip.on || !Mesh.modeLocked(modeChip.modelData.id)
+                    opacity: modeChip.enabled ? 1 : 0.5
+                    colBackground: modeChip.on ? Appearance.colors.colSecondaryContainer : Appearance.colors.colLayer1
+                    colBackgroundHover: modeChip.on ? Appearance.colors.colSecondaryContainerHover : Appearance.colors.colLayer1Hover
+                    onClicked: {
+                        Mesh.setMode(modeChip.modelData.id);
+                        root.choosingMode = false;
+                    }
+                    contentItem: RowLayout {
+                        id: modeRow
+                        spacing: 4
+                        MaterialSymbol {
+                            text: modeChip.modelData.icon
+                            iconSize: Appearance.font.pixelSize.small
+                            color: modeChip.on ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                        }
+                        StyledText {
+                            text: Mesh.modeText(modeChip.modelData.id)
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: modeChip.on ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                        }
+                    }
+                    StyledToolTip {
+                        text: modeChip.modelData.tip
+                    }
+                }
             }
         }
 
@@ -313,7 +372,7 @@ Item {
                 visible: !Mesh.connected
                 text: "cloud_off"
                 iconSize: Appearance.font.pixelSize.larger
-                color: Appearance.m3colors.m3error
+                color: Mesh.enabled ? Appearance.m3colors.m3error : Appearance.colors.colSubtext
             }
         }
         // A private conversation: sealed for their key alone.
@@ -347,11 +406,30 @@ Item {
         }
         StyledText {
             Layout.fillWidth: true
-            visible: !Mesh.connected
+            visible: !Mesh.connected && Mesh.enabled
             wrapMode: Text.Wrap
             text: Mesh.lastError || Translation.tr("Not connected to the mesh's server: messages wait here until it is back.")
             font.pixelSize: Appearance.font.pixelSize.smaller
             color: Appearance.m3colors.m3error
+        }
+        // Disconnected on purpose.
+        RowLayout {
+            Layout.fillWidth: true
+            visible: !Mesh.enabled
+            spacing: 8
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                text: Translation.tr("You are disconnected: nothing comes in or goes out. You are still in the mesh; what the others send arrives when you reconnect.")
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+            }
+            RippleButtonWithIcon {
+                enabled: !Mesh.modeLocked("online")
+                materialIcon: "cloud"
+                mainText: Translation.tr("Reconnect")
+                onClicked: Mesh.setMode("online")
+            }
         }
 
         MeshListenBar {
@@ -1227,7 +1305,9 @@ Item {
             MaterialTextField {
                 id: input
                 Layout.fillWidth: true
-                placeholderText: root.conv === "" ? Translation.tr("To everyone…")
+                enabled: Mesh.enabled
+                placeholderText: !Mesh.enabled ? Translation.tr("Disconnected: reconnect to write")
+                    : root.conv === "" ? Translation.tr("To everyone…")
                     : Translation.tr("To %1…").arg(Mesh.nameOf(root.conv))
                 focus: Mesh.viewing
                 onAccepted: root.send(input.text)
