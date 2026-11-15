@@ -93,6 +93,10 @@ EasyEffects' sink itself is not in the output list, and it is never left as the 
 
 An app whose sound gets connected to nothing (it can happen when EasyEffects restarts) is connected back to the default output after 5 seconds, without switching the output by hand.
 
+When the device EasyEffects plays on goes away (Bluetooth earbuds switched off), EasyEffects stays on it instead of following the default output, and nothing is heard at all. The shell notices when apps play into EasyEffects but none of it reaches a device for 5 seconds, and restarts EasyEffects, which then plays on the default output (at most once every 2 minutes).
+
+The volume popup follows the default output's volume. If the shell ever loses track of the default output (it showed as "Unknown" at 0 %, and the popup stopped appearing), it reads the default from PipeWire after 4 seconds and follows it again.
+
 ## Echo cancellation
 
 For calls: what plays on the computer (music, a film, the other side of the call) stays out of your microphone, and background noise is reduced. It is a setting for the whole computer, every app: **Settings → Sound → Echo cancellation**, or the **Echo cancellation** quick toggle (add it from the quick toggles' edit mode), the switch in the audio input dialog (right click the microphone toggle), or the Mesh's listening-together bar. While it is on, an **Echo-cancelled microphone** is your default input, and calls using the default input move to it; turning it off brings your microphone back. It stays on across logins until you turn it off. To change which microphone it cleans while it is on, pick it in the audio input dialog: the canceller moves onto it (a second's gap) and stays your default input; the list then shows only real microphones. It stays on that microphone: when it disappears for a while (a suspend, unplugged) and comes back, the canceller goes back to it, and EasyEffects' input processing can't pull it away (that used to make a loop with no microphone in it, so apps recorded silence).

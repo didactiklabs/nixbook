@@ -13,8 +13,9 @@ Singleton {
     id: root
 
     // Misc props
-    property bool ready: Pipewire.defaultAudioSink?.ready ?? false
-    property PwNode sink: Pipewire.defaultAudioSink
+    property bool ready: root.sink?.ready ?? false
+    // Pipewire.defaultAudioSink, unless it was lost (sinkLostTimer).
+    property PwNode sink: root._sinkFromMetadata ?? Pipewire.defaultAudioSink
     property PwNode source: Pipewire.defaultAudioSource
     readonly property real hardMaxValue: 2.00 // People keep joking about setting volume to 5172% so...
     property string audioTheme: Config.options.sounds.theme
@@ -203,7 +204,48 @@ Singleton {
     }
     Connections {
         target: Pipewire
-        function onDefaultAudioSinkChanged() { root.eeSinkAtUnity() }
+        function onDefaultAudioSinkChanged() {
+            root._sinkFromMetadata = null;
+            root.eeSinkAtUnity();
+        }
+    }
+
+    // The default output lost: once (2026-11-15, after Bluetooth earbuds
+    // went away) the running shell's Pipewire.defaultAudioSink stayed empty
+    // while PipeWire's default was the speaker, so the volume popup never
+    // showed again (it follows the default output's volume) and the output
+    // read "Unknown" until the shell restarted. When no ready default output
+    // is known for 4 s while a device exists, the default is read from
+    // PipeWire's metadata (default.audio.sink) and that node followed, until
+    // Quickshell reports a default again.
+    property PwNode _sinkFromMetadata: null
+    property string _sinkLostLogged: ""
+    readonly property bool sinkLost: root.outputDevices.length > 0 && !(root.sink?.ready && root.sink?.audio)
+    Timer {
+        interval: 4000
+        repeat: true
+        running: root.sinkLost
+        onTriggered: defaultSinkProc.running = true
+    }
+    Process {
+        id: defaultSinkProc
+        command: ["pw-metadata", "-n", "default", "0", "default.audio.sink"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (!root.sinkLost) return;
+                const name = /"name"\s*:\s*"([^"]+)"/.exec(this.text)?.[1] ?? "";
+                const node = Pipewire.nodes.values.find(n => n.name === name && n.isSink && !n.isStream) ?? null;
+                if (!node || node === root.sink) {
+                    if (root._sinkLostLogged !== name)
+                        console.log(`[Audio] no default output known; PipeWire's is "${name}", ${node ? "not ready yet" : "not found"}`);
+                    root._sinkLostLogged = name;
+                    return;
+                }
+                console.log(`[Audio] the default output was lost: following ${name} (${node.id}) again`);
+                root._sinkLostLogged = "";
+                root._sinkFromMetadata = node;
+            }
+        }
     }
 
     // EasyEffects' sink is never the default output. Apps reach it because
@@ -232,6 +274,48 @@ Singleton {
             Quickshell.execDetached(["pw-metadata", "-n", "default", "-d", "0", "default.configured.audio.sink"]);
         }
     }
+
+    // EasyEffects playing nowhere: apps play into its sink, but nothing of
+    // EasyEffects reaches a device. EasyEffects 8.3 stays on the device it
+    // played on when that device goes (Bluetooth earbuds switched off,
+    // 2026-11-15) instead of following the default output: no sound at all
+    // until it restarts, when it takes the default output again. So when
+    // that lasts 5 s while the default output is a device, EasyEffects is
+    // restarted (at most once every 2 minutes).
+    readonly property bool eeStranded: {
+        if (!root.eeSink || root.eeSinkIsDefault) return false;
+        let fed = false;
+        for (const g of Pipewire.linkGroups.values) {
+            const target = g.target;
+            if (!target) continue;
+            if (target === root.eeSink) {
+                if (g.source?.isStream) fed = true;
+            } else if ((g.source?.name ?? "").startsWith("ee_") && target.isSink && !target.isStream
+                    && !root.passThroughSinks.includes(target.name)) {
+                return false;
+            }
+        }
+        return fed;
+    }
+    property real _eeRestartedAt: 0
+    Timer {
+        interval: 5000
+        repeat: true
+        running: root.eeStranded
+        onTriggered: {
+            if (!root.eeStranded || Date.now() - root._eeRestartedAt < 120000) return;
+            root._eeRestartedAt = Date.now();
+            console.log("[Audio] EasyEffects plays to no device: restarting it onto the default output");
+            Quickshell.execDetached(["sh", "-c", root.eeRestartScript]);
+        }
+    }
+    // Quit it (pkill if it doesn't), then start it as the equalizer does
+    // (scripts/eq/equalizer.sh ensure_running). The command is in $ee so
+    // that this script's own command line never matches the pattern.
+    readonly property string eeRestartScript: 'ee=easyeffects; "$ee" -q >/dev/null 2>&1; '
+        + 'for _ in $(seq 20); do pgrep -f "[e]asyeffects --hide-window" >/dev/null || break; sleep 0.25; done; '
+        + 'pkill -f "[e]asyeffects --hide-window"; sleep 0.3; '
+        + 'exec setsid "$ee" --hide-window --service-mode </dev/null >/dev/null 2>&1'
 
     // An app's output connected to nothing: after EasyEffects restarts (its
     // sink goes and comes back with another id), a stream it had moved there
