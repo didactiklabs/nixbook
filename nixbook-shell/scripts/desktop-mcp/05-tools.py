@@ -31,15 +31,21 @@ AFTER_PROPS_BRIEF = {"screenshot_after": {"type": "boolean"}, "wait_ms": {"type"
 HELP_PROP = {"type": "boolean", "description": "true: the tool's full guide instead of running it"}
 
 # The tools Claude Code loads up front (`_meta["anthropic/alwaysLoad"]`):
-# what most requests need, so they need no ToolSearch round trip first. The
-# others (and every connector's) stay deferred behind ToolSearch, found
-# when a task needs them; tool_help reads any tool's guide meanwhile.
+# what requests really use, so they need no ToolSearch round trip first.
+# Every loaded tool is paid for at each step of each conversation (the 32
+# of before: ~7.7k tokens), a deferred one costs one ToolSearch the day it
+# is needed, so the set follows what DAI called (77 conversations, 2026-11:
+# the pages, the background YouTube Music player — in a quarter of them,
+# through ToolSearch each time —, windows, the memory; the pointer, the
+# keyboard, workspaces, themes and ui_* in two or none). The input tools
+# stay one ToolSearch away, which is also the order to act in: input last.
+# The others (and every connector's) stay deferred, found by name;
+# tool_help reads any tool's guide meanwhile.
 CORE_TOOLS = {
-    "get_status", "list_windows", "list_workspaces", "list_apps", "launch_app", "focus_window", "close_window",
-    "focus_workspace", "move_window_to_workspace", "window_action", "press_keys", "type_text", "click", "scroll",
-    "run_steps", "screenshot", "ui_read", "ui_act", "notifications", "recall", "remember", "recall_about_user",
-    "remember_about_user", "page_list", "page_read", "page_act", "page_go", "list_themes", "set_theme",
-    "machine_help", "tool_help", "read_document",
+    "list_windows", "launch_app", "focus_window", "close_window", "screenshot", "notifications",
+    "recall", "remember", "recall_about_user", "remember_about_user",
+    "page_list", "page_read", "page_act", "page_go",
+    "youtube_music_player", "system_info", "machine_help", "tool_help", "read_document",
 }
 
 

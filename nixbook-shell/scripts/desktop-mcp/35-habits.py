@@ -1019,9 +1019,12 @@ def ago(ts, now):
     return "today" if days < 1 else "yesterday" if days < 2 else f"{days} days ago"
 
 
-def personal_digest(cfg, query="", limit=None):
+def personal_digest(cfg, query="", limit=None, index_extra=0):
     """The personal memory as a short text for a model's context. Capped at
-    personalPromptChars: the profile first, then what is soonest useful."""
+    personalPromptChars: the profile first, then what is soonest useful.
+    index_extra: more room for the list of the other subjects alone (a
+    conversation's start: a subject that isn't named there is one the
+    model doesn't know it can recall)."""
     limit = limit or int(cfg.get("personalPromptChars", 900))
     entries = [e for e in read_personal() if not e.get("tentative")]
     if not entries:
@@ -1032,7 +1035,9 @@ def personal_digest(cfg, query="", limit=None):
     lines = []
     profile = [e for e in entries if e.get("kind") == "profile"]
     if profile:
-        lines.append("Profile: " + " ".join(short(e["text"], 200) for e in profile))
+        # In full when there is one (who the user is: not to be cut
+        # mid-fact), shared out when there are several.
+        lines.append("Profile: " + " ".join(short(e["text"], max(200, 420 // len(profile))) for e in profile))
         shown.update(e["id"] for e in profile)
     dated = []
     for e in entries:
@@ -1067,7 +1072,7 @@ def personal_digest(cfg, query="", limit=None):
     for k in range(len(rest), 0, -1):
         more = f", +{len(rest) - k} more" if k < len(rest) else ""
         line = "\nOther subjects you know about: " + ", ".join(rest[:k]) + more
-        if len(out) + len(line) <= limit:
+        if len(out) + len(line) <= limit + index_extra:
             out += line
             break
     count_entry_uses(shown - {e["id"] for e in profile})

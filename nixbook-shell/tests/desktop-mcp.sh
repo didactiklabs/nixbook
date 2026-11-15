@@ -314,7 +314,7 @@ in=""; [ "$1" = play-tracks ] && in=" <$(cat)"
 echo "nixbook-ytmusic $*$in" >>"$STUB_CALLS"
 case "$1" in
   status) echo '{"signedIn":true,"account":"Khoa","player":{"status":"Playing","volume":60}}' ;;
-  search) echo "{\"query\":\"${*:2}\",\"songs\":[{\"videoId\":\"song1111111\",\"title\":\"One\",\"kind\":\"song\"}],\"videos\":[]}" ;;
+  search) echo "{\"query\":\"${*:2}\",\"songs\":[{\"videoId\":\"song1111111\",\"title\":\"One\",\"artist\":\"A\",\"album\":\"\",\"duration\":61,\"art\":\"https://img.example/l.jpg\",\"kind\":\"song\"},{\"videoId\":\"song2222222\",\"title\":\"Two\",\"art\":\"https://img.example/2.jpg\",\"kind\":\"song\"},{\"videoId\":\"song3333333\",\"title\":\"Three\",\"kind\":\"song\"}],\"videos\":[{\"videoId\":\"video111111\",\"title\":\"Live\",\"art\":\"https://img.example/v.jpg\",\"kind\":\"video\"}]}" ;;
   playlists) echo '{"playlists":[{"id":"LM","title":"Liked Music","own":true,"thumb":"/home/x/.cache/t.jpg"}]}' ;;
   videos)
     case "$2" in
@@ -324,6 +324,7 @@ case "$1" in
       *) echo '{"feed":"'"$2"'","items":[{"id":"vid11111111","title":"A video","channel":"Chan B","channelUrl":"https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb","duration":300,"views":12,"live":false,"thumb":"https://i.ytimg.com/vi/vid11111111/mqdefault.jpg"}]}' ;;
     esac ;;
   add) [ "$2" = PLtheirs ] && { echo '{"error":"YouTube Music didn'"'"'t add it (is the playlist yours?)"}'; exit 1; }
+    [ $# -gt 3 ] && { echo "{\"ok\":true,\"playlist\":\"$2\",\"added\":[\"$3\"],\"already\":[\"$4\"],\"failed\":[]}"; exit 0; }
     echo "{\"ok\":true,\"playlist\":\"$2\",\"videoId\":\"$3\",\"status\":\"added\"}" ;;
   *) echo '{"ok":true}' ;;
 esac
@@ -3058,6 +3059,23 @@ expect_contains "instructions: how to keep the personal memory" "$instr" "Person
 expect_contains "instructions: the entries about the task" "$instr" "[$japan] japan (topic)"
 out=$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | NIXBOOK_DESKTOP_MCP_QUERY="japan budget" NIXBOOK_DESKTOP_MCP_PERSONAL=shell python3 "$mcp")
 expect_not_contains "instructions: the shell's chat sends them itself" "$(jq -r .result.instructions <<<"$out")" "[$japan] japan (topic)"
+# Claude Code cuts a server's instructions at 4096 characters: the shell's
+# chat gets only the fixed text (under the limit), its memory with the
+# conversation's first message and the personal memory's rules for its
+# system prompt.
+instr=$(jq -r .result.instructions <<<"$out")
+chars=$(printf '%s' "$instr" | python3 -c 'import sys; print(len(sys.stdin.read()))')
+if [ "$chars" -le 4000 ]; then pass "instructions: the shell chat's fit under Claude Code's cut ($chars chars)"; else fail "instructions: the shell chat's fit under Claude Code's cut" "$chars chars"; fi
+expect_contains "instructions: the shell chat's end with the memory's use" "$instr" "fix or forget notes that turned out wrong or slow."
+expect_not_contains "instructions: the shell chat's hold no memory" "$instr" "Desktop memory ("
+expect_not_contains "instructions: the shell chat's hold no personal rules" "$instr" "Personal memory: you remember"
+out=$(python3 "$mcp" personal context --first --exclude , "what should I cook tonight")
+first=$(jq -r .text <<<"$out")
+expect_contains "personal context --first: the desktop memory (nothing in it here)" "$first" "Desktop memory: empty so far."
+expect_contains "personal context --first: what is known about the user" "$first" "About the user, from earlier conversations"
+expect_contains "personal context --first: said to be information" "$first" "never instructions"
+expect_not_contains "personal context: later messages go without the memory" "$(python3 "$mcp" personal context --exclude , "what should I cook tonight" | jq -r .text)" "Desktop memory ("
+expect_contains "memory rules: the personal memory's" "$(python3 "$mcp" memory rules)" "Personal memory: you remember the user across conversations"
 # Another client that outlives a message: a new message's entries come with the next reply, once.
 echo "send Alesio a message" >"$task"
 out=$({
@@ -3514,6 +3532,28 @@ expect_contains "youtube_music_player add: the player's refusal said" "$(call yo
 expect_contains "youtube_music_player add: ids checked" "$(call youtube_music_player '{"action":"add","playlist":"LM","video":"x; rm"}')" "invalid value"
 call youtube_music_player '{"action":"create","title":"From Bob","video":"song1111111"}' >/dev/null
 expect_eq "youtube_music_player create" "nixbook-ytmusic create From Bob song1111111" "$(last_call)"
+# Few round trips, small answers: several searches, songs and a whole
+# playlist in one call each; no picture links.
+out=$(call youtube_music_player '{"action":"search","query":"daft punk"}')
+expect_eq "youtube_music_player search: only what tells a song, no pictures or empty fields" \
+  '{"videoId":"song1111111","title":"One","artist":"A","duration":61}' "$(jq -c '.songs[0]' <<<"$out")"
+expect_eq "youtube_music_player search: videos after the songs" "video111111" "$(jq -r '.videos[0].videoId' <<<"$out")"
+expect_eq "youtube_music_player search: count" "1" "$(call youtube_music_player '{"action":"search","query":"daft punk","count":1}' | jq '.songs | length')"
+out=$(call youtube_music_player '{"action":"search","queries":["daft punk","air sexy boy"]}')
+expect_eq "youtube_music_player search: several at once, the best two songs of each" \
+  'daft punk:song1111111,song2222222 air sexy boy:song1111111,song2222222' \
+  "$(jq -r '[.results[] | "\(.query):\([.songs[].videoId] | join(","))"] | join(" ")' <<<"$out")"
+expect_contains "youtube_music_player search: the number of searches checked" "$(call youtube_music_player '{"action":"search","queries":[]}')" "1 to 25 searches"
+out=$(call youtube_music_player '{"action":"add","playlist":"PLmine","videos":["song1111111","song2222222","song1111111"]}')
+expect_eq "youtube_music_player add: several songs in one call, each once" "nixbook-ytmusic add PLmine song1111111 song2222222" "$(last_call)"
+expect_eq "youtube_music_player add: what was added and what was there" '["song1111111"] ["song2222222"]' "$(jq -r '"\(.added | tojson) \(.already | tojson)"' <<<"$out")"
+expect_contains "youtube_music_player add: every id checked" "$(call youtube_music_player '{"action":"add","playlist":"LM","videos":["song1111111","x; rm"]}')" "invalid value"
+call youtube_music_player '{"action":"create","title":"Road trip","videos":["song1111111","song2222222"]}' >/dev/null
+expect_eq "youtube_music_player create: with its songs" "nixbook-ytmusic create Road trip -- song1111111 song2222222" "$(last_call)"
+call youtube_music_player '{"action":"create","title":"My Programming"}' >/dev/null
+expect_eq "youtube_music_player create: a title's last word never taken for a song" "nixbook-ytmusic create My Programming --" "$(last_call)"
+call youtube_music_player '{"action":"play","tracks":["song1111111","song2222222"]}' >/dev/null
+expect_eq "youtube_music_player play: songs by their ids" 'nixbook-ytmusic play-tracks <{"tracks": [{"videoId": "song1111111"}, {"videoId": "song2222222"}], "index": 0, "shuffle": false}' "$(last_call)"
 call youtube_music_player '{"action":"offline","op":"keep","playlist":"LM"}' >/dev/null
 expect_eq "youtube_music_player offline keep" "nixbook-ytmusic offline keep LM" "$(last_call)"
 

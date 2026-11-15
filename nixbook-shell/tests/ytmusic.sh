@@ -239,6 +239,28 @@ add PLmine dupe1111111 False
 rate song2222222 LIKE
 add PLtheirs song1111111 False
 create From Victor PRIVATE ['song1111111']" "$(cat "$tmp/ytm-edits.log")"
+# Several songs in one call (the agents' tool: one round trip, not one per song).
+: >"$tmp/ytm-edits.log"
+expect "add: several songs, those already in the playlist left out" \
+  '{"ok": true, "playlist": "PLmine", "added": ["song3333333", "song4444444"], "already": ["song1111111"], "failed": []}' \
+  "$(ya add PLmine song3333333 song1111111 song4444444 song3333333)"
+expect "add: several songs liked" '["song1111111", "song2222222"]' "$(ya add LM song1111111 song2222222 | "$py" -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["added"]))')"
+expect "add: several into a playlist that isn't yours refused" "1" "$(
+  ya add PLtheirs song3333333 song4444444 >/dev/null
+  echo $?
+)"
+expect "create: several songs after --, a title's last word never taken for one" \
+  '{"ok": true, "playlist": "PLnew123", "title": "My Programming", "videoId": "song1111111", "videos": 2}' \
+  "$(ya create My Programming -- song1111111 song2222222)"
+expect "create: no song after --" '{"ok": true, "playlist": "PLnew123", "title": "My Programming", "videoId": null}' "$(ya create My Programming --)"
+expect "edits: several songs are one request" "get PLmine
+add PLmine song3333333,song4444444 True
+rate song1111111 LIKE
+rate song2222222 LIKE
+get PLtheirs
+add PLtheirs song3333333,song4444444 True
+create My Programming PRIVATE ['song1111111', 'song2222222']
+create My Programming PRIVATE None" "$(cat "$tmp/ytm-edits.log")"
 # -- Removing a song from a playlist (the tab) ------------------------------------------------
 : >"$tmp/ytm-edits.log"
 mkdir -p "$tmp/cache/nixbook-ytmusic/offline"

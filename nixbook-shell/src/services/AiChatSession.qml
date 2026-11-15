@@ -499,10 +499,16 @@ Scope {
             // about goes with it (the personal memory, in the desktop MCP
             // server): no recall round trip.
             if (chat.claudeSessionId.length === 0) chat.personalShown = [];
-            const desktop = Ai.currentTool !== "none" && Ai.desktopTools.some(t => t.name === "recall_about_user");
+            // A conversation's first message also takes what Claude
+            // remembers along (--first: the desktop memory's digest, what it
+            // knows about the user): Claude Code cuts the MCP server's
+            // instructions, where it used to be, and a message is cached.
+            const desktop = Ai.currentTool !== "none"
+                && Ai.desktopTools.some(t => t.name === "recall_about_user" || t.name === "recall");
             if (desktop) {
                 chat.preparing++;
-                DesktopHelper.run(["personal", "context", "--exclude", chat.personalShown.join(",") || ",",
+                DesktopHelper.run(["personal", "context", ...(chat.claudeSessionId.length === 0 ? ["--first"] : []),
+                    "--exclude", chat.personalShown.join(",") || ",",
                     turns[turns.length - 1]?.rawContent ?? ""], "", (code, out) => {
                     chat.preparing--;
                     // Without it (an error) the message goes as it is.

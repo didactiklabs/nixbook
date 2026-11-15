@@ -341,6 +341,10 @@ Singleton {
                     // accounts using automation. Immich and Jellyfin, until
                     // they are set up (ai.immich, ai.jellyfin).
                     property list<string> mcpServersOff: ["linkedin", "immich", "jellyfin", "seerr"]
+                    // claude.ai connectors DAI doesn't get (their rules:
+                    // "mcp__claude_ai_Trek"): each connector's tool names
+                    // are sent with every message, used or not.
+                    property list<string> connectorsOff: []
                     // Claude speaks as the computer itself, its hardware,
                     // OS and kernel read live (system_info).
                     property bool asComputer: true

@@ -17,6 +17,7 @@
       "commandLine": false,
       "commandLineFolders": true,
       "connectors": false,
+      "connectorsOff": [],
       "effort": "low",
       "mcpServersOff": ["linkedin", "immich", "jellyfin", "seerr"],
       "model": "sonnet"
