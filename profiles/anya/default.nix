@@ -103,6 +103,7 @@ in
   imports = [
     ./immich.nix
     ./wakeonlan.nix
+    ./dualboot.nix
     (userConfig.mkUser {
       username = "khoa";
       userImports = [ ./khoa ];
