@@ -219,6 +219,7 @@ hive.nix                          Colmena deployment config
 - **User:** khoa
 - **Primary WM:** Sway (SwayFX) - auto-login, no greeter
 - **NixOS Modules:** gamingConfig, sunshine, sway, caCertificates (bealv + didactiklabs), openssh
+- **Dual boot:** Windows on the same EFI partition, started by default (`profiles/anya/dualboot.nix`): the firmware always starts systemd-boot (a boot order set with `efibootmgr -o` is put back at the next boot), so `boot-windows-first` (after each bootloader install and at each NixOS boot) keeps the installer's loader.conf as `/boot/loader/loader-linux.conf` and sets `default auto-windows` in loader.conf — never `bootctl set-default`, whose EFI variable wins over loader.conf. `profiles/anya/linux.bat` (run from Windows) copies loader-linux.conf over loader.conf and restarts: NixOS for one boot. `reboot-linux` restarts from NixOS into NixOS (remote sessions: Windows has no ssh nor Sunshine)
 - **Special Features:** Wake-on-LAN, Steam Big Picture auto-launch, Proton GE, GameMode, AMD GPU tuning, Immich photo sync timers, headless virtual display for Sunshine streaming (greetd starts SwayFX with `WLR_BACKENDS=headless,libinput`; `HEADLESS-1` rests at 2560×1440@60 and the Desktop app switches it to each client's size and frame rate)
 - **Work Environments:** didactiklabs, bealv kubeconfigs
 - **Home Manager Modules:** fontConfig, gitConfig, gtkConfig, sshConfig, starship, swayConfig, nixvimConfig, fastfetchConfig, atuinConfig, kittyConfig, zshConfig, dmsConfig

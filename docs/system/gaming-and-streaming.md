@@ -26,6 +26,10 @@ customNixOSModules.gamingConfig = {
 
 anya, a console-like machine, also auto-logs into SwayFX and starts **Steam Big Picture** with the session; hanamichi is an everyday desktop that just has Steam installed, and so is totoro, a laptop, with `gpu = "none"`: the `"amd"` tuning is for desktops (an 8 GB TTM page pool, IOMMU off). In Niri, games stay opaque and turn variable refresh rate on.
 
+### Windows beside NixOS on anya
+
+anya also has Windows, on the same EFI partition, and starts it by default: its firmware always starts the Linux boot menu, so `profiles/anya/dualboot.nix` makes Windows that menu's default. To get to NixOS, run `profiles/anya/linux.bat` from Windows (copy it there once): it restarts into NixOS for that one boot. From NixOS, a plain reboot goes back to Windows; `reboot-linux` restarts into NixOS again (use it from a remote session: Windows has neither ssh nor Sunshine). A Wake-on-LAN start lands in Windows.
+
 ## Sunshine
 
 `customNixOSModules.sunshine` runs the [Sunshine](https://github.com/LizardByte/Sunshine) game-streaming server (NVIDIA GameStream protocol) for **Moonlight** clients on any device:
