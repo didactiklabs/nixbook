@@ -722,10 +722,48 @@ def edit_status(answer):
     return None
 
 
+ADD_MAX = 200
+
+
+def add_many(pid, vids):
+    """Several songs into one of your playlists in one go: what it already
+    holds is read once and left out (YouTube Music refuses a whole request
+    that holds one duplicate), the rest added together."""
+    vids = list(dict.fromkeys(vids))
+
+    def add(yt):
+        if pid == "LM":
+            for vid in vids:
+                yt.rate_song(vid, "LIKE")
+            return vids, [], []
+        raw = yt.get_playlist(pid, limit=MAX_TRACKS) or {}
+        there = {t.get("videoId") for t in raw.get("tracks") or []}
+        new = [v for v in vids if v not in there]
+        already = [v for v in vids if v in there]
+        if not new:
+            return [], already, []
+        answer = yt.add_playlist_items(pid, new, duplicates=True)
+        return (new, already, []) if edit_status(answer) == "added" else ([], already, new)
+
+    try:
+        added, already, failed = signed_in(add)
+    except Error:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        out({"error": f"YouTube Music didn't add them: {exc}"[:300]}, 1)
+    if failed and not added and not already:
+        out({"error": "YouTube Music didn't add them (is the playlist yours?)"}, 1)
+    out({"ok": True, "playlist": pid, "added": added, "already": already, "failed": failed})
+
+
 def cmd_add(args):
-    """A song into one of your playlists (Liked Music: the song liked)."""
+    """A song into one of your playlists (Liked Music: the song liked);
+    several songs: add_many."""
+    if len(args) > 2 and len(args) <= ADD_MAX + 1 and PLAYLIST_ID.match(args[0]) \
+            and all(VIDEO_ID.match(v) for v in args[1:]):
+        add_many(args[0], args[1:])
     if len(args) != 2 or not PLAYLIST_ID.match(args[0]) or not VIDEO_ID.match(args[1]):
-        out({"error": "usage: nixbook-ytmusic add PLAYLIST VIDEO"}, 1)
+        out({"error": f"usage: nixbook-ytmusic add PLAYLIST VIDEO... (up to {ADD_MAX})"}, 1)
     pid, vid = args
 
     def add(yt):
@@ -789,20 +827,32 @@ def cmd_remove(args):
 
 
 def cmd_create(args):
-    """A new (private) playlist, with a song in it."""
-    vid = args[-1] if args and VIDEO_ID.match(args[-1]) else ""
-    title = " ".join(args[:-1] if vid else args).strip()[:150]
+    """A new (private) playlist, with a song in it; after `--`, several
+    songs (and a title's last word is then never taken for one)."""
+    vids = []
+    if "--" in args:
+        at = args.index("--")
+        args, vids = args[:at], list(dict.fromkeys(args[at + 1:]))
+        if len(vids) > ADD_MAX or not all(VIDEO_ID.match(v) for v in vids):
+            out({"error": f"usage: nixbook-ytmusic create TITLE... -- VIDEO... (up to {ADD_MAX})"}, 1)
+        vid = vids[0] if vids else ""
+    else:
+        vid = args[-1] if args and VIDEO_ID.match(args[-1]) else ""
+        args = args[:-1] if vid else args
+        vids = [vid] if vid else []
+    title = " ".join(args).strip()[:150]
     if not title:
-        out({"error": "usage: nixbook-ytmusic create TITLE... [VIDEO]"}, 1)
+        out({"error": "usage: nixbook-ytmusic create TITLE... [VIDEO | -- VIDEO...]"}, 1)
     try:
-        answer = signed_in(lambda yt: yt.create_playlist(title, "", video_ids=[vid] if vid else None))
+        answer = signed_in(lambda yt: yt.create_playlist(title, "", video_ids=vids or None))
     except Error:
         raise
     except Exception as exc:  # noqa: BLE001
         out({"error": f"YouTube Music didn't make the playlist: {exc}"[:300]}, 1)
     if not isinstance(answer, str) or not PLAYLIST_ID.match(answer):
         out({"error": "YouTube Music didn't make the playlist"}, 1)
-    out({"ok": True, "playlist": answer, "title": title, "videoId": vid or None})
+    out({"ok": True, "playlist": answer, "title": title, "videoId": vid or None,
+         **({"videos": len(vids)} if len(vids) > 1 else {})})
 
 
 SEARCH_LIMIT = 20

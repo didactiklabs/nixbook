@@ -1821,8 +1821,49 @@ ContentPage {
                 wrapMode: Text.WordWrap
                 color: Appearance.colors.colSubtext
                 text: Ai.claudeConnectors.length > 0
-                    ? Translation.tr("Connectors: %1").arg(Ai.claudeConnectors.map(c => c.replace(/^mcp__(claude_ai|plugin)_/, "").replace(/_/g, " ")).join(", "))
+                    ? Translation.tr("Each connector's tool names are sent with every message, used or not (a big one costs thousands of tokens a conversation): turn off the ones DAI doesn't need. They stay connected on claude.ai.")
                     : Translation.tr("No connectors found. Add them on claude.ai (Settings → Connectors).")
+            }
+            // One switch per connector (ai.claudeCode.connectorsOff): rows
+            // of their own, as the apps below.
+            ColumnLayout {
+                visible: Config.options.ai.claudeCode.connectors && Ai.claudeConnectors.length > 0
+                Layout.fillWidth: true
+                spacing: 2
+                Repeater {
+                    id: connectorRows
+                    model: Ai.claudeConnectors.slice().sort()
+                    delegate: Rectangle {
+                        id: connectorRow
+                        required property string modelData
+                        required property int index
+                        readonly property real outer: Appearance.rounding.normal
+                        readonly property real inner: Appearance.rounding.unsharpenmore
+                        Layout.fillWidth: true
+                        implicitHeight: connectorSwitch.implicitHeight + 24
+                        color: Appearance.colors.colLayer1
+                        topLeftRadius: connectorRow.index === 0 ? connectorRow.outer : connectorRow.inner
+                        topRightRadius: connectorRow.index === 0 ? connectorRow.outer : connectorRow.inner
+                        bottomLeftRadius: connectorRow.index === connectorRows.count - 1 ? connectorRow.outer : connectorRow.inner
+                        bottomRightRadius: connectorRow.index === connectorRows.count - 1 ? connectorRow.outer : connectorRow.inner
+
+                        ConfigSwitch {
+                            id: connectorSwitch
+                            anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 8 }
+                            configKey: "ai.claudeCode.connectorsOff"
+                            enabled: !nixManaged
+                            buttonIcon: "hub"
+                            text: Ai.connectorLabel(connectorRow.modelData)
+                            checked: !(Config.options.ai.claudeCode.connectorsOff ?? []).includes(connectorRow.modelData)
+                            onCheckedChanged: {
+                                const off = Config.options.ai.claudeCode.connectorsOff ?? []
+                                if (checked === !off.includes(connectorRow.modelData)) return
+                                Config.options.ai.claudeCode.connectorsOff = checked
+                                    ? off.filter(n => n !== connectorRow.modelData) : [...off, connectorRow.modelData]
+                            }
+                        }
+                    }
+                }
             }
             SmallButton {
                 visible: Config.options.ai.claudeCode.connectors

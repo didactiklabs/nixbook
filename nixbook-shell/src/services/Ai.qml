@@ -478,6 +478,7 @@ Singleton {
                     if (Array.isArray(tools) && tools.length > 0) {
                         root.desktopTools = tools;
                         getDesktopTools.got = true;
+                        getDesktopRules.running = true;
                     }
                 } catch (e) {
                     console.log("[Ai] Desktop tools unavailable:", e);
@@ -488,6 +489,20 @@ Singleton {
         // again later instead of Claude going without its desktop until the
         // shell restarts.
         onExited: if (!got && desktopToolsRetry.tries < 6) desktopToolsRetry.restart()
+    }
+    // How the personal memory is kept (`nixbook-desktop-mcp memory rules`),
+    // for Claude's system prompt: Claude Code cuts an MCP server's
+    // instructions at 4096 characters, and these rules, after the desktop
+    // ones, never reached it. They don't change while the shell runs, so the
+    // command line (and the prompt cache) stays the same. What the memory
+    // holds goes with each conversation's first message (AiChatSession.qml).
+    property string desktopRules: ""
+    Process {
+        id: getDesktopRules
+        command: [root.desktopMcpCommand, "memory", "rules"]
+        stdout: StdioCollector {
+            onStreamFinished: root.desktopRules = text.trim()
+        }
     }
     Timer {
         id: desktopToolsRetry
@@ -558,6 +573,15 @@ Singleton {
     // other characters one underscore).
     function connectorRule(name) {
         return "mcp__" + name.replace(/[^A-Za-z0-9_-]+/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+    }
+    // Connectors turned off for DAI (Settings > Assistant;
+    // ai.claudeCode.connectorsOff holds their rules, mcp__claude_ai_Trek):
+    // still connected on claude.ai, but DAI doesn't get their tools.
+    function connectorOff(rule) {
+        return (Config.options?.ai?.claudeCode?.connectorsOff ?? []).includes(rule);
+    }
+    function connectorLabel(rule) {
+        return rule.replace(/^mcp__(claude_ai|plugin)_/, "").replace(/_/g, " ");
     }
     readonly property bool claudeConnectorsSetting: Config.options?.ai?.claudeCode?.connectors ?? false
     onClaudeConnectorsSettingChanged: if (claudeConnectorsSetting && claudeCodePath.length > 0) listClaudeConnectors.running = true
@@ -819,6 +843,7 @@ Singleton {
             .filter(t => ![...fileTools, "Write", "Edit"].some(f => t === f || t.startsWith(`${f}(`)));
         const desktop = root.currentTool !== "none" && root.desktopTools.length > 0;
         const connectors = root.claudeConnectorsSetting;
+        const connectorsOff = connectors ? root.claudeConnectors.filter(c => root.connectorOff(c)) : [];
         // Those turned off in Settings (ai.claudeCode.mcpServersOff) left out.
         const off = Config.options.ai.claudeCode.mcpServersOff ?? [];
         // A loop: Qt's JavaScript engine has no Object.fromEntries.
@@ -846,7 +871,7 @@ Singleton {
             ...Object.keys(extraServers).map(name => `mcp__${name}`), ...configured,
             ...(attached.length > 0 ? [`Read(/${attached})`] : []), ...shellTools,
             ...writable.map(f => `Edit(/${f}/**)`),
-            ...(connectors ? root.claudeConnectors : [])];
+            ...(connectors ? root.claudeConnectors.filter(c => !connectorsOff.includes(c)) : [])];
         // The privacy mask: the user's messages and every tool's reply reach
         // Claude with placeholders (AiChatSession.qml, the hook below), its
         // tool calls and answers get the real values back here.
@@ -857,6 +882,7 @@ Singleton {
             + (Config.options.ai.claudeCode.asComputer ? root.asComputerPrompt(desktop) : "")
             + (desktop ? " For anything about this machine beyond its summary above (how-tos, key bindings, Neovim keymaps, packages, modules), call machine_help; for a desktop tool's full guide, the tool with help: true (or tool_help)."
                 : " (machine_help isn't available now: the desktop tools are off; answer from the summary above and your own knowledge.)")
+            + (desktop && root.desktopRules.length > 0 ? " " + root.desktopRules : "")
             + (desktop ? " You can see and drive the user's desktop with the desktop tools."
                 // The user's rule: headless first, input last.
                 + " Do what you're asked the most direct way that needs no mouse or keyboard: a tool made for it (an MCP server's, the desktop tools that act without input: page_*, discord, slack, youtube_music, budget and budget_edit, ui_act, the window and shell tools"
@@ -912,7 +938,7 @@ Singleton {
             ...(connectors ? [] : ["--strict-mcp-config"]), "--append-system-prompt", privacy ? maskedSystem : system,
             "--setting-sources", "project", ...(confined || root.agentHooks
                 ? ["--settings", JSON.stringify(Object.assign({}, confined ? sandbox : {}, root.agentHooks ?? {}))] : []),
-            "--disallowedTools", ...(shellTools.length > 0 ? [] : ["Bash"]), "NotebookEdit", ...["Edit", "Write"].filter(t => !writeTools.includes(t)),
+            "--disallowedTools", ...(shellTools.length > 0 ? [] : ["Bash"]), "NotebookEdit", ...connectorsOff, ...["Edit", "Write"].filter(t => !writeTools.includes(t)),
             // Write and Edit (outside the sandbox): never what runs on its own later.
             ...[].concat(...writable.map(w => [`Edit(/${w}/**/.git/**)`, `Edit(/${w}/.git/**)`, `Edit(/${w}/**/.envrc)`,
                 `Edit(/${w}/.envrc)`, `Edit(/${w}/**/.claude/**)`, `Edit(/${w}/.claude/**)`])),
@@ -931,10 +957,15 @@ Singleton {
         // Only the allowed built-in tools are loaded at all: Claude Code's
         // full set would double the context of every message. ToolSearch
         // always: the MCP tools stay deferred behind it, but the desktop
-        // server's core ones (`anthropic/alwaysLoad`: windows, input, the
-        // screen, notifications, memory, pages, themes, machine_help), loaded
-        // up front with no search first. All loaded, the servers' tools were
-        // ~90k tokens a message (~130k with the connectors).
+        // server's core ones (`anthropic/alwaysLoad`: what DAI really calls
+        // — windows, the screen, notifications, memory, pages, the
+        // background music player, machine_help), loaded up front with no
+        // search first. All loaded, the servers' tools were ~90k tokens a
+        // message (~130k with the connectors). Deferred ones still cost
+        // their names in every message (~25 tokens a tool): a connector the
+        // user turned off for DAI (ai.claudeCode.connectorsOff) is denied
+        // whole, which takes its tools out of the context (measured: Trek,
+        // Hunter and LetsFG, 508 tools, 12.5k tokens a conversation).
         const servers = Object.keys(extraServers).length > 0 || desktop || connectors;
         const builtins = [...configured, ...readTools, ...writeTools, ...shellTools, ...(servers ? ["ToolSearch"] : [])];
         args.push("--tools", ...(builtins.length > 0 ? builtins : [""]));

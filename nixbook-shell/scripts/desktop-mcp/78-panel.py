@@ -38,16 +38,86 @@ YT_VIDEO = r"[A-Za-z0-9_-]{11}"
 YT_PLAYLIST = r"[A-Za-z0-9_-]{2,64}"
 
 
+YTMP_BATCH = 25   # searches in one call
+YTMP_ADD = 200    # songs in one add or create
+# The songs this server gave (search and playlist answers), by videoId: an
+# agent passes ids back, the player still gets titles and pictures.
+YTMP_SEEN = {}
+
+
+def ytmp_slim(tracks, limit=None):
+    """Songs as an agent needs them: the id, what it is and how long; no
+    picture links, no empty fields (a search answer was ~14 KB, a third of
+    it pictures; the full songs stay in YTMP_SEEN for `play`)."""
+    out = []
+    for t in (tracks or [])[:limit]:
+        if not isinstance(t, dict) or not t.get("videoId"):
+            continue
+        YTMP_SEEN[t["videoId"]] = t
+        if len(YTMP_SEEN) > 5000:
+            YTMP_SEEN.pop(next(iter(YTMP_SEEN)))
+        out.append({k: t[k] for k in ("videoId", "title", "artist", "album", "duration") if t.get(k)})
+    return out
+
+
 def ytmp_tracks(tracks):
-    """Songs as the player takes them (from search or playlist answers)."""
+    """Songs as the player takes them: videoIds, or songs from a search or
+    playlist answer; what the agent left out comes from YTMP_SEEN."""
     if not isinstance(tracks, list) or not 1 <= len(tracks) <= 1000:
-        raise ToolError("`tracks`: 1 to 1000 songs from a search or playlist answer ({videoId, title, artist…})")
+        raise ToolError("`tracks`: 1 to 1000 songs: their videoIds, or songs from a search or playlist answer")
     out = []
     for t in tracks:
+        if isinstance(t, str):
+            t = {"videoId": t}
         if not isinstance(t, dict) or not re.fullmatch(YT_VIDEO, str(t.get("videoId") or "")):
-            raise ToolError("`tracks`: each a song with its videoId")
+            raise ToolError("`tracks`: each a videoId, or a song with its videoId")
+        t = {**YTMP_SEEN.get(t["videoId"], {}), **t}
         out.append({k: t[k] for k in ("videoId", "title", "artist", "album", "duration", "art") if k in t})
     return out
+
+
+def ytmp_videos(args, required=True):
+    """`videos` (a list) or `video` (one): the songs' ids, each once."""
+    vids = args.get("videos")
+    if vids is None:
+        vids = [args["video"]] if args.get("video") else []
+    if not isinstance(vids, list) or len(vids) > YTMP_ADD or (required and not vids) \
+            or not all(isinstance(v, str) and re.fullmatch(YT_VIDEO, v) for v in vids):
+        raise ToolError(f"invalid value: `videos` (or `video`): {'1' if required else '0'} to {YTMP_ADD} videoIds")
+    return list(dict.fromkeys(vids))
+
+
+def ytmp_count(args, default):
+    n = args.get("count", default)
+    if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= 20:
+        raise ToolError("`count`: 1 to 20 songs per search")
+    return n
+
+
+def ytmp_search(args):
+    queries = args.get("queries")
+    if queries is None:
+        words = as_str(args, "query", max_len=200).split()
+        found = ytmusic_call("search", *words)
+        n = ytmp_count(args, 5)
+        return {"query": found.get("query", " ".join(words)), "songs": ytmp_slim(found.get("songs"), n),
+                "videos": ytmp_slim(found.get("videos"), min(n, 3))}
+    if not isinstance(queries, list) or not 1 <= len(queries) <= YTMP_BATCH \
+            or not all(isinstance(q, str) and q.strip() and len(q) <= 200 for q in queries):
+        raise ToolError(f"`queries`: 1 to {YTMP_BATCH} searches, each its words")
+    n = ytmp_count(args, 2)
+
+    def one(q):
+        try:
+            found = ytmusic_call("search", *q.split())
+        except ToolError as e:
+            return {"query": q, "error": str(e)[:120]}
+        # Songs; a video only for what isn't released as a song.
+        return {"query": q, "songs": ytmp_slim(found.get("songs"), n) or ytmp_slim(found.get("videos"), 1)}
+
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(4) as pool:
+        return {"results": list(pool.map(one, queries))}
 
 
 @tool(
@@ -56,21 +126,27 @@ def ytmp_tracks(tracks):
     "YouTube Music in the background: the right panel's YouTube Music tab, the user's YouTube Music "
     "played by mpv without a window (the MPRIS player \"YouTube Music (background)\"), signed in "
     "with their browser's session. Not the YouTube Music app (`youtube_music` reads that one's library). "
-    "status: signed in, the song playing, position, volume, shuffle/repeat. search {query}: songs then "
-    "videos, each with its videoId. playlists: the user's (Liked Music `LM` first; `own`: songs can be "
-    "added to it). playlist {playlist}: its songs. play {playlist, index?, shuffle?} a playlist from a "
-    "song | {video} one song | {tracks, index?} songs from a search (the rest of the list after). "
-    "control {what: play|pause|toggle|next|previous|stop|seek|shuffle|repeat|volume, value}: seek "
-    "seconds, shuffle on|off|toggle, repeat none|playlist|track|cycle, volume 0-100 (this player's own, "
-    "not the system's). add {playlist, video}: a song into one of the user's playlists (`LM` likes it; "
-    "never twice: status already). create {title, video?}: a new private playlist. offline {op: "
+    "Few calls: every action that takes several songs takes them in one. "
+    "status: signed in, the song playing, position, volume, shuffle/repeat. search {query, count?}: the "
+    "best songs (5) then videos, each {videoId, title, artist, album, duration}; search {queries: [..25], "
+    "count?}: several searches at once, the best songs (2) of each: a list of songs to find is one call. "
+    "playlists: the user's (Liked Music `LM` first; `own`: songs can be added to it). playlist {playlist}: "
+    "its songs. play {playlist, index?, shuffle?} a playlist from a song | {video} one song | {tracks: "
+    "[videoIds], index?} those songs in that order. control {what: play|pause|toggle|next|previous|stop|"
+    "seek|shuffle|repeat|volume, value}: seek seconds, shuffle on|off|toggle, repeat none|playlist|track|"
+    "cycle, volume 0-100 (this player's own, not the system's). add {playlist, videos: [ids]} (or video: "
+    "one): songs into one of the user's playlists, all in one call ({added, already, failed}; `LM` likes "
+    "them; never twice). create {title, videos?}: a new private playlist with those songs. offline {op: "
     "status|keep|unkeep, playlist}: songs kept on this computer for listening without network.",
     obj({
         "action": {"type": "string", "enum": list(YTMP_ACTIONS)},
         "query": {"type": "string", "description": "search: the words"},
+        "queries": {"type": "array", "items": {"type": "string"}, "description": "search: several searches in one call (up to 25)"},
+        "count": {"type": "integer", "description": "search: songs per search (1-20; 5, or 2 with queries)"},
         "playlist": {"type": "string", "description": "playlist, play, add, offline: a playlist id (LM: Liked Music)"},
         "video": {"type": "string", "description": "play, add, create: a song's videoId"},
-        "tracks": {"type": "array", "items": {"type": "object"}, "description": "play: songs from a search answer"},
+        "videos": {"type": "array", "items": {"type": "string"}, "description": "add, create: several songs' videoIds, in one call (up to 200)"},
+        "tracks": {"type": "array", "items": {"type": ["string", "object"]}, "description": "play: the songs' videoIds, in order"},
         "index": {"type": "integer", "description": "play: which song to start from (0 = the first)"},
         "shuffle": {"type": "boolean", "description": "play: shuffled"},
         "what": {"type": "string", "enum": list(YTMP_CONTROLS), "description": "control: what to do"},
@@ -78,9 +154,15 @@ def ytmp_tracks(tracks):
         "title": {"type": "string", "description": "create: the playlist's name"},
         "op": {"type": "string", "enum": ["status", "keep", "unkeep"], "description": "offline: what to do"},
     }, ["action"]),
-    props={"action": "status|search|playlists|playlist|play|control|add|create|offline"},
-    brief="YouTube Music in the background (the right panel's tab, no window): search, the user's playlists, "
-          "play, controls and its own volume, add a song to a playlist, offline songs.",
+    props={"action": "status|search|playlists|playlist|play|control|add|create|offline",
+           "query": None, "playlist": "a playlist id (LM: Liked Music)", "video": "one videoId",
+           "queries": "search: up to 25 searches in one call", "count": None,
+           "videos": "add, create: up to 200 videoIds in one call", "tracks": "play: videoIds, in order",
+           "index": None, "shuffle": None, "what": None, "value": None, "title": None, "op": None},
+    brief="YouTube Music in the background (the right panel's tab, no window). search {query} or {queries: "
+          "[…]} (many at once) → songs with videoId; playlists; playlist {playlist}; play {playlist | video | "
+          "tracks: [ids]}; control {what, value} (pause, next, seek, volume…); add {playlist, videos: [ids]} "
+          "and create {title, videos} take every song in ONE call; offline {op, playlist}.",
 )
 def t_youtube_music_player(ctx, args):
     action = as_str(args, "action", max_len=16)
@@ -89,8 +171,7 @@ def t_youtube_music_player(ctx, args):
     if action == "status":
         return [text(ytmusic_call("status"))]
     if action == "search":
-        words = as_str(args, "query", max_len=200).split()
-        return [text(ytmusic_call("search", *words))]
+        return [text(ytmp_search(args))]
     if action == "playlists":
         out = ytmusic_call("playlists")
         # Their pictures are the panel's (cached files): not the agent's business.
@@ -99,8 +180,8 @@ def t_youtube_music_player(ctx, args):
         return [text(out)]
     if action == "playlist":
         out = ytmusic_call("playlist", as_str(args, "playlist", max_len=64, pattern=YT_PLAYLIST))
-        for t in out.get("tracks") or []:
-            t.pop("thumb", None)
+        if isinstance(out.get("tracks"), list):
+            out["tracks"] = ytmp_slim(out["tracks"])
         return [text(out)]
     ctx.guard.check_rate()
     if action == "play":
@@ -132,12 +213,13 @@ def t_youtube_music_player(ctx, args):
             argv.append(str(value))
         return [text(ytmusic_call(*argv))]
     if action == "add":
-        return [text(ytmusic_call("add", as_str(args, "playlist", max_len=64, pattern=YT_PLAYLIST),
-                                  as_str(args, "video", pattern=YT_VIDEO)))]
+        pid = as_str(args, "playlist", max_len=64, pattern=YT_PLAYLIST)
+        return [text(ytmusic_call("add", pid, *ytmp_videos(args), timeout=180))]
     if action == "create":
         title = as_str(args, "title", max_len=150).split()
-        video = [as_str(args, "video", pattern=YT_VIDEO)] if args.get("video") else []
-        return [text(ytmusic_call("create", *title, *video))]
+        vids = ytmp_videos(args, required=False)
+        # One song the way the tab asks; several after `--`.
+        return [text(ytmusic_call("create", *title, *(vids if len(vids) == 1 else ["--", *vids]), timeout=180))]
     op = args.get("op") or "status"
     if op == "status":
         return [text(ytmusic_call("offline", "status"))]

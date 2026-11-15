@@ -555,7 +555,7 @@ So the next task is faster, agents keep **notes** about your desktop — an app'
 
 Agents also learn the **controls** they use: a button, tab or menu item they pressed in an app is remembered with its place in the window, so next time `ui_act` reaches it by name in one call, without reading the window first. A control that moved is searched for again. Only short control names are learned, never list items, links or texts, whose names are content, and only from what agents do, never from your own clicks.
 
-Only the relevant part reaches a model: when an agent connects it gets a short digest (aliases, most-used apps, the notes about the task in full, the other notes by topic only); notes about an app also arrive with the action that opens it. With 40 notes, the digest is about 165 tokens. Notes are labelled as hints written by agents, never your instructions.
+Only the relevant part reaches a model: a short digest (aliases, the notes about the task in full, the other notes by topic, then — in what room is left — the most-used apps and your habits); notes about an app also arrive with the action that opens it. DAI gets the digest with a conversation's first message, other agents when they connect. (Claude Code cuts what an MCP server says when it connects at 4,096 characters: sent there, the digest never reached DAI, so the server's own instructions are kept under that length.) With 40 notes, the digest is about 165 tokens. Notes are labelled as hints written by agents, never your instructions.
 
 It learns the way a person does, mostly in plain code, without spending a token:
 
