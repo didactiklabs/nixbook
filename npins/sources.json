@@ -558,9 +558,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "46c4140b55328bc3ee32f22c42185bc534998a1d",
-      "url": "https://github.com/0xc000022070/zen-browser-flake/archive/46c4140b55328bc3ee32f22c42185bc534998a1d.tar.gz",
-      "hash": "sha256-YufvHb7O/52Cp+B9a3HRVO0HluXSEQ75+WMIcU6YPyE="
+      "revision": "ad99018e37999e659ae43f9c6ac126161ca147bc",
+      "url": "https://github.com/0xc000022070/zen-browser-flake/archive/ad99018e37999e659ae43f9c6ac126161ca147bc.tar.gz",
+      "hash": "sha256-uoTlmcxa6ewsctJ6/NPgMADN7317QohlUMGBjtQjQmY="
     }
   },
   "version": 8
