@@ -1,8 +1,11 @@
 { pkgs, ... }:
 let
   immichServer = "photos.didactiklabs.io";
-  cyberPicturePath = "$HOME/.steam/steam/steamapps/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk 2077";
-  tw3PicturePath = "$HOME/.steam/steam/steamapps/compatdata/292030/pfx/drive_c/users/steamuser/Documents/The Witcher 3/screenshots";
+  # Both games are installed in the second Steam library (/data/Steam), so
+  # their Proton prefixes, and the screenshots, are there.
+  steamLibrary = "/data/Steam/steamapps";
+  cyberPicturePath = "${steamLibrary}/compatdata/1091500/pfx/drive_c/users/steamuser/Pictures/Cyberpunk 2077";
+  tw3PicturePath = "${steamLibrary}/compatdata/292030/pfx/drive_c/users/steamuser/Documents/The Witcher 3/screenshots";
   # Upload a screenshot folder to the Gaming album, then empty it. A script
   # rather than an inline `bash -c '…'`: the old one-liner quoted the glob
   # (`rm -fr "…/*"`), so the folder was never emptied.
