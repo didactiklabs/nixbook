@@ -1,6 +1,6 @@
 { pkgs, ... }:
 let
-  immichServer = "photos.didactiklabs.io";
+  immichServer = "immich.bealv.io";
   # Both games are installed in the second Steam library (/data/Steam), so
   # their Proton prefixes, and the screenshots, are there.
   steamLibrary = "/data/Steam/steamapps";
