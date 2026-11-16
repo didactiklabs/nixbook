@@ -154,7 +154,12 @@ Scope { // Scope
             property bool keepMapped: false
             // Pinned, it is on the Overlay layer, which niri draws over a fullscreen
             // window (a film, a game): gone while one is on its screen, back after.
-            readonly property bool underFullscreen: root.pin && WM.fullscreenOnMonitor(panelWindow.screen?.name ?? "")
+            // Its screen is read from the last one it was given: hiding it
+            // changes what `screen` reports, which re-evaluated this binding
+            // from inside `visible` (a binding loop; see SidebarRight).
+            property string screenName: ""
+            onScreenChanged: if (panelWindow.screen) panelWindow.screenName = panelWindow.screen.name
+            readonly property bool underFullscreen: root.pin && WM.fullscreenOnMonitor(panelWindow.screenName)
             visible: (reallyVisible || keepMapped) && !remapping && !underFullscreen
 
             // Pinned, the sidebar reserves its strip (exclusiveZone), and niri
