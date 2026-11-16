@@ -134,6 +134,12 @@ APP = "nixbook-ytmusic"
 SECRET_TOOL = os.environ.get("NIXBOOK_YTMUSIC_SECRET_TOOL", "secret-tool")
 MPV = os.environ.get("NIXBOOK_YTMUSIC_MPV", "mpv")
 YT_DLP = os.environ.get("NIXBOOK_YTMUSIC_YT_DLP", "yt-dlp")
+# YouTube signs a stream's link for the address that asked for it. yt-dlp
+# (Python) connects in the system's address order, which puts IPv4 before a
+# private (ULA, NAT66) IPv6 address; mpv's libcurl stream prefers IPv6 all
+# the same, and YouTube answered its requests 403: mpv quit at once. ffmpeg's
+# HTTP follows the system's order, as yt-dlp does.
+MPV_NETWORK = ["--curl-enabled=no"]
 BUS_NAME = "org.mpris.MediaPlayer2.nixbook_ytmusic"
 IDENTITY = "YouTube Music (background)"
 DESKTOP_ENTRY = "com.github.th-ch.youtube-music"
@@ -1815,7 +1821,8 @@ def cmd_watch(args):
     # yt-dlp gives no codec for (YouTube's HLS audio, 233/234): picked in the
     # audio menu, they played silence.
     argv = [mpv, f"--script-opts-append=ytdl_hook-ytdl_path={YT_DLP}",
-            "--script-opts-append=ytdl_hook-force_all_formats=no", "--force-window=immediate"]
+            "--script-opts-append=ytdl_hook-force_all_formats=no", *MPV_NETWORK,
+            "--force-window=immediate"]
     # The window takes the whole width, as Mod+Z would make it (beside a
     # pinned side panel, gaps kept): under niri a child of this process, which
     # mpv replaces, maximizes its column when it opens (video_window);
@@ -1995,6 +2002,7 @@ class Mpv:
             pass
         argv = [MPV, "--idle=yes", "--no-video", "--force-window=no", "--no-terminal", "--no-config",
                 "--input-ipc-server=" + self.path, "--ytdl-format=bestaudio/best", "--cache=yes",
+                *MPV_NETWORK,
                 f"--script-opts=ytdl_hook-ytdl_path={YT_DLP}", "--audio-display=no", "--keep-open=no",
                 # No window, so no on-screen controller: its script ran on every
                 # pass of the player all the same (a quarter of mpv's CPU here).
