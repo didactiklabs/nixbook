@@ -17,8 +17,10 @@ trap 'rm -rf "$tmp"' EXIT
 # A fake opener: takes "take" links, says "off" for "off" links, logs them.
 cat >"$tmp/open" <<'SH'
 #!/usr/bin/env bash
-echo "$1" >>"$(dirname "$0")/asked"
-case "$1" in *take*) exit 0 ;; *off*) exit 3 ;; *) exit 1 ;; esac
+echo "$*" >>"$(dirname "$0")/asked"
+url="${!#}"
+case "$1" in --played) case "$url" in *played*) exit 0 ;; *) exit 1 ;; esac ;; esac
+case "$url" in *take*) exit 0 ;; *off*) exit 3 ;; *) exit 1 ;; esac
 SH
 chmod +x "$tmp/open"
 
@@ -55,7 +57,7 @@ with open(choice + ".tmp", "w") as f:
     f.write('{"enable":true,"videos":false,"music":true}\n')
 os.rename(choice + ".tmp", choice)
 NOJF = {"enable": False, "url": "", "host": ""}
-expect("the shell's choice, when written", {"choice": {"enable": True, "videos": False, "music": True, "jellyfin": NOJF}}, read())
+expect("the shell's choice, when written", {"choice": {"enable": True, "videos": False, "onPlay": True, "music": True, "jellyfin": NOJF}}, read())
 answers = {}
 for i, url in enumerate(["https://www.youtube.com/watch?v=take0000000", "https://music.youtube.com/watch?v=no000000000",
                          "https://youtu.be/off00000000", "https://example.com/take",
@@ -69,6 +71,13 @@ expect("refused", (False, False), answers[2])
 expect("off", (False, True), answers[3])
 expect("not YouTube", (False, False), answers[4])
 expect("user@host", (False, False), answers[5])
+# Play pressed on a video's page: the opener is told (--played).
+post({"id": 6, "url": "https://www.youtube.com/watch?v=played00000", "played": True})
+m = read()
+expect("played, taken", (True, False), (m["ok"], m["off"]))
+post({"id": 7, "url": "https://www.youtube.com/watch?v=played00000"})
+m = read()
+expect("same link not played: no --played", (False, False), (m["ok"], m["off"]))
 # Jellyfin's links: only on the server the shell names, while it wants them.
 post({"id": 10, "url": "https://jellyfin.example.org/web/#/details?id=take"})
 m = read()
@@ -92,7 +101,7 @@ expect("ends with Zen's port", 0, p.wait(timeout=5))
 sys.exit(1 if failures else 0)
 PY
 asked=$(wc -l <"$tmp/asked" | tr -d ' ')
-if [ "$asked" = 4 ]; then echo "ok   - host: only YouTube links and the named Jellyfin server's reach the opener"; else
-  echo "FAIL - host: $asked links reached the opener, not 4" >&2
+if [ "$asked" = 6 ]; then echo "ok   - host: only YouTube links and the named Jellyfin server's reach the opener"; else
+  echo "FAIL - host: $asked links reached the opener, not 6" >&2
   exit 1
 fi

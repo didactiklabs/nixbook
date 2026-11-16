@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "nixbook-shell YouTube and Jellyfin links",
-  "version": "1.1",
-  "description": "Opens YouTube videos in mpv and YouTube Music songs and playlists in nixbook-shell's background player, with the right panel's tabs, instead of a tab, and links to your Jellyfin server's films and episodes in mpv, when the shell's settings say so.",
+  "version": "1.2",
+  "description": "Opens YouTube videos in mpv (by default once play is pressed on their page) and YouTube Music songs and playlists in nixbook-shell's background player, with the right panel's tabs, instead of a tab, and links to your Jellyfin server's films and episodes in mpv, when the shell's settings say so.",
   "browser_specific_settings": {
     "gecko": {
       "id": "youtube-links@nixbook-shell",

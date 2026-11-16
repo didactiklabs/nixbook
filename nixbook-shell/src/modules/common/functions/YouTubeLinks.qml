@@ -11,8 +11,9 @@ Singleton {
     function linkTarget(url) {
         return Links.linkTarget(url)
     }
-    function wanted(target, choice) {
-        return Links.wanted(target, choice)
+    // `played`: play was pressed on the video's page (media.youtubeLinks.onPlay).
+    function wanted(target, choice, played) {
+        return Links.wanted(target, choice, played === true)
     }
     // A film, an episode or a series of the Jellyfin server `server`, or null.
     function jellyfinTarget(url, server) {

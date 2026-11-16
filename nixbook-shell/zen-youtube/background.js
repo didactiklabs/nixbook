@@ -1,7 +1,10 @@
 // nixbook-shell's YouTube links: a page load of a YouTube video, or of a
 // YouTube Music song or playlist (linkTarget, links.js: the shell's own
 // youtube_links.js), is handed to the shell and stopped here: the video
-// plays in mpv, the song in the shell's background player.
+// plays in mpv, the song in the shell's background player. With the
+// setting media.youtubeLinks.onPlay (on by default) a video's page loads as
+// usual and content.js hands the video over when play is pressed on it
+// ({url, played: true}).
 //
 // Only while the shell wants them: its setting media.youtubeLinks (off by
 // default; the menu or Nix), which the native host (nixbook_youtube_links,
@@ -125,16 +128,24 @@ function reconnectLater() {
   backoff = Math.min(backoff * 2, 5 * 60 * 1000);
 }
 
-function refusedLately(url) {
-  const at = refused.get(url);
+function refusedKey(url, played) {
+  return played ? `played ${url}` : url;
+}
+
+function refusedLately(url, played) {
+  const at = refused.get(refusedKey(url, played));
   return at !== undefined && Date.now() - at < RETRY_MS;
 }
 
-function takes(url) {
-  return !!port && wanted(target(url, choice), choice) && !refusedLately(url);
+function takes(url, played) {
+  return (
+    !!port &&
+    wanted(target(url, choice), choice, played === true) &&
+    !refusedLately(url, played)
+  );
 }
 
-function hand(url) {
+function hand(url, played) {
   const id = nextId++;
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
@@ -146,7 +157,7 @@ function hand(url) {
       resolve(msg);
     });
     try {
-      port.postMessage({ id, url });
+      port.postMessage({ id, url, played: played === true });
     } catch (e) {
       pending.delete(id);
       clearTimeout(timer);
@@ -158,7 +169,7 @@ function hand(url) {
       const now = Date.now();
       for (const [u, at] of refused)
         if (now - at >= RETRY_MS) refused.delete(u);
-      refused.set(url, now);
+      refused.set(refusedKey(url, played), now);
     }
     return ok;
   });
@@ -198,17 +209,19 @@ browser.webRequest.onBeforeRequest.addListener(
   ["blocking"],
 );
 
-// A click on a video inside YouTube's pages (content.js): {ok}.
+// A click on a video inside YouTube's pages, or play pressed on a video's
+// page (content.js, `played`): {ok}.
 browser.runtime.onMessage.addListener((msg, sender) => {
+  const played = !!msg && msg.played === true;
   if (
     sender.id !== browser.runtime.id ||
     (sender.tab && sender.tab.incognito) ||
     !msg ||
     typeof msg.url !== "string" ||
-    !takes(msg.url)
+    !takes(msg.url, played)
   )
     return Promise.resolve({ ok: false });
-  return hand(msg.url).then((ok) => ({ ok }));
+  return hand(msg.url, played).then((ok) => ({ ok }));
 });
 
 // Another extension sending links to apps (nixbook's "open in apps"): is

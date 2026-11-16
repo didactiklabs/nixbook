@@ -1228,6 +1228,9 @@ Singleton {
                 property JsonObject youtubeLinks: JsonObject {
                     property bool enable: false
                     property bool videos: true
+                    // A video link opens its page in the browser; pressing
+                    // play there plays it in mpv (false: straight to mpv).
+                    property bool onPlay: true
                     property bool music: true
                     property bool openPanel: true
                 }

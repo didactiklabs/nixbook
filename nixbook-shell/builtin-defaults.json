@@ -697,6 +697,7 @@
     "youtubeLinks": {
       "enable": false,
       "music": true,
+      "onPlay": true,
       "openPanel": true,
       "videos": true
     }

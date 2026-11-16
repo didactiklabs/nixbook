@@ -4,7 +4,8 @@
 // media.youtubeLinks, off by default, from the menu or Nix; the Zen
 // extension in zen-youtube/ and nixbook's http(s) link router bring the
 // links): what a link is, and whether the settings take it.
-// A video goes to mpv (the right panel's YouTube tab shows it), a YouTube
+// A video goes to mpv (the right panel's YouTube tab shows it; by default
+// only once play is pressed on its page in the browser: `wanted`), a YouTube
 // Music song or playlist to the background player (its YouTube Music tab).
 // Anything else (the home page, a channel, a search) is null: it opens in
 // the browser as usual.
@@ -126,10 +127,16 @@ function target(url, choice) {
 
 // Whether the settings take this link (`choice`: media.youtubeLinks and
 // media.jellyfinLinks as the shell writes them for Zen and the router,
-// {enable, videos, music, jellyfin: {enable, url, host}}).
-function wanted(target, choice) {
+// {enable, videos, onPlay, music, jellyfin: {enable, url, host}}).
+// With onPlay (media.youtubeLinks.onPlay, on by default) a video link opens
+// its page in the browser as usual (the description, the comments), and only
+// pressing play on that page's player hands the video to mpv: `played` says
+// that is what happened (the Zen extension's content.js).
+function wanted(target, choice, played) {
     if (!target || !choice) return false
     if (target.kind === "jellyfin") return !!choice.jellyfin && choice.jellyfin.enable === true
     if (choice.enable !== true) return false
-    return target.kind === "video" ? choice.videos !== false : choice.music !== false
+    if (target.kind !== "video") return choice.music !== false
+    if (choice.videos === false) return false
+    return choice.onPlay === false || played === true
 }

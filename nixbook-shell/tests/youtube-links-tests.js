@@ -146,8 +146,28 @@ for (const url of [
 const v = m.linkTarget(`https://youtu.be/${ID}`);
 const s = m.linkTarget(`https://music.youtube.com/watch?v=${ID}`);
 const pl = m.linkTarget("https://music.youtube.com/playlist?list=PLabc");
-const on = { enable: true, videos: true, music: true };
+const on = { enable: true, videos: true, onPlay: false, music: true };
 check("wanted: on, video", m.wanted(v, on), true);
+// onPlay (the default): the page opens in the browser, play hands it over.
+const onPlay = { enable: true, videos: true, onPlay: true, music: true };
+check("wanted: onPlay, video link", m.wanted(v, onPlay), false);
+check("wanted: onPlay, video played", m.wanted(v, onPlay, true), true);
+check(
+  "wanted: onPlay unset is on",
+  m.wanted(v, { enable: true, videos: true, music: true }),
+  false,
+);
+check("wanted: onPlay, song", m.wanted(s, onPlay), true);
+check(
+  "wanted: onPlay, videos off, played",
+  m.wanted(v, { enable: true, videos: false, onPlay: true, music: true }, true),
+  false,
+);
+check(
+  "wanted: onPlay, off, played",
+  m.wanted(v, { enable: false, videos: true, onPlay: true, music: true }, true),
+  false,
+);
 check("wanted: on, song", m.wanted(s, on), true);
 check("wanted: on, playlist", m.wanted(pl, on), true);
 check(
@@ -158,7 +178,7 @@ check(
 check("wanted: no choice (no shell)", m.wanted(v, null), false);
 check(
   "wanted: videos off",
-  m.wanted(v, { enable: true, videos: false, music: true }),
+  m.wanted(v, { enable: true, videos: false, onPlay: false, music: true }),
   false,
 );
 check(
