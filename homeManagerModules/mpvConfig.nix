@@ -120,6 +120,12 @@ in
           # Direct play over the network (Jellyfin through a VPN): a deeper
           # buffer rides out a slow moment.
           cache = "yes";
+          # ffmpeg's HTTP, not mpv's libcurl stream: YouTube signs a stream's
+          # link for the address that asked for it, yt-dlp asks in the
+          # system's address order (IPv4 before a private, NAT66 IPv6) and
+          # libcurl connects over IPv6 all the same: every YouTube video
+          # opened with a 403 and mpv quit.
+          curl-enabled = "no";
           demuxer-max-bytes = "1GiB";
           demuxer-readahead-secs = 120;
         };
