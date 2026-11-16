@@ -4,11 +4,12 @@ links Zen extension (zen-youtube/). The extension keeps it running
 
 - the shell's choice (the setting media.youtubeLinks, written by the shell to
   $XDG_RUNTIME_DIR/nixbook-shell/youtube-links.json): sent as
-  {"choice": {enable, videos, music} | null} when the host starts and each
+  {"choice": {enable, videos, onPlay, music, jellyfin} | null} when the host starts and each
   time the file changes (null: no shell, or nothing written yet), so the
   extension only takes the links the shell wants, without asking;
-- a link to hand over, {"id": N, "url": …}: `OPEN URL` (i.e.
-  `nixbook-youtube-link URL`: exit 0 the shell took it, 3 the settings don't
+- a link to hand over, {"id": N, "url": …, "played": bool}: `OPEN URL` (i.e.
+  `nixbook-youtube-link URL`, with `--played` when play was pressed on the
+  video's page: exit 0 the shell took it, 3 the settings don't
   take it), answered {"id": N, "ok": bool, "off": bool}; the page then loads
   in Zen as usual unless ok.
 
@@ -87,7 +88,7 @@ def read_choice(path):
     url, host = jf.get("url"), jf.get("host")
     on = jf.get("enable") is True and isinstance(url, str) and isinstance(host, str) and host != ""
     return {"enable": c.get("enable") is True, "videos": c.get("videos") is not False,
-            "music": c.get("music") is not False,
+            "onPlay": c.get("onPlay") is not False, "music": c.get("music") is not False,
             "jellyfin": {"enable": on, "url": url if on else "", "host": host.lower() if on else ""}}
 
 
@@ -118,7 +119,8 @@ def hand(opener, msg):
         send({"id": mid, "ok": False, "off": False, "error": "not a YouTube or Jellyfin link"})
         return
     try:
-        r = subprocess.run([opener, url], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        argv = [opener, "--played", url] if msg.get("played") is True else [opener, url]
+        r = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                            stderr=subprocess.DEVNULL, timeout=10, check=False)
         code = r.returncode
     except (OSError, subprocess.TimeoutExpired):

@@ -324,7 +324,11 @@ Singleton {
     // zen-youtube/) or opened by an app (nixbook's http(s) link router);
     // both run `nixbook-youtube-link URL`. A video plays in mpv (the YouTube
     // tab shows it), a YouTube Music song or playlist in the background
-    // player, the right panel opened on its YouTube Music tab.
+    // player, the right panel opened on its YouTube Music tab. With
+    // media.youtubeLinks.onPlay (on by default) a video link opens its page
+    // in the browser and only play pressed there brings it here (`played`:
+    // Zen's extension, `nixbook-youtube-link --played URL`, IPC openPlayed).
+    // When the browser has played part of it, mpv starts from there.
     // "" when taken; "off: …" when the settings don't take that kind of
     // link (Zen and the router then leave such links alone); else why not.
     // Either way the link then opens in the browser or its app.
@@ -335,10 +339,11 @@ Singleton {
         const server = String(Config.options?.ai?.jellyfin?.url ?? "").trim().replace(/\/+$/, "");
         const host = (server.match(/^https?:\/\/([^\/?#@:]+)/i) ?? [])[1] ?? "";
         const jf = Config.options?.media?.jellyfinLinks?.enable === true && Jellyfin.ready && host !== "";
-        return { enable: c?.enable === true, videos: c?.videos !== false, music: c?.music !== false,
+        return { enable: c?.enable === true, videos: c?.videos !== false, onPlay: c?.onPlay !== false,
+            music: c?.music !== false,
             jellyfin: { enable: jf, url: jf ? server : "", host: jf ? host.toLowerCase() : "" } };
     }
-    function openLink(url) {
+    function openLink(url, played) {
         const j = YouTubeLinks.jellyfinTarget(url, Config.options?.ai?.jellyfin?.url ?? "");
         if (j) {
             if (!YouTubeLinks.wanted(j, root.linkChoice))
@@ -354,7 +359,7 @@ Singleton {
         }
         const t = YouTubeLinks.linkTarget(url);
         if (!t) return "not a YouTube video, song or playlist link, nor a Jellyfin item's";
-        if (!YouTubeLinks.wanted(t, root.linkChoice))
+        if (!YouTubeLinks.wanted(t, root.linkChoice, played === true))
             return "off: turned off in Settings > Apps & accounts > YouTube links";
         if (t.kind === "video") {
             if (!root.watch(t.id, t.start)) return "not a YouTube video id";
@@ -498,6 +503,13 @@ Singleton {
         // take that kind of link), or "error: why".
         function openLink(url: string): string {
             const why = root.openLink(url);
+            if (why === "") return `ok: ${YouTubeLinks.target(url, root.linkChoice)?.kind ?? "link"}`;
+            return why.startsWith("off: ") ? why : `error: ${why}`;
+        }
+        // The same for a video whose play button was pressed on its page in
+        // the browser (media.youtubeLinks.onPlay: Zen's extension).
+        function openPlayed(url: string): string {
+            const why = root.openLink(url, true);
             if (why === "") return `ok: ${YouTubeLinks.target(url, root.linkChoice)?.kind ?? "link"}`;
             return why.startsWith("off: ") ? why : `error: ${why}`;
         }

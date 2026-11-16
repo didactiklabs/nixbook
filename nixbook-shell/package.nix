@@ -205,10 +205,17 @@ let
   # shell's $XDG_RUNTIME_DIR/nixbook-shell/youtube-links.json) it answers 3
   # without asking the shell. Used by the Zen extension below (its native
   # host) and by nixbook's http(s) link router, so links opened by any app go
-  # the same way (`passthru.youtubeLinks`).
+  # the same way (`passthru.youtubeLinks`). `--played`: play was pressed on
+  # the video's page in the browser (media.youtubeLinks.onPlay, on by
+  # default: without it a video link is "off" and its page opens there).
   youtubeLink = pkgs.writeShellScriptBin "nixbook-youtube-link" ''
+    call=openLink
+    if [ "$1" = --played ]; then
+      call=openPlayed
+      shift
+    fi
     if [ "$#" -ne 1 ]; then
-      echo "usage: nixbook-youtube-link URL" >&2
+      echo "usage: nixbook-youtube-link [--played] URL" >&2
       exit 2
     fi
     choice="''${XDG_RUNTIME_DIR:-/tmp/nixbook-shell-$USER}/nixbook-shell/youtube-links.json"
@@ -218,7 +225,7 @@ let
       *) exit 3 ;;
     esac
     answer=$(${pkgs.coreutils}/bin/timeout 5 ${quickshell}/bin/qs -c ${configName} \
-      ipc call youtubeMusic openLink "$1" 2>/dev/null) || exit 1
+      ipc call youtubeMusic "$call" "$1" 2>/dev/null) || exit 1
     case "$answer" in
       ok*) exit 0 ;;
       off*) exit 3 ;;

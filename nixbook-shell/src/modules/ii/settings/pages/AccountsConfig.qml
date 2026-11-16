@@ -237,6 +237,16 @@ ContentPage {
                     }
                 }
                 ConfigSwitch {
+                    configKey: "media.youtubeLinks.onPlay";
+                    enabled: !nixManaged && Config.options.media.youtubeLinks.enable && Config.options.media.youtubeLinks.videos
+                    buttonIcon: "play_circle"
+                    text: Translation.tr("Open the video's page in the browser first, and play it in mpv when you press play there")
+                    checked: Config.options.media.youtubeLinks.onPlay
+                    onCheckedChanged: {
+                        Config.options.media.youtubeLinks.onPlay = checked;
+                    }
+                }
+                ConfigSwitch {
                     configKey: "media.youtubeLinks.music";
                     enabled: !nixManaged && Config.options.media.youtubeLinks.enable
                     buttonIcon: "queue_music"
