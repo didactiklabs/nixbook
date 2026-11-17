@@ -46,6 +46,7 @@
 - [kubeConfig](#kubeconfig)
 - [kubeTools](#kubetools)
 - [kubeswitchConfig](#kubeswitchconfig)
+- [moonlightPresence](#moonlightpresence)
 - [niriConfig](#niriconfig)
 - [nixbookShellConfig](#nixbookshellconfig)
 - [nixvimConfig](#nixvimconfig)
@@ -703,6 +704,24 @@ Whether to enable kubeswitch context-switcher configuration. kubeswitch (exposed
 
 ---
 
+## moonlightPresence
+
+### `customHomeManagerModules.moonlightPresence.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to show the game streamed with Moonlight as this desktop's Discord activity. Discord only detects local processes, so a game that runs on another machine and is watched through Moonlight shows nothing. With this, the `moonlight-presence` user service asks each of `hosts` over ssh, every 15 s while Moonlight runs here, which Steam game it is running, looks the game up in Discord's public list of known games (by Steam id, then by name; kept a week in `~/.cache/moonlight-presence`) and announces it on Discord's local rich-presence socket (Vesktop: its arRPC setting must be on). The activity goes when the game or Moonlight closes. Needs key-based ssh from this user to the hosts. A game Steam doesn't run, or one Discord doesn't know, shows nothing. Used on: totoro (games on anya).
+
+### `customHomeManagerModules.moonlightPresence.hosts`
+
+- **Type:** `list of string`
+- **Default:** `[]`
+
+ssh destinations of the machines games are streamed from, asked in this order: the first one running a game is shown.
+
+---
+
 ## niriConfig
 
 ### `customHomeManagerModules.niriConfig.enable`
@@ -763,7 +782,7 @@ Whether to offer the nixbook-shell AI chat (DAI in the side panel and its speech
 - **Type:** `null or boolean`
 - **Default:** `null`
 
-Whether this computer is a Jellyfin player: jellyfin-mpv-shim as the `jellyfin-mpv-shim` user service, playing in your own mpv (fullscreen, your mpv config), castable from Jellyfin's apps, and the only place jellyfin-mcp plays. It saves progress, marks watched and plays the next episode itself. It starts once signed in, from Settings > Assistant > Apps it can use ("Connect the player").
+Whether this computer is a Jellyfin player: jellyfin-mpv-shim as the `jellyfin-mpv-shim` user service, playing in your own mpv (a maximized window, your mpv config), castable from Jellyfin's apps, and the only place jellyfin-mcp plays. It saves progress, marks watched and plays the next episode itself. It starts once signed in, from Settings > Assistant > Apps it can use ("Connect the player").
 
 ### `customHomeManagerModules.nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps`
 

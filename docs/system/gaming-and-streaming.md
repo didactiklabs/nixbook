@@ -41,6 +41,19 @@ anya also has Windows, on the same EFI partition, and starts it by default: its 
 
 On anya it streams a **headless virtual display**, so the machine can be used remotely without a monitor attached: greetd starts SwayFX on wlroots' headless backend (`WLR_BACKENDS=headless,libinput`, still rendered on the GPU), whose virtual output `HEADLESS-1` rests at 2560×1440 at 60 Hz (`profiles/anya/khoa/swayConfig.nix`). The Desktop app (`profiles/anya/khoa/sunshine.nix`) switches it to each Moonlight client's own size and frame rate when a stream starts (`SUNSHINE_CLIENT_WIDTH`/`HEIGHT`/`FPS`) and back when it ends, so a 1080p laptop or a 120 Hz tablet gets native frames. A monitor plugged in stays dark. Sunshine starts after PipeWire's sound server, so a client reconnecting at boot has sound. Moonlight Qt is installed on the laptops as the client.
 
+### Streamed games as the Discord activity
+
+Discord only detects games running on the computer it runs on, so a game on anya watched through Moonlight shows nothing. `customHomeManagerModules.moonlightPresence` fixes that on the client:
+
+```nix
+customHomeManagerModules.moonlightPresence = {
+  enable = true;
+  hosts = [ "anya" ]; # ssh destinations, asked in this order
+};
+```
+
+While Moonlight runs, the `moonlight-presence` user service asks each host over ssh every 15 s which Steam game it is running, finds the game in Discord's public list of known games (by Steam id, then by name) and announces it on Discord's local rich-presence socket, with the time the game started. In Vesktop the **Rich Presence (arRPC)** setting must be on. The activity goes when the game or Moonlight closes. It needs key-based ssh to the hosts; a game Steam doesn't run, or one Discord doesn't know, shows nothing (`journalctl --user -u moonlight-presence` says which). Enabled on totoro.
+
 ## Sim racing
 
 `customNixOSModules.simracing` supports direct-drive wheelbases and peripherals from **Moza Racing** and **Fanatec**:
