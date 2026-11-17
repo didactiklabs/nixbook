@@ -3,6 +3,34 @@ let
   inherit (pkgs.customPkgs) moonfin;
   # YouTube Music, readable by the desktop agents (lib/electronA11y.nix).
   pear-desktop = config.customHomeManagerModules.nixbookShellConfig.electronA11y pkgs.customPkgs.pear-desktop "pear-desktop";
+  # Octave with the compilers its own installer needs (nixpkgs' withPackages
+  # makes the package list read-only, so the two do not mix):
+  # `pkg install -forge NAME` builds a package into ~/.local/share/octave.
+  # Those are compiled for one Octave version: to install again after an update.
+  octave = pkgs.symlinkJoin {
+    name = "octave-with-pkg-install";
+    paths = [ pkgs.octaveFull ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      for bin in "$out"/bin/*; do
+        wrapProgram "$bin" --prefix PATH : ${
+          pkgs.lib.makeBinPath [
+            pkgs.gcc
+            pkgs.gfortran
+            pkgs.gnumake
+            pkgs.pkg-config
+            pkgs.autoconf
+            pkgs.automake
+          ]
+        }
+      done
+      # The launcher entry names the unwrapped Octave by its store path.
+      for entry in "$out"/share/applications/*.desktop; do
+        cp --remove-destination "$(realpath "$entry")" "$entry"
+        sed -i "s|^Exec=[^ ]*/bin/octave|Exec=$out/bin/octave|" "$entry"
+      done
+    '';
+  };
 in
 {
   imports = [
@@ -16,7 +44,7 @@ in
   home.packages = [
     pkgs.moonlight-qt
     pkgs.anki
-    pkgs.octaveFull
+    octave
     moonfin
     pear-desktop
   ];
