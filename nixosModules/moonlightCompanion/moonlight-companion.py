@@ -126,6 +126,11 @@ def main():
                     stamp = (st.st_mtime_ns, st.st_size)
                 except OSError:
                     stamp = None
+                # Empty: the game is rewriting it (active.txt every 2 s).
+                # Read as it was, it said "station off" for a moment and the
+                # client took its effects out and put them back.
+                if stamp and stamp[1] == 0:
+                    continue
                 if stamp != stamps.get(name, 0):
                     stamps[name] = stamp
                     values[kind] = read_small(path) if stamp else ""
