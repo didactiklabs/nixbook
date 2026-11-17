@@ -67,12 +67,14 @@ def cache_dir():
 
 
 def moonlight_runs():
+    # Nix wraps the program: its process is ".moonlight-wrapped", which the
+    # kernel shortens to 15 characters.
     for entry in os.listdir("/proc"):
         if not entry.isdigit():
             continue
         try:
             with open(f"/proc/{entry}/comm") as f:
-                if f.read().strip() == "moonlight":
+                if f.read().strip() in ("moonlight", ".moonlight-wrap"):
                     return True
         except OSError:
             pass
