@@ -16,6 +16,7 @@ in
   home.packages = [
     pkgs.moonlight-qt
     pkgs.anki
+    pkgs.octaveFull
     moonfin
     pear-desktop
   ];
