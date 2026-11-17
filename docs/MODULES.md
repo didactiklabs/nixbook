@@ -17,6 +17,7 @@
 - [greetd](#greetd)
 - [lanzaboote](#lanzaboote)
 - [laptopProfile](#laptopprofile)
+- [moonlightCompanion](#moonlightcompanion)
 - [netbird-tools](#netbird-tools)
 - [niri](#niri)
 - [printTools](#printtools)
@@ -46,6 +47,7 @@
 - [kubeConfig](#kubeconfig)
 - [kubeTools](#kubetools)
 - [kubeswitchConfig](#kubeswitchconfig)
+- [moonlightCompanion](#moonlightcompanion)
 - [niriConfig](#niriconfig)
 - [nixbookShellConfig](#nixbookshellconfig)
 - [nixvimConfig](#nixvimconfig)
@@ -300,6 +302,31 @@ Power profile set at every boot, whatever was chosen before. null (the default):
 - **Default:** `true`
 
 Wi-Fi power save on battery and off on the charger, switched as the charger is plugged in or out and each time NetworkManager brings a connection up (it applies its own `networking.networkmanager.wifi.powersave` at every activation, which this then corrects). Power save lets the radio doze between packets: less power, but late wake-ups that can make a steady stream (game streaming with Moonlight, a video call) stutter (seen on totoro's MediaTek MT7922). This keeps the radio awake while plugged in and lets it doze on battery. false: NetworkManager's setting alone, whatever the power source.
+
+---
+
+## moonlightCompanion
+
+### `customNixOSModules.moonlightCompanion.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether this machine tells the machines watching its games through Moonlight which Steam game runs (their Discord activity) and, with `musicRadioDir`, what the Cyberpunk 2077 mod Music Radio asks of its companion program (their game radio): the counterpart of `customHomeManagerModules.moonlightCompanion`. It opens no port and needs no login: Sunshine serves each app's cover picture to paired clients, so the `moonlight-companion` user service keeps `linkFile`, a copy of Sunshine's Desktop cover with a few text lines after the picture's end. The Sunshine app whose cover carries it must have `image-path = linkFile` (anya's Desktop app does). Used on: anya.
+
+### `customNixOSModules.moonlightCompanion.linkFile`
+
+- **Type:** `string`
+- **Default:** `"/run/user/1000/moonlight-companion/desktop.png"`
+
+The cover picture the service keeps (Sunshine only serves `.png` names). On a tmpfs: it is rewritten up to 20 times a second while the game's radio plays.
+
+### `customNixOSModules.moonlightCompanion.musicRadioDir`
+
+- **Type:** `null or string`
+- **Default:** `null`
+
+The `data` folder of the Music Radio mod (Nexus 38098, its in-game files without its own companion program), or `null` for no game radio.
 
 ---
 
@@ -703,6 +730,31 @@ Whether to enable kubeswitch context-switcher configuration. kubeswitch (exposed
 
 ---
 
+## moonlightCompanion
+
+### `customHomeManagerModules.moonlightCompanion.discordActivity`
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Show the Steam game the host runs as this desktop's Discord activity (Discord only detects local processes). The game is found in Discord's public list of known games (by Steam id, then by name; kept a week in `~/.cache/moonlight-companion`) and announced on Discord's local rich-presence socket (Vesktop: its arRPC setting must be on). A game Steam doesn't run, or one Discord doesn't know, shows nothing.
+
+### `customHomeManagerModules.moonlightCompanion.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to follow the games watched here through Moonlight: the `moonlight-companion` user service reads what the streaming machine says (`customNixOSModules.moonlightCompanion` there) and acts on it here. The link is Sunshine's own: while Moonlight runs and a paired host is streaming, the service fetches that host's Desktop cover picture on Sunshine's port, with Moonlight's own pairing (read from Moonlight's settings file, the host checked against the certificate kept at the pairing), and reads the text lines after the picture's end. No ssh, no other port, nothing to configure: hosts are the ones paired in Moonlight. Used on: totoro (games on anya).
+
+### `customHomeManagerModules.moonlightCompanion.gameRadio`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Be the companion program of the Cyberpunk 2077 mod Music Radio (Nexus 38098) for the game on the host: while its "Music" station is on, the YouTube Music panel's own player (nixbook-shell's nixbook-ytmusic) gets the acoustics the game asks for (in the car, beside it, tunnels, clubs...), as a filter chain changed in place, and the station's play / pause / next / previous run on it. The music is played here and mixed with the stream's sound; the game's now-playing card stays empty (the link goes one way). Needs nixbook-shell.
+
+---
+
 ## niriConfig
 
 ### `customHomeManagerModules.niriConfig.enable`
@@ -763,7 +815,7 @@ Whether to offer the nixbook-shell AI chat (DAI in the side panel and its speech
 - **Type:** `null or boolean`
 - **Default:** `null`
 
-Whether this computer is a Jellyfin player: jellyfin-mpv-shim as the `jellyfin-mpv-shim` user service, playing in your own mpv (fullscreen, your mpv config), castable from Jellyfin's apps, and the only place jellyfin-mcp plays. It saves progress, marks watched and plays the next episode itself. It starts once signed in, from Settings > Assistant > Apps it can use ("Connect the player").
+Whether this computer is a Jellyfin player: jellyfin-mpv-shim as the `jellyfin-mpv-shim` user service, playing in your own mpv (a maximized window, your mpv config), castable from Jellyfin's apps, and the only place jellyfin-mcp plays. It saves progress, marks watched and plays the next episode itself. It starts once signed in, from Settings > Assistant > Apps it can use ("Connect the player").
 
 ### `customHomeManagerModules.nixbookShellConfig.jellyfinMcp.player.maxBitrateMbps`
 

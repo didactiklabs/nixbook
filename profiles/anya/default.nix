@@ -92,6 +92,14 @@ in
     gamingConfig.gpu = "amd";
     simracing.enable = true;
     sunshine.enable = true;
+    # What the machines watching through Moonlight get to know: the Steam
+    # game running (their Discord activity) and what the Music Radio mod of
+    # Cyberpunk 2077 asks (their game radio). Carried by the Desktop app's
+    # cover, see ./khoa/sunshine.nix.
+    moonlightCompanion = {
+      enable = true;
+      musicRadioDir = "/data/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/MusicRadio/data";
+    };
     sway.enable = true;
     tailscale.enable = false;
     netbird-tools.enable = false;

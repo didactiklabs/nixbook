@@ -1,5 +1,11 @@
-{ config, pkgs, ... }:
+{
+  config,
+  pkgs,
+  osConfig,
+  ...
+}:
 let
+  companion = osConfig.customNixOSModules.moonlightCompanion;
   swaymsg = "${pkgs.swayfx}/bin/swaymsg";
   # The headless output's resting mode, set in ./swayConfig.nix.
   restingMode = config.wayland.windowManager.sway.config.output."HEADLESS-1".mode;
@@ -19,7 +25,10 @@ let
     apps = [
       {
         name = "Desktop";
-        image-path = "desktop.png";
+        # With the companion, the cover is its copy of Sunshine's own (the
+        # same picture, text for the watching machines after its end);
+        # Sunshine shows its stock cover while that file isn't there.
+        image-path = if companion.enable then companion.linkFile else "desktop.png";
         prep-cmd = [
           {
             do = "${matchClient}";
