@@ -103,6 +103,12 @@ in
     rtk = {
       enable = true;
     };
+    # Games watched through Moonlight (anya's): the Discord activity, and the
+    # YouTube Music panel as Cyberpunk 2077's Music Radio station.
+    moonlightCompanion = {
+      enable = true;
+      gameRadio = true;
+    };
     # Desktop shell. dmsConfig (DankMaterialShell) and nixbookShellConfig (nixbook-shell) are
     # mutually exclusive — flip these two to switch back.
     dmsConfig = {

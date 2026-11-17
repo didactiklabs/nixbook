@@ -11,6 +11,7 @@
     ./greetd.nix
     ./laptopProfile.nix
     ./lanzaboote.nix
+    ./moonlightCompanion.nix
     ./netbird-tools.nix
     ./niri.nix
     ./ownedUnits.nix

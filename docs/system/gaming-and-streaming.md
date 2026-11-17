@@ -41,6 +41,32 @@ anya also has Windows, on the same EFI partition, and starts it by default: its 
 
 On anya it streams a **headless virtual display**, so the machine can be used remotely without a monitor attached: greetd starts SwayFX on wlroots' headless backend (`WLR_BACKENDS=headless,libinput`, still rendered on the GPU), whose virtual output `HEADLESS-1` rests at 2560×1440 at 60 Hz (`profiles/anya/khoa/swayConfig.nix`). The Desktop app (`profiles/anya/khoa/sunshine.nix`) switches it to each Moonlight client's own size and frame rate when a stream starts (`SUNSHINE_CLIENT_WIDTH`/`HEIGHT`/`FPS`) and back when it ends, so a 1080p laptop or a 120 Hz tablet gets native frames. A monitor plugged in stays dark. Sunshine starts after PipeWire's sound server, so a client reconnecting at boot has sound. Moonlight Qt is installed on the laptops as the client.
 
+### Moonlight companion: Discord activity and game radio
+
+Two things a streamed game can't do by itself, done by a pair of small services: `customNixOSModules.moonlightCompanion` on the machine running the games, `customHomeManagerModules.moonlightCompanion` on the one watching them.
+
+```nix
+# the game machine (anya)
+customNixOSModules.moonlightCompanion = {
+  enable = true;
+  musicRadioDir = "/data/Steam/steamapps/common/Cyberpunk 2077/bin/x64/plugins/cyber_engine_tweaks/mods/MusicRadio/data";
+};
+
+# the watching machine (totoro)
+customHomeManagerModules.moonlightCompanion = {
+  enable = true; # Discord activity
+  gameRadio = true; # Cyberpunk 2077's Music Radio station
+};
+```
+
+**The link is Sunshine's own.** No ssh, no extra port, nothing to configure. Sunshine serves each app's cover picture to paired Moonlight clients; the game machine keeps a copy of the Desktop app's cover with a few text lines after the picture's end (it stays a valid picture), and the watching machine fetches it on Sunshine's port with Moonlight's own pairing, checking the host against the certificate kept when pairing. It only reads while Moonlight runs and a paired host is streaming. The link goes one way, from the game machine.
+
+**Discord activity.** Discord only detects games running on its own computer. The game machine says which Steam game runs; the watching machine finds it in Discord's public list of known games (by Steam id, then by name) and announces it on Discord's local rich-presence socket, with the time the game started. In Vesktop the **Rich Presence (arRPC)** setting must be on. A game Steam doesn't run, or one Discord doesn't know, shows nothing.
+
+**Game radio** (`gameRadio`, needs nixbook-shell). With the [Music Radio](https://www.nexusmods.com/cyberpunk2077/mods/38098) mod's in-game files installed in Cyberpunk 2077 (with RadioExt; without the mod's own companion program), its **Music (80.0)** station plays the [YouTube Music panel](/nixbook-shell/media#youtube-music-in-the-background): the music plays on the watching machine and gets the acoustics the game asks for (inside the car, beside it, tunnels, rain, clubs) as you move, mixed with the stream's sound. Picking the station resumes the music, leaving it pauses it, and the mod's next / previous / play-pause keys act on the panel's player. The game's now-playing card stays empty.
+
+`journalctl --user -u moonlight-companion` on either machine says what it sees.
+
 ## Sim racing
 
 `customNixOSModules.simracing` supports direct-drive wheelbases and peripherals from **Moza Racing** and **Fanatec**:
