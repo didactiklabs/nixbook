@@ -103,11 +103,6 @@ in
     rtk = {
       enable = true;
     };
-    # Games streamed from anya show as the Discord activity.
-    moonlightPresence = {
-      enable = true;
-      hosts = [ "anya" ];
-    };
     # Desktop shell. dmsConfig (DankMaterialShell) and nixbookShellConfig (nixbook-shell) are
     # mutually exclusive — flip these two to switch back.
     dmsConfig = {

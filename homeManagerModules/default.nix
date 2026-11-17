@@ -20,7 +20,6 @@
     ./kittyConfig.nix
     ./kubeswitchConfig.nix
     ./kubeTools.nix
-    ./moonlightPresence.nix
     ./mpvConfig.nix
     ./niri
     ./ocmConfig.nix
