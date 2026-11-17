@@ -50,7 +50,8 @@ in
         (Nexus 38098) for the game on the host: while its "Music" station is
         on, the YouTube Music panel's own player (nixbook-shell's
         nixbook-ytmusic) gets the acoustics the game asks for (in the car,
-        beside it, tunnels, clubs...), as a filter chain changed in place, and
+        beside it, tunnels, clubs...), as a filter chain whose values glide
+        from one place's sound to the next, and
         the station's play / pause / next / previous run on it. The music is
         played here and mixed with the stream's sound; the game's now-playing
         card stays empty (the link goes one way). Needs nixbook-shell.

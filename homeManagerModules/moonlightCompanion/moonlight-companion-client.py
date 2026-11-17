@@ -29,6 +29,7 @@ with their levels, left/right, how mono, two tone shelves in dB).
 import base64
 import http.client
 import json
+import math
 import os
 import re
 import select
@@ -50,6 +51,9 @@ LIST_MAX_AGE = 7 * 86400
 LIST_RETRY = 3600
 LABEL = "gameradio"
 MAX_DELAY = 400
+READ = 0.12
+STEP = 0.04
+OFF_GRACE = 2.0
 IDLE = 15
 
 
@@ -390,51 +394,114 @@ class Presence:
 # ---------------------------------------------------------------- the radio
 
 
-def graph(t1, t2):
+def graph(v):
+    """The chain, starting at these values: a new song starts with them too."""
     return (
-        "highpass@hp=f=20:p=2,lowpass@lp=f=20000:p=2,"
-        "equalizer@pk=f=1000:t=q:w=1:g=0,bass@bs=g=0,treble@tr=g=0,"
+        f"highpass@hp=f={v['hp']:.0f}:p=2,lowpass@lp=f={v['lp']:.0f}:p=2,"
+        f"equalizer@pk=f={v['pkf']:.0f}:t=q:w=1:g={v['pkdb']:.2f},"
+        f"bass@bs=g={v['bass']:.1f},treble@tr=g={v['treble']:.1f},"
         "asplit=3[d][a][b];"
-        f"[a]adelay@d1=delays={t1:.0f}:all=1,volume@g1=volume=0[x];"
-        f"[b]adelay@d2=delays={t2:.0f}:all=1,volume@g2=volume=0[y];"
+        f"[a]adelay@d1=delays={v['t1']:.0f}:all=1,volume@g1=volume={v['g1']:.3f}[x];"
+        f"[b]adelay@d2=delays={v['t2']:.0f}:all=1,volume@g2=volume={v['g2']:.3f}[y];"
         "[d][x][y]amix=inputs=3:normalize=0,"
-        "stereotools@st=slev=1:balance_out=0,volume@vol=volume=1,"
+        f"stereotools@st=slev={v['slev']:.2f}:balance_out={v['pan']:.2f},"
+        f"volume@vol=volume={v['gain']:.3f},"
         "alimiter=limit=0.95"
     )
 
 
 class Mpv:
-    """The panel's mpv, through its IPC socket (a connection per request)."""
+    """The panel's mpv, through its IPC socket: one connection, kept."""
+
+    # The player made its filters anew (another song, a seek, a changed
+    # chain): they are back at the values the chain was built with.
+    RESTARTS = ("file-loaded", "playback-restart", "audio-reconfig")
 
     def __init__(self, path):
         self.path = path
+        self.sock = None
+        self.buf = b""
+        self.n = 0
+        self.restarted = False
+
+    def close(self):
+        if self.sock:
+            try:
+                self.sock.close()
+            except OSError:
+                pass
+        self.sock = None
+        self.buf = b""
+
+    def _lines(self):
+        while b"\n" in self.buf:
+            line, self.buf = self.buf.split(b"\n", 1)
+            try:
+                message = json.loads(line)
+            except ValueError:
+                continue
+            if message.get("event") in self.RESTARTS:
+                self.restarted = True
+            yield message
+
+    def pump(self):
+        """Reads what the player said by itself, without waiting."""
+        if not self.sock:
+            return
+        try:
+            while select.select([self.sock], [], [], 0)[0]:
+                chunk = self.sock.recv(65536)
+                if not chunk:
+                    raise OSError("closed")
+                self.buf += chunk
+            for _ in self._lines():
+                pass
+        except OSError:
+            self.close()
+
+    def batch(self, commands):
+        """Several commands in one go: [(accepted, data)], in their order."""
+        if not commands:
+            return []
+        try:
+            if not self.sock:
+                sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                sock.connect(self.path)
+                self.sock = sock
+                self.restarted = True
+            first = self.n + 1
+            out = b""
+            for args in commands:
+                self.n += 1
+                out += (json.dumps({"command": list(args), "request_id": self.n}) + "\n").encode()
+            self.sock.sendall(out)
+            replies = {}
+            while len(replies) < len(commands):
+                chunk = self.sock.recv(65536)
+                if not chunk:
+                    raise OSError("closed")
+                self.buf += chunk
+                for message in self._lines():
+                    rid = message.get("request_id")
+                    if isinstance(rid, int) and rid >= first:
+                        replies[rid] = (message.get("error") == "success", message.get("data"))
+            return [replies[first + i] for i in range(len(commands))]
+        except (OSError, ValueError, KeyError):
+            self.close()
+            return [(False, None)] * len(commands)
 
     def command(self, *args):
-        try:
-            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
-                s.settimeout(2)
-                s.connect(self.path)
-                s.sendall((json.dumps({"command": list(args), "request_id": 7}) + "\n").encode())
-                buf = b""
-                while True:
-                    chunk = s.recv(65536)
-                    if not chunk:
-                        return False, None
-                    buf += chunk
-                    while b"\n" in buf:
-                        line, buf = buf.split(b"\n", 1)
-                        try:
-                            reply = json.loads(line)
-                        except ValueError:
-                            continue
-                        if reply.get("request_id") == 7:
-                            return reply.get("error") == "success", reply.get("data")
-        except OSError:
-            return False, None
+        return self.batch([args])[0]
 
 
 class Effects:
-    """The effect chain on the player, following the game's fx lines."""
+    """The effect chain on the player, gliding to what the game asks for.
+
+    The game writes its values a few times a second at most and leaves the
+    smoothing to its companion: each value moves a part of the way at every
+    tick() (about 25 a second), and only what changed is sent, in one go.
+    """
 
     # value name -> (filter, command, format)
     PARAMS = {
@@ -450,14 +517,22 @@ class Effects:
         "pan": ("stereotools@st", "balance_out", "{:.2f}"),
         "gain": ("volume@vol", "volume", "{:.3f}"),
     }
+    DELAYS = (("t1", "adelay@d1", "g1"), ("t2", "adelay@d2", "g2"))
+    PITCHES = ("hp", "lp", "pkf")  # moved by ratio, as one hears them
+    GLIDE = 0.15  # seconds to cover about two thirds of a change
+    HUSH = 0.04  # the same towards silence: a menu, the game paused
+    PRESENT_EVERY = 1.0
 
     def __init__(self, mpv):
         self.mpv = mpv
         self.on = False
+        self.target = None
+        self.now = None
+        self.built = None
         self.sent = {}
         self.delays = None
-        self.want = None
-        self.failed = set()
+        self.ticked = 0.0
+        self.checked = 0.0
 
     def parse(self, line):
         parts = line.split()
@@ -479,7 +554,7 @@ class Effects:
             "g1": min(max(g1, 0), 0.8) if t1 >= 1 else 0.0,
             "t2": min(max(t2, 1), MAX_DELAY),
             "g2": min(max(g2, 0), 0.8) if t2 >= 1 else 0.0,
-            "pan": min(max(pan, -1), 1),
+            "pan": min(max(pan, -1), 1) + 0.0,
             "slev": max(0.02, 1 - min(max(mono, 0), 1)),
             "bass": min(max(bass, -24), 24),
             "treble": min(max(treble, -24), 24),
@@ -490,49 +565,89 @@ class Effects:
         return bool(ok and any(f.get("label") == LABEL for f in filters or []))
 
     def build(self, values):
-        self.mpv.command("af", "remove", "@" + LABEL)
-        ok, _ = self.mpv.command(
-            "af", "add", f"@{LABEL}:lavfi=[{graph(values['t1'], values['t2'])}]"
-        )
+        ok = self.mpv.batch(
+            [
+                ("af", "remove", "@" + LABEL),
+                ("af", "add", f"@{LABEL}:lavfi=[{graph(values)}]"),
+            ]
+        )[1][0]
         self.on = ok
-        self.sent = {}
-        self.delays = (values["t1"], values["t2"]) if ok else None
+        self.built = dict(values) if ok else None
+        self._as_built()
         return ok
 
-    def apply(self, values):
-        self.want = values
-        if not self.on or not self.present():
-            if not self.build(values):
-                return False
-        # The echo taps' delays: changed in place when the player takes it,
-        # else the chain is rebuilt, and only for a change one can hear.
-        old = self.delays or (0, 0)
-        if any(abs(new - was) > max(2, 0.15 * was) for new, was in zip((values["t1"], values["t2"]), old)):
-            moved = all(
-                self.mpv.command("af-command", LABEL, "delays", f"{values[t]:.0f}", name)[0]
-                for t, name in (("t1", "adelay@d1"), ("t2", "adelay@d2"))
-            )
-            if moved:
-                self.delays = (values["t1"], values["t2"])
+    def _as_built(self):
+        """The player's filters are at the values the chain was built with."""
+        self.sent = {}
+        self.delays = None
+        if self.built:
+            self.sent = {key: form.format(self.built[key]) for key, (_, _, form) in self.PARAMS.items()}
+            self.delays = {key: self.built[key] for key, _, _ in self.DELAYS}
+
+    def _glide(self, dt):
+        target, now = self.target, self.now
+        hush = target["gain"] <= 0
+        part = 1 - math.exp(-dt / (self.HUSH if hush else self.GLIDE))
+        for key in self.PARAMS:
+            if key in self.PITCHES:
+                now[key] *= (target[key] / now[key]) ** part
             else:
-                log("delays not changed in place: chain rebuilt")
-                if not self.build(values):
+                now[key] += (target[key] - now[key]) * part
+            if abs(target[key] - now[key]) <= 0.002 * max(abs(target[key]), 0.05):
+                now[key] = target[key]
+
+    def tick(self, values=None):
+        """One step towards the game's last values (or these new ones)."""
+        if values:
+            self.target = values
+        if not self.target:
+            return False
+        clock = time.monotonic()
+        dt = min(max(clock - self.ticked, 0.0), 0.25)
+        self.ticked = clock
+        self.mpv.pump()
+        if not self.on or clock - self.checked >= self.PRESENT_EVERY:
+            self.checked = clock
+            if not self.present():
+                self.now = dict(self.target)
+                if not self.build(self.target):
                     return False
+                self.mpv.pump()
+                self.mpv.restarted = False
+        if self.mpv.restarted:
+            self.mpv.restarted = False
+            self._as_built()
+        if self.now is None:
+            self.now = dict(self.target)
+        else:
+            self._glide(dt)
+        commands, marks = [], []
         for key, (target, command, form) in self.PARAMS.items():
-            text = form.format(values[key])
+            text = form.format(self.now[key])
             if self.sent.get(key) != text:
-                ok, _ = self.mpv.command("af-command", LABEL, command, text, target)
-                if ok:
-                    self.sent[key] = text
-                elif key not in self.failed:
-                    self.failed.add(key)
-                    log(f"the player refused {target} {command} {text}")
+                commands.append(("af-command", LABEL, command, text, target))
+                marks.append((self.sent, key, text))
+        # The echo taps' delays, only for a change one can hear. Changed in
+        # place; a player that refuses (between two songs) is asked again at
+        # the next step, the chain is never rebuilt for it.
+        for key, target, level in self.DELAYS:
+            want, was = self.target[key], (self.delays or {}).get(key, 0)
+            # (a silent tap's delay is left where it is)
+            if self.target[level] > 0 and abs(want - was) > max(2, 0.15 * was):
+                commands.append(("af-command", LABEL, "delays", f"{want:.0f}", target))
+                marks.append((self.delays, key, want))
+        for (ok, _), (store, key, value) in zip(self.mpv.batch(commands), marks):
+            if ok and store is not None:
+                store[key] = value
         return True
 
     def remove(self):
         if self.on or self.present():
             self.mpv.command("af", "remove", "@" + LABEL)
         self.on = False
+        self.target = None
+        self.now = None
+        self.built = None
         self.sent = {}
         self.delays = None
 
@@ -553,9 +668,16 @@ def control(binary, command):
     if not what:
         return
     log("game:", command)
+    # Not waited for: the effects go on gliding meanwhile.
     try:
-        subprocess.run([binary, "control", what], capture_output=True, timeout=15)
-    except (OSError, subprocess.TimeoutExpired) as error:
+        subprocess.Popen(
+            [binary, "control", what],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except OSError as error:
         log("the player couldn't be told:", error)
 
 
@@ -609,56 +731,71 @@ def main():
             last_cmd = None
             misses = 0
             active = False
+            off_since = None
+            next_read = 0.0
             while True:
-                values = link.read(host, app)
-                if values is None:
-                    misses += 1
-                    if misses >= 5:
-                        break
-                    time.sleep(1)
+                clock = time.monotonic()
+                if clock >= next_read:
+                    values = link.read(host, app)
+                    if values is None:
+                        misses += 1
+                        if misses >= 5:
+                            break
+                        next_read = time.monotonic() + 1
+                        continue
+                    misses = 0
+                    if discord:
+                        game = game_of(values.get("G"))
+                        app_id = games.find(game) if game else None
+                        if app_id:
+                            shown = presence.show(app_id, game["start"])
+                            now = (game["steam"], shown)
+                            if now != said:
+                                log(game["name"] or game["steam"], "shown on Discord" if shown else ": Discord isn't there to show it")
+                        else:
+                            presence.clear()
+                            now = (game["steam"], None) if game else None
+                            if game and now != said:
+                                log(game["name"] or game["steam"], "isn't a game Discord knows")
+                        said = now
+                    if radio:
+                        was = active
+                        active = values.get("A", "").strip() == "1"
+                        if active != was:
+                            log("Music station", "on" if active else "off")
+                            off_since = None if active else time.monotonic()
+                        fx = effects.parse(values.get("F", ""))
+                        if fx and (active or off_since is not None):
+                            effects.tick(fx)
+                        # cmd.txt keeps the game's last order: one seen when
+                        # the following starts is an old one.
+                        cmd = values.get("C", "")
+                        if last_cmd is None:
+                            last_cmd = cmd
+                        elif cmd != last_cmd:
+                            last_cmd = cmd
+                            parts = cmd.split("\t")
+                            if len(parts) >= 2:
+                                control(opts["--ytmusic"], parts[1].strip())
+                    if time.monotonic() - checked >= IDLE:
+                        checked = time.monotonic()
+                        if not opts["--base"] and (not moonlight_runs() or link.streaming()[0] != host):
+                            break
+                    # The game writes its values 6 times a second at most
+                    # while the station plays; each second otherwise with the
+                    # radio, else at the activity's pace.
+                    next_read = time.monotonic() + (READ if radio and active else 1.0 if radio else 10)
+                # A station off for a moment keeps its chain: taking it out
+                # and putting it back are two gaps in the sound.
+                if off_since is not None and time.monotonic() - off_since >= OFF_GRACE:
+                    off_since = None
+                    effects.remove()
+                if radio and (active or off_since is not None):
+                    # Between two readings the effects glide to the last one.
+                    time.sleep(STEP)
+                    effects.tick()
                     continue
-                misses = 0
-                if discord:
-                    game = game_of(values.get("G"))
-                    app_id = games.find(game) if game else None
-                    if app_id:
-                        shown = presence.show(app_id, game["start"])
-                        now = (game["steam"], shown)
-                        if now != said:
-                            log(game["name"] or game["steam"], "shown on Discord" if shown else ": Discord isn't there to show it")
-                    else:
-                        presence.clear()
-                        now = (game["steam"], None) if game else None
-                        if game and now != said:
-                            log(game["name"] or game["steam"], "isn't a game Discord knows")
-                    said = now
-                if radio:
-                    was = active
-                    active = values.get("A", "").strip() == "1"
-                    if active != was:
-                        log("Music station", "on" if active else "off")
-                    fx = effects.parse(values.get("F", ""))
-                    if active and fx:
-                        effects.apply(fx)
-                    elif not active:
-                        effects.remove()
-                    # cmd.txt keeps the game's last order: one seen when the
-                    # following starts is an old one.
-                    cmd = values.get("C", "")
-                    if last_cmd is None:
-                        last_cmd = cmd
-                    elif cmd != last_cmd:
-                        last_cmd = cmd
-                        parts = cmd.split("\t")
-                        if len(parts) >= 2:
-                            control(opts["--ytmusic"], parts[1].strip())
-                if time.monotonic() - checked >= IDLE:
-                    checked = time.monotonic()
-                    if not opts["--base"] and (not moonlight_runs() or link.streaming()[0] != host):
-                        break
-                # Often while the station plays (the acoustics follow V), each
-                # second otherwise with the radio, else at the activity's pace.
-                time.sleep(0.1 if radio and active else 1.0 if radio else 10)
+                time.sleep(max(0.05, min(next_read - time.monotonic(), 10)))
             log("no longer following", host[0])
             presence.clear()
             effects.remove()
