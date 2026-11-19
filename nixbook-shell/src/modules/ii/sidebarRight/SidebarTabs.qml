@@ -277,8 +277,12 @@ ColumnLayout {
         required property int index
         required property var modelData
         readonly property bool current: root.selectedTab === index
-        // The list says how many on its own page.
-        readonly property int badge: !current && modelData.type === "notifications" ? Notifications.list.length : 0
+        // The list says how many on its own page (the Mesh tab: each
+        // conversation's chip), so only another tab shows it here.
+        readonly property int badge: current ? 0
+            : modelData.type === "notifications" ? Notifications.list.length
+            : modelData.type === "mesh" ? Mesh.unread
+            : 0
 
         width: current ? tabStrip.currentTabWidth : tabStrip.otherTabWidth
         height: parent.height
