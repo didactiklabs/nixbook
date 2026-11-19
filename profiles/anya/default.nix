@@ -44,12 +44,21 @@ in
       };
     };
   };
-  # Disable all forms of sleep/suspend/hibernate
+  # Headless: never sleep. The targets are masked, systemd-sleep refuses
+  # every mode (logind then answers "no" to CanSuspend & co., so Steam and
+  # other apps don't offer it), and the sleep keys do nothing.
   systemd.targets = {
     sleep.enable = false;
     suspend.enable = false;
     hibernate.enable = false;
     hybrid-sleep.enable = false;
+    suspend-then-hibernate.enable = false;
+  };
+  systemd.sleep.settings.Sleep = {
+    AllowSuspend = "no";
+    AllowHibernation = "no";
+    AllowHybridSleep = "no";
+    AllowSuspendThenHibernate = "no";
   };
   services = {
     greetd = {
@@ -77,6 +86,9 @@ in
     logind.settings.Login = {
       IdleAction = "ignore";
       IdleActionSec = 0;
+      HandleSuspendKey = "ignore";
+      HandleHibernateKey = "ignore";
+      HandleLidSwitch = "ignore";
     };
     openssh.enable = true;
   };
