@@ -1709,6 +1709,10 @@ in
             ExecStart = lib.getExe cfg.package;
             Restart = "on-failure";
             RestartSec = 2;
+            # The shell itself ends at once; a helper it started that doesn't
+            # (a live wallpaper's mpvpaper stuck in its own exit) held a
+            # restart for systemd's 90 s, with no bar or panels meanwhile.
+            TimeoutStopSec = 5;
             Slice = "app.slice";
           };
           Install.WantedBy = [ "graphical-session.target" ];
