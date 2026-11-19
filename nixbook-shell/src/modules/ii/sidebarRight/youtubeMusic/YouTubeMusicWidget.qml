@@ -464,6 +464,13 @@ Item {
                             : loop === MprisLoopState.Playlist ? Translation.tr("Repeat: the playlist") : Translation.tr("Repeat: off")
                         onClicked: YouTubeMusic.control("repeat", "cycle")
                     }
+                    // Ends the music: the player lets go of its song and
+                    // leaves the media controls (pause keeps it there).
+                    IconButton {
+                        symbol: "stop"
+                        tip: Translation.tr("Stop")
+                        onClicked: YouTubeMusic.control("stop")
+                    }
                     IconButton {
                         symbol: "playlist_add"
                         lit: root.addingSong

@@ -297,6 +297,14 @@ Item {
                         iconName: MprisController.loopIcon(root.player)
                         downAction: () => MprisController.cycleLoop(root.player)
                     }
+                    TrackChangeButton {
+                        visible: root.player?.canControl ?? false
+                        iconName: "stop"
+                        downAction: () => root.player.stop()
+                        StyledToolTip {
+                            text: Translation.tr("Stop")
+                        }
+                    }
                     // Everything else this player supports (speed, stop, link,
                     // clipboard, up next, playlists, show/quit…)
                     TrackChangeButton {

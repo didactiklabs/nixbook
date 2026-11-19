@@ -872,6 +872,13 @@ Item {
                         tip: root.player?.isPlaying ? Translation.tr("Pause") : Translation.tr("Play")
                         onClicked: root.player?.togglePlaying()
                     }
+                    // Ends the video (mpv closes its window).
+                    IconButton {
+                        visible: root.player?.canControl ?? false
+                        symbol: "stop"
+                        tip: Translation.tr("Stop")
+                        onClicked: root.player?.stop()
+                    }
                 }
                 // mpv's own volume, not the system output's.
                 RowLayout {

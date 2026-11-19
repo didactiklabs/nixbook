@@ -886,6 +886,12 @@ Item {
                     tip: root.player?.isPlaying ? Translation.tr("Pause") : Translation.tr("Play")
                     onClicked: root.player?.togglePlaying()
                 }
+                BarButton {
+                    visible: root.player?.canControl ?? false
+                    symbol: "stop"
+                    tip: Translation.tr("Stop")
+                    onClicked: root.player?.stop()
+                }
             }
             RowLayout {
                 Layout.fillWidth: true
