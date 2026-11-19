@@ -23,6 +23,9 @@ import Quickshell.Services.Mpris
 Flow {
     id: root
     property bool compact: false
+    // The playing chip's icon pulses; off where it would keep a big surface
+    // redrawing (the right panel).
+    property bool pulse: true
     property color colChip: Appearance.colors.colLayer2
     property color colChipSelected: Appearance.colors.colPrimaryContainer
     property color colText: Appearance.colors.colOnLayer2
@@ -93,7 +96,7 @@ Flow {
                 iconSize: Appearance.font.pixelSize.small
                 color: chip.selected ? root.colTextSelected : Appearance.colors.colPrimary
                 SequentialAnimation on opacity {
-                    running: chip.playing && ObjectUtils.shown(chip)
+                    running: root.pulse && chip.playing && ObjectUtils.shown(chip)
                     loops: Animation.Infinite
                     NumberAnimation { to: 0.35; duration: 700; easing.type: Easing.InOutSine }
                     NumberAnimation { to: 1; duration: 700; easing.type: Easing.InOutSine }
