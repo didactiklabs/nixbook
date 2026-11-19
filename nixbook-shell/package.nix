@@ -39,12 +39,15 @@ let
   # fractionally scaled output (patches/mpvpaper-fractional-scale.patch), and
   # started transparent until the shell has stacked its desktop above it
   # (patches/mpvpaper-hold.patch), and asleep while paused or hidden instead
-  # of waking 300 times a second (patches/mpvpaper-idle-wakeups.patch).
+  # of waking 300 times a second (patches/mpvpaper-idle-wakeups.patch), and
+  # ending when told to, once and without a crash
+  # (patches/mpvpaper-exit-once.patch).
   mpvpaper = pkgs.mpvpaper.overrideAttrs (old: {
     patches = (old.patches or [ ]) ++ [
       ./patches/mpvpaper-fractional-scale.patch
       ./patches/mpvpaper-hold.patch
       ./patches/mpvpaper-idle-wakeups.patch
+      ./patches/mpvpaper-exit-once.patch
     ];
   });
   fonts = import ./fonts.nix { inherit pkgs; };

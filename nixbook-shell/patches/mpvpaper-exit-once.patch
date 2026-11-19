@@ -1,0 +1,146 @@
+mpvpaper: one exit, from the render loop
+
+Stopped with a signal, mpvpaper started a thread from its signal handler
+(not something a handler may do: it can wait for ever on a lock the
+interrupted thread holds), and that thread destroyed mpv while the mpv event
+thread was still waiting inside it; the event thread, seeing mpv's shutdown
+event, then ran the same exit a second time beside the first: mpv freed
+twice and two exit() at once. On totoro that was a segfault in exit() at
+about every other stop (8 core dumps in a week), and once a player that
+never ended, which held nixbook-shell's restart for systemd's 90 seconds.
+
+Now the handler only notes the request, wakes the render loop and sets a
+3 second alarm; the render loop leaves from its own thread (nothing draws
+meanwhile); the exit runs once, a second caller waits; the event thread is
+out of mpv before mpv is destroyed; and the process ends with _exit(), not
+exit(), whose handlers ran beside the threads still alive.
+
+--- a/src/main.c
++++ b/src/main.c
+@@ -4,6 +4,7 @@
+ #include <poll.h>
+ #include <pthread.h>
+ #include <signal.h>
++#include <stdatomic.h>
+ #include <stdbool.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -135,15 +136,33 @@
+ static bool SHOW_OUTPUTS = false;
+ static int VERBOSE = 0;
+ 
++// Leaving: asked by a signal (quit_requested, seen by the render loop), and
++// under way (quitting, seen by the mpv event thread, which says when it has
++// left mpv: events_running)
++static volatile sig_atomic_t quit_requested = 0;
++static volatile bool quitting = false;
++static volatile bool events_running = false;
++static atomic_flag exiting = ATOMIC_FLAG_INIT;
++
+ static void exit_cleanup() {
+ 
+     // Give mpv a chance to finish
+-    halt_info.stop_render_loop = 1;
+-    // The render loop sleeps until something happens: tell it
+-    uint64_t wake = 1;
+-    if (wakeup_fd > 0 && write(wakeup_fd, &wake, sizeof(wake)) < 0) { /* its next pass sees it */ }
+-    for (int trys=10; halt_info.stop_render_loop && trys > 0; trys--) {
+-        usleep(10000);
++    quitting = true;
++    if (pthread_self() != threads[0]) {
++        halt_info.stop_render_loop = 1;
++        // The render loop sleeps until something happens: tell it
++        uint64_t wake = 1;
++        if (wakeup_fd > 0 && write(wakeup_fd, &wake, sizeof(wake)) < 0) { /* its next pass sees it */ }
++        for (int trys=10; halt_info.stop_render_loop && trys > 0; trys--) {
++            usleep(10000);
++        }
++    }
++    // The event thread must be out of mpv before mpv is destroyed
++    if (mpv && events_running) {
++        mpv_wakeup(mpv);
++        for (int trys=50; events_running && trys > 0; trys--) {
++            usleep(10000);
++        }
+     }
+     // If render loop failed to stop it's self
+     if (halt_info.stop_render_loop && VERBOSE && pthread_self() != threads[0])
+@@ -170,22 +189,32 @@
+ }
+ 
+ static void exit_mpvpaper(int reason) {
++    // One exit only: a second thread getting here (mpv's shutdown event
++    // while a signal's exit runs) freed mpv twice and ran exit() beside the
++    // first one, a crash at every other stop
++    if (atomic_flag_test_and_set(&exiting)) {
++        for (;;)
++            pause();
++    }
++    // Whatever happens below, gone within 3 seconds
++    alarm(3);
+     if (VERBOSE)
+         cflp_info("Exiting mpvpaper");
+     exit_cleanup();
+-    exit(reason);
+-}
+-
+-static void *exit_by_pthread(void *_) {
+-    exit_mpvpaper(EXIT_SUCCESS);
+-    pthread_exit(NULL);
++    fflush(NULL);
++    // Not exit(): its handlers run beside the threads still alive
++    _exit(reason);
+ }
+ 
+ static void handle_signal(int signum) {
+     (void)signum;
+-    // Separate thread to avoid crash
+-    pthread_t thread;
+-    pthread_create(&thread, NULL, exit_by_pthread, NULL);
++    // Only what a signal handler may do (it used to start a thread here,
++    // which can wait for ever on a lock the interrupted thread holds): ask
++    // the render loop to leave, and end the process if it never does
++    quit_requested = 1;
++    alarm(3);
++    uint64_t wake = 1;
++    if (wakeup_fd > 0 && write(wakeup_fd, &wake, sizeof(wake)) < 0) { /* the alarm ends it */ }
+ }
+ 
+ const static struct wl_callback_listener wl_surface_frame_listener;
+@@ -459,7 +488,8 @@
+     const int MPV_OBSERVE_PAUSE = 1;
+     mpv_observe_property(mpv, MPV_OBSERVE_PAUSE, "pause", MPV_FORMAT_FLAG);
+ 
+-    while (!halt_info.stop_render_loop) {
++    events_running = true;
++    while (!quitting) {
+         if (SLIDESHOW_TIME) {
+             if ((time(NULL) - start_time) >= SLIDESHOW_TIME) {
+                 mpv_command_async(mpv, 0, (const char *[]){"playlist-next", NULL});
+@@ -472,6 +502,7 @@
+         mpv_event *event = mpv_wait_event(mpv, 1);
+ 
+         if (event->event_id == MPV_EVENT_SHUTDOWN) {
++            events_running = false;
+             exit_mpvpaper(EXIT_SUCCESS);
+         } else if (event->event_id == MPV_EVENT_PROPERTY_CHANGE) {
+             if (event->reply_userdata == MPV_OBSERVE_PAUSE) {
+@@ -488,6 +519,7 @@
+     }
+ 
+     mpv_unobserve_property(mpv, MPV_OBSERVE_PAUSE);
++    events_running = false;
+ 
+     pthread_exit(NULL);
+ }
+@@ -1546,6 +1578,10 @@
+         if (poll(fds, sizeof(fds) / sizeof(fds[0]), held ? 10 : 1000) == -1 && errno != EINTR)
+             break;
+ 
++        // A signal asked to leave: from this thread, so nothing draws meanwhile
++        if (quit_requested)
++            exit_mpvpaper(EXIT_SUCCESS);
++
+         // If wl_display_prepare_read() was successful as 0
+         if (wl_display_prepare_read_state == 0) {
+             // Read if we have wl_display events after poll()
