@@ -7,7 +7,8 @@
 #   - render-app-colors.py, zen-theme.py, apply-app-colors.sh: the app colours;
 #   - applycolor.sh: the terminal colours (kitty's theme, escape sequences);
 #   - least_busy_region.py: background widget placement and its cache;
-#   - charge-limit.sh: the battery's charge limit, read and set.
+#   - charge-limit.sh: the battery's charge limit, read and set;
+#   - anthropic-usage.sh: both answer shapes and the wait after a 429.
 # Needs bash, jq, python3, nix-instantiate and nix-build (the shell's Python
 # environment, with OpenCV). Run: bash tests/scripts.sh
 # The jq programs are single-quoted on purpose: `$n`, `$a`, ... are jq variables.
@@ -938,6 +939,108 @@ expect_eq "charge-limit: writable with the unit, set through the unit (remembere
 rm "$cl/ps/BAT0/charge_control_end_threshold"
 expect_eq "charge-limit: no limit on this battery" '{"limit": 0, "canSet": false, "error": ""}' "$(cl_run status)"
 if out="$(cl_run set 80)"; then fail "charge-limit: no limit, set fails" "$out"; else pass "charge-limit: no limit, set fails"; fi
+
+# -- anthropic-usage.sh: the Claude usage widget's reader ----------------------
+
+au="$tmp/anthropic-usage"
+mkdir -p "$au/bin" "$au/claude" "$au/cache"
+# Claude Code's login, valid for an hour: no token refresh is ever tried.
+jq -n --argjson e "$((($(date +%s) + 3600) * 1000))" \
+  '{claudeAiOauth: {accessToken: "test-token", expiresAt: $e}}' >"$au/claude/.credentials.json"
+# Fake curl: answers $au/code with $au/body (and $au/retry as Retry-After),
+# writing the headers where -D asks; every call is logged.
+cat >"$au/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+dir="$(dirname "$0")/.."
+echo call >>"$dir/curl.log"
+hdrs=""
+while [ $# -gt 0 ]; do
+  [ "$1" = "-D" ] && { hdrs="$2"; shift; }
+  shift
+done
+code="$(cat "$dir/code")"
+[ -n "$hdrs" ] && printf 'HTTP/2 %s\r\nretry-after: %s\r\n\r\n' "$code" "$(cat "$dir/retry" 2>/dev/null || echo 0)" >"$hdrs"
+cat "$dir/body"
+printf '\n%s' "$code"
+EOF
+chmod +x "$au/bin/curl"
+au_run() {
+  PATH="$au/bin:$PATH" HOME="$au/home" XDG_CACHE_HOME="$au/cache" XDG_DATA_HOME="$au/data" \
+    CLAUDE_CONFIG_DIR="$au/claude" bash "$scripts/anthropic-usage.sh" "$@"
+}
+au_get() { sed -n "s/^$1=//p" <<<"$2"; }
+au_backoff() { cat "$au/cache/anthropic-usage/backoff" 2>/dev/null || true; }
+au_calls() { wc -l <"$au/curl.log" 2>/dev/null | tr -d ' ' || echo 0; }
+
+# The newer shape alone: the windows come from the `limits` list.
+echo 200 >"$au/code"
+cat >"$au/body" <<'EOF'
+{"five_hour": null, "seven_day": null, "limits": [
+  {"kind": "session", "percent": 12, "resets_at": "2026-11-19T15:40:00Z"},
+  {"kind": "weekly_all", "percent": 30, "resets_at": "2026-11-21T09:00:00Z"},
+  {"kind": "weekly_scoped", "percent": 85, "resets_at": "2026-11-21T09:00:00Z",
+   "scope": {"model": {"id": null, "display_name": "Fable"}, "surface": null}},
+  {"kind": "weekly_scoped", "percent": null, "scope": {"model": {"display_name": "Nothing yet"}}}]}
+EOF
+out="$(au_run --force)"
+expect_eq "anthropic-usage: limits only, fetched" "ok" "$(au_get STATUS "$out")"
+expect_eq "anthropic-usage: limits only, the session is the 5-hour window" "12 2026-11-19T15:40:00Z" \
+  "$(au_get FIVE_HOUR_UTIL "$out") $(au_get FIVE_HOUR_RESET "$out")"
+expect_eq "anthropic-usage: limits only, weekly_all is the 7-day window" "30 2026-11-21T09:00:00Z" \
+  "$(au_get SEVEN_DAY_UTIL "$out") $(au_get SEVEN_DAY_RESET "$out")"
+expect_eq "anthropic-usage: a one-model limit with a number, one line" "Fable	85	2026-11-21T09:00:00Z" "$(au_get SCOPED_LIMIT "$out")"
+
+# Both shapes: the windows win, a 0 stays 0.
+cat >"$au/body" <<'EOF'
+{"five_hour": {"utilization": 0.0, "resets_at": "A"}, "seven_day": {"utilization": 41.5, "resets_at": "B"},
+ "limits": [{"kind": "session", "percent": 99, "resets_at": "X"}]}
+EOF
+out="$(au_run --force)"
+expect_eq "anthropic-usage: both shapes, the windows win" "0.0 A 41.5 B" \
+  "$(au_get FIVE_HOUR_UTIL "$out") $(au_get FIVE_HOUR_RESET "$out") $(au_get SEVEN_DAY_UTIL "$out") $(au_get SEVEN_DAY_RESET "$out")"
+expect_eq "anthropic-usage: no one-model limit, no line" "" "$(au_get SCOPED_LIMIT "$out")"
+
+# Neither shape: not cached, the last good copy shown.
+echo '{"something": "else"}' >"$au/body"
+out="$(au_run --force)"
+expect_eq "anthropic-usage: an answer without usage keeps the last copy" "stale 0.0" "$(au_get STATUS "$out") $(au_get FIVE_HOUR_UTIL "$out")"
+
+# 429 with retry-after 0: wait 5 min, then 10, 20, ... up to an hour.
+echo 429 >"$au/code"
+echo '{"error": {"type": "rate_limit_error"}}' >"$au/body"
+echo 0 >"$au/retry"
+now=$(date +%s)
+out="$(au_run --force)"
+read -r until count <<<"$(au_backoff)"
+expect_eq "anthropic-usage: a 429 serves the last copy" "stale 0.0" "$(au_get STATUS "$out") $(au_get FIVE_HOUR_UTIL "$out")"
+expect_eq "anthropic-usage: first 429 with retry-after 0 waits 5 min" "1 1" \
+  "$count $(((until - now) >= 300 && (until - now) <= 302 ? 1 : 0))"
+expect_eq "anthropic-usage: the wait is said (RETRY_AT)" "$until" "$(au_get RETRY_AT "$out")"
+calls=$(au_calls)
+au_run --force >/dev/null
+expect_eq "anthropic-usage: a click during the wait asks nothing" "$calls" "$(au_calls)"
+echo "$((now - 1)) 1" >"$au/cache/anthropic-usage/backoff"
+now=$(date +%s)
+au_run --force >/dev/null
+read -r until count <<<"$(au_backoff)"
+expect_eq "anthropic-usage: second 429 in a row waits 10 min" "2 1" "$count $(((until - now) >= 600 && (until - now) <= 602 ? 1 : 0))"
+echo "$((now - 1)) 9" >"$au/cache/anthropic-usage/backoff"
+au_run --force >/dev/null
+read -r until count <<<"$(au_backoff)"
+expect_eq "anthropic-usage: many 429s wait an hour at most" "10 1" "$count $(((until - now) >= 3600 && (until - now) <= 3602 ? 1 : 0))"
+echo "$((now - 1))" >"$au/cache/anthropic-usage/backoff"
+echo 7200 >"$au/retry"
+au_run --force >/dev/null
+read -r until count <<<"$(au_backoff)"
+expect_eq "anthropic-usage: an older file (time alone) and a longer Retry-After" "1 1" "$count $(((until - now) >= 7200 && (until - now) <= 7202 ? 1 : 0))"
+
+# Once the wait is over, a good answer ends the backoff.
+echo "$((now - 1)) 3" >"$au/cache/anthropic-usage/backoff"
+echo 200 >"$au/code"
+echo '{"five_hour": {"utilization": 5, "resets_at": "C"}}' >"$au/body"
+out="$(au_run --force)"
+expect_eq "anthropic-usage: a good answer after the wait" "ok 5 0" "$(au_get STATUS "$out") $(au_get FIVE_HOUR_UTIL "$out") $(au_get RETRY_AT "$out")"
+expect_eq "anthropic-usage: a good answer ends the backoff" "" "$(au_backoff)"
 
 if [ "$failures" -ne 0 ]; then
   echo "$failures nixbook-shell test(s) failed" >&2
