@@ -163,6 +163,8 @@ Item {
             MediaSourceSelector {
                 Layout.fillWidth: true
                 visible: shouldShow && root.activePlayer !== null && Config.options.sidebar.mediaPlayer
+                // Still: a pulse kept the whole panel redrawing while music played.
+                pulse: false
             }
 
             Loader {
@@ -181,8 +183,10 @@ Item {
                 sourceComponent: Player {
                     id: sidebarPlayer
                     player: root.activePlayer
-                    // Hidden (sidebar closed): no copy of every cava frame.
-                    visualizerPoints: ObjectUtils.shown(sidebarPlayer) ? GlobalStates.visualizerPoints : []
+                    // No visualizer here: it kept cava running and the
+                    // whole panel (tabs included) redrawing at 30 fps while
+                    // music played. The media popup keeps it.
+                    visualizer: false
                     // Low, so the tabs under it keep their room (it was
                     // 160); the lyrics view needs the taller card.
                     compact: true

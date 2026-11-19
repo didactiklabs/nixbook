@@ -230,7 +230,9 @@ Item {
                                 // The wave moves while playing only (as the progress
                                 // bar below): it repainted a Canvas every frame even
                                 // when paused, keeping the sidebar rendering at 60 fps.
-                                animateWave: root.player?.isPlaying ?? false
+                                // Never in the compact card: the right panel would
+                                // redraw at 60 fps for as long as music plays.
+                                animateWave: !root.compact && (root.player?.isPlaying ?? false)
                                 highlightColor: root.blendedColors.colPrimary
                                 trackColor: root.blendedColors.colSecondaryContainer
                                 handleColor: root.blendedColors.colPrimary
@@ -249,6 +251,7 @@ Item {
                             active: !(root.player?.canSeek ?? false)
                             sourceComponent: StyledProgressBar {
                                 wavy: root.player?.isPlaying
+                                animateWave: !root.compact
                                 highlightColor: root.blendedColors.colPrimary
                                 trackColor: root.blendedColors.colSecondaryContainer
                                 value: root.position / root.player?.length

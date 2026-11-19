@@ -28,6 +28,9 @@ Item {
             0.8) || Appearance.m3colors.m3secondaryContainer
     property bool downloaded: false
     property list<real> visualizerPoints: []
+    // Off: no visualizer behind the card (the right panel's compact card:
+    // cava would run and the whole panel redraw at 30 fps for it).
+    property bool visualizer: true
     property real maxVisualizerValue: 1000
     property int visualizerSmoothing: 2
     property real radius
@@ -145,6 +148,7 @@ Item {
 
             WaveVisualizer {
                 id: visualizerCanvas
+                visible: root.visualizer
                 anchors.fill: parent
                 live: root.player?.isPlaying
                 points: root.visualizerPoints

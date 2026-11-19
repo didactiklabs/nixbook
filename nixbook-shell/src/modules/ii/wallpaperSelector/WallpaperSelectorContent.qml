@@ -23,6 +23,10 @@ MouseArea {
     property string selectedColorGroup: ""
     property bool toolbarVisible: showControls || Config.options.wallpaperSelector.showSearchbar
     property bool filterFieldFocused: false
+    // The local search field, built inside a Loader whose ids this scope can't
+    // see: a bare `filterField` here threw ReferenceError, so opening the
+    // selector or typing never reached the search.
+    property Item filterField: null
 
     property var quickDirs: [
         { icon: "home",       name: "Home   ",       path: `${Directories.home}`,                alwaysVisible: Config.options.wallpaperSelector.showHomePath },
@@ -151,20 +155,20 @@ MouseArea {
             event.accepted = true;
         } else if (event.key === Qt.Key_Backspace) {
             if (!root.filterFieldFocused) {
-                filterField.forceActiveFocus();
+                root.filterField?.forceActiveFocus();
             }
             event.accepted = true;
         } else if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_L) {
             addressBar.focusBreadcrumb();
             event.accepted = true;
         } else if (event.key === Qt.Key_Slash) {
-            filterField.forceActiveFocus();
+            root.filterField?.forceActiveFocus();
             event.accepted = true;
         } else {
-            if (event.text.length > 0 && !root.filterFieldFocused) {
-                filterField.text += event.text;
-                filterField.cursorPosition = filterField.text.length;
-                filterField.forceActiveFocus();
+            if (event.text.length > 0 && !root.filterFieldFocused && root.filterField) {
+                root.filterField.text += event.text;
+                root.filterField.cursorPosition = root.filterField.text.length;
+                root.filterField.forceActiveFocus();
             }
             event.accepted = true;
         }
@@ -667,6 +671,8 @@ MouseArea {
                                 }
                                 ToolbarTextField {
                                     id: filterField
+                                    Component.onCompleted: root.filterField = filterField
+                                    Component.onDestruction: if (root.filterField === filterField) root.filterField = null
                                     placeholderText: focus
                                         ? Translation.tr("Search wallpapers")
                                         : Translation.tr("Search wallpapers")
@@ -745,8 +751,8 @@ MouseArea {
         target: GlobalStates
         function onWallpaperSelectorOpenChanged() {
             if (GlobalStates.wallpaperSelectorOpen && monitorIsFocused) {
-                if (root.source === "local")
-                    filterField.forceActiveFocus()
+                if (root.source === "local" && root.filterField)
+                    root.filterField.forceActiveFocus()
                 else
                     root.forceActiveFocus()
             } else if (!GlobalStates.wallpaperSelectorOpen) {
