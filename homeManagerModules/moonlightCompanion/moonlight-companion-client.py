@@ -767,10 +767,15 @@ def main():
                         fx = effects.parse(values.get("F", ""))
                         if fx and (active or off_since is not None):
                             effects.tick(fx)
-                        # cmd.txt keeps the game's last order: one seen when
-                        # the following starts is an old one.
+                        # cmd.txt keeps the game's last order, from one
+                        # session to the next: the one there when the
+                        # following starts, or when a game starts (no line
+                        # before it), is an old one. Run, it started the
+                        # player with the game instead of with the station.
                         cmd = values.get("C", "")
-                        if last_cmd is None:
+                        if not cmd:
+                            last_cmd = None
+                        elif last_cmd is None:
                             last_cmd = cmd
                         elif cmd != last_cmd:
                             last_cmd = cmd
