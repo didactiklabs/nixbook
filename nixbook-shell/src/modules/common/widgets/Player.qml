@@ -31,6 +31,7 @@ Item {
     property real maxVisualizerValue: 1000
     property int visualizerSmoothing: 2
     property real radius
+    property bool compact: false
     property bool showLyrics: Config.options.bar.media.showLyrics
 
     property string displayedArtFilePath: {
@@ -162,6 +163,7 @@ Item {
             Component {
                 id: controlsComponent
                 PlayerControls {
+                    compact: root.compact
                     player: root.player
                     blendedColors: root.blendedColors
                     displayedArtFilePath: root.displayedArtFilePath

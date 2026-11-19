@@ -19,6 +19,9 @@ Item {
     required property QtObject blendedColors
     required property string displayedArtFilePath
     required property real radius
+    // A lower card (the right panel, which keeps its height for the tabs):
+    // title and artist on one line, a smaller play button, tighter margins.
+    property bool compact: false
     signal toggleLyrics()
 
     // The player's position, followed only while this can be seen: each
@@ -60,8 +63,8 @@ Item {
 
     RowLayout {
         anchors.fill: parent
-        anchors.margins: 13
-        spacing: 15
+        anchors.margins: root.compact ? 8 : 13
+        spacing: root.compact ? 10 : 15
 
         Rectangle {
             id: artBackground
@@ -157,10 +160,11 @@ Item {
             StyledText {
                 id: trackTitle
                 Layout.fillWidth: true
-                font.pixelSize: Appearance.font.pixelSize.large
+                font.pixelSize: root.compact ? Appearance.font.pixelSize.normal : Appearance.font.pixelSize.large
                 color: root.blendedColors.colOnLayer0
                 elide: Text.ElideRight
-                text: StringUtils.cleanMusicTitle(root.player?.trackTitle) || "Untitled"
+                readonly property string title: StringUtils.cleanMusicTitle(root.player?.trackTitle) || "Untitled"
+                text: root.compact && (root.player?.trackArtist ?? "") !== "" ? `${title} · ${root.player.trackArtist}` : title
                 animateChange: true
                 animationDistanceX: 6
                 animationDistanceY: 0
@@ -168,6 +172,7 @@ Item {
 
             StyledText {
                 id: trackArtist
+                visible: !root.compact
                 Layout.fillWidth: true
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: root.blendedColors.colSubtext
@@ -324,7 +329,7 @@ Item {
                     anchors.right: parent.right
                     anchors.bottom: sliderRow.top
                     anchors.bottomMargin: 5
-                    property real size: 44
+                    property real size: root.compact ? 30 : 44
                     implicitWidth: size
                     implicitHeight: size
                     downAction: () => root.player.togglePlaying()
