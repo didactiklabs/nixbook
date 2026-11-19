@@ -118,7 +118,6 @@
       clicklessCornerEnd = false;
       enable = false;
     };
-    mediaPlayer = false;
     quickSliders = {
       showMic = true;
     };
