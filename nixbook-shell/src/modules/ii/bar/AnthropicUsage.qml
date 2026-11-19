@@ -10,7 +10,8 @@ import Quickshell.Io
 
 // Anthropic (Claude) usage indicator — bar shows the % left in the 5-hour
 // window; left click opens a panel with both windows' remaining % and reset
-// times. Data comes from the `anthropic-usage` script (OpenCode OAuth creds).
+// times, plus any one-model weekly limit (e.g. Fable's). Data comes from the
+// `anthropic-usage` script (Claude Code's or OpenCode's OAuth login).
 MouseArea {
     id: root
     property bool vertical: Config.options.bar.vertical
@@ -22,6 +23,10 @@ MouseArea {
     property string fiveHourReset: ""
     property string sevenDayReset: ""
     property real updatedAt: 0 // unix seconds of the data shown
+    property real retryAt: 0 // unix seconds of the next try after a 429 (0: none)
+    // One-model weekly limits: [{name, left, reset}], set once a read ends.
+    property var scopedLimits: []
+    property var _scoped: []
     readonly property bool refreshing: usageProc.running
 
     readonly property bool available: status === "ok" || status === "stale"
@@ -118,6 +123,7 @@ MouseArea {
         command: ["anthropic-usage"]
         running: false
         onExited: {
+            root.scopedLimits = root._scoped
             if (root.forcePending) {
                 root.forcePending = false
                 Qt.callLater(() => root.refresh(true))
@@ -131,6 +137,15 @@ MouseArea {
                 const value = line.slice(eq + 1)
                 if (key === "STATUS") {
                     root.status = value
+                    root._scoped = []
+                } else if (key === "SCOPED_LIMIT") {
+                    const parts = value.split("\t")
+                    const used = parseInt(parts[1])
+                    if (parts.length >= 2 && !isNaN(used))
+                        root._scoped.push({ name: parts[0], left: Math.max(0, 100 - used), reset: parts[2] ?? "" })
+                } else if (key === "RETRY_AT") {
+                    const n = parseInt(value)
+                    root.retryAt = isNaN(n) ? 0 : n
                 } else if (key === "FIVE_HOUR_UTIL") {
                     const n = parseInt(value)
                     root.fiveHourUtil = isNaN(n) ? -1 : n
@@ -280,12 +295,54 @@ MouseArea {
                 }
             }
 
+            Repeater {
+                model: root.available ? root.scopedLimits : []
+                delegate: RowLayout {
+                    id: scopedRow
+                    required property var modelData
+                    readonly property bool low: modelData.left <= 20
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    MaterialSymbol {
+                        text: "neurology"
+                        iconSize: Appearance.font.pixelSize.small
+                        color: scopedRow.low ? Appearance.m3colors.m3error : Appearance.colors.colOnLayer1
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                        text: Translation.tr("%1 this week: %2% left").arg(scopedRow.modelData.name).arg(scopedRow.modelData.left)
+                        color: scopedRow.low ? Appearance.m3colors.m3error : Appearance.colors.colOnLayer1
+                    }
+
+                    StyledText {
+                        text: Translation.tr("resets %1").arg(root.fmtResetDay(scopedRow.modelData.reset))
+                        color: Appearance.colors.colOnLayer2
+                    }
+                }
+            }
+
+            // The numbers above are an older copy: the server refused the
+            // last fetch and the script waits before asking again.
+            StyledText {
+                Layout.fillWidth: true
+                visible: root.status === "stale"
+                wrapMode: Text.Wrap
+                text: root.retryAt > 0
+                    ? Translation.tr("Anthropic refused the last update (too many requests). Next try at %1.").arg(Qt.formatDateTime(new Date(root.retryAt * 1000), "HH:mm"))
+                    : Translation.tr("Couldn't get fresh numbers; showing the last ones.")
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colOnLayer2
+            }
+
             StyledText {
                 Layout.fillWidth: true
                 visible: !root.available
                 wrapMode: Text.Wrap
                 text: root.status === "noauth"
-                    ? Translation.tr("Sign in to Claude in OpenCode to see usage")
+                    ? Translation.tr("Sign in to Claude Code (or Claude in OpenCode) to see usage")
                     : root.status === "ratelimited"
                         ? Translation.tr("Rate limited \u2014 retrying later")
                         : Translation.tr("Usage data unavailable")

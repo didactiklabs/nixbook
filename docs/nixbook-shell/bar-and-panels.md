@@ -28,7 +28,7 @@ The bar's layout (left, centre, right) is edited in **Settings → Bar** (or pin
 | [Updates](#updates) | Whether the machine is behind the repository; runs the update                                             |
 | [VPN](#vpn)         | Tailscale and NetBird status and control                                                                  |
 | Phone Connect       | KDE Connect devices ([Media & phone](./media#phone-connect))                                              |
-| Claude usage        | Remaining Claude quota in the 5-hour and weekly windows                                                   |
+| Claude usage        | Remaining Claude quota in the 5-hour and weekly windows, and any one-model weekly limit (Fable)           |
 | Desktop control     | AI agents' activity and the pause button ([Desktop control](./desktop-agents#the-desktop-control-widget)) |
 | Dock to panel       | The dock's apps inside the bar                                                                            |
 | Dynamic island      | A compact pill that expands for media, notifications, volume/brightness, timers and the session           |
