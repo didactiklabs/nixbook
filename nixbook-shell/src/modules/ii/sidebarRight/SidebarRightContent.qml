@@ -183,7 +183,10 @@ Item {
                     player: root.activePlayer
                     // Hidden (sidebar closed): no copy of every cava frame.
                     visualizerPoints: ObjectUtils.shown(sidebarPlayer) ? GlobalStates.visualizerPoints : []
-                    implicitHeight: 160
+                    // Low, so the tabs under it keep their room (it was
+                    // 160); the lyrics view needs the taller card.
+                    compact: true
+                    implicitHeight: showLyrics ? 160 : 118
                     radius: Appearance.rounding.normal
                 }
             }
