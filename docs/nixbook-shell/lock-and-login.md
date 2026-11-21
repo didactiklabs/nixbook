@@ -26,6 +26,8 @@ The greeter can't read your home directory, so a small service exports what it n
 
 After login, the shell's **loading screen** covers the session from its first frame until the shell is fully drawn, then fades out: no black screen or half-drawn desktop in between (on by default; Settings → Appearance → Loading screen, from the next login, or `appearance.loadingScreen.early` in the shell's Nix settings). It waits until rendering is smooth rather than a fixed delay, and desktop widgets fade in afterwards.
 
+Only at login: when the shell restarts later in the same niri session (an update or a `colmena apply` switching to a new shell, a crash) it comes back in the background. No loading screen, nothing takes the keyboard or the mouse; the bar and the wallpaper reappear as they load and the panels are built quietly afterwards, so the first open of each is still instant.
+
 ## Account picture
 
 **Settings → Profile → Avatar** sets your picture through AccountsService (the one login screens use; `~/.face` as fallback): choose an image or pick one from your pictures folder. It appears in the sidebars, the user-card widget, the lock screen and the greeter.

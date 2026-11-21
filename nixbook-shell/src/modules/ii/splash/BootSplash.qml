@@ -23,8 +23,9 @@ Scope {
     id: root
 
     readonly property bool booting: Preloader.booting
-    // Stay mapped through the fade-out.
-    property bool shown: true
+    // Stay mapped through the fade-out. Never shown on a restart within the
+    // session (Preloader.quietStart: booting is false from the start).
+    property bool shown: Preloader.booting
     onBootingChanged: if (!booting) fadeOut.restart()
     Timer {
         id: fadeOut
@@ -34,12 +35,15 @@ Scope {
 
     // earlySplash.qml (the same loading screen, up while the shell itself
     // was still loading) leaves once this marker appears: by then this
-    // splash has drawn its first frames underneath it.
+    // splash has drawn its first frames underneath it. It holds the niri
+    // session's socket: a later start in the same session (the launcher and
+    // the splash unit's condition compare it) comes back without a loading
+    // screen.
     Timer {
         id: announceShown
         interval: 150
         onTriggered: Quickshell.execDetached(["sh", "-c",
-            'mkdir -p "$XDG_RUNTIME_DIR/nixbook-shell" && touch "$XDG_RUNTIME_DIR/nixbook-shell/boot-splash-shown"'])
+            'mkdir -p "$XDG_RUNTIME_DIR/nixbook-shell" && m="$XDG_RUNTIME_DIR/nixbook-shell/boot-splash-shown" && printf %s "${NIRI_SOCKET:-}" > "$m.tmp" && mv -f "$m.tmp" "$m"'])
     }
 
     // Destroyed (not just hidden) once the fade-out is over.

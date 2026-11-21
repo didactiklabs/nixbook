@@ -29,6 +29,13 @@ import Quickshell.Services.UPower
  *
  * After boot (e.g. plugging in later), remaining stages run while idle, as
  * before: a gap between stages, paused while locked or while a popup is open.
+ *
+ * Quiet start (`quietStart`): a restart within the same niri session — a
+ * system switch or update restarting the unit, a crash — has no loading
+ * screen and takes no input: the bar and wallpaper come back as they load,
+ * and the stages are built in the background at the idle pace, pre-rendered
+ * invisibly (`warming`) like at boot. The launcher decides it
+ * (NIXBOOK_SHELL_QUIET_START, from the session marker BootSplash writes).
  * Preloaded windows stay hidden and idle: their timers/visualizers are gated
  * on the window being visible.
  */
@@ -61,10 +68,14 @@ Singleton {
     readonly property int stallMs: 40
     // "building" → "rendering" (all stages built, waiting for the last frames)
     property string bootPhase: "building"
-    property bool booting: true
+    // A restart within the session: no loading screen (see the top comment).
+    readonly property bool quietStart: Quickshell.env("NIXBOOK_SHELL_QUIET_START") === "1"
+    property bool booting: !root.quietStart
+    // Quiet start: the stages are being built in the background.
+    property bool warming: root.quietStart
     // Kept-mapped windows draw their closed content at ~0 opacity while this
     // is set, so the first real open finds everything uploaded.
-    readonly property bool prerender: root.booting
+    readonly property bool prerender: root.booting || root.warming
     property string currentStage: ""
     readonly property int stageCount: root.lightStages.length + (root.bootHeavy ? root.heavyStages.length : 0)
     property int stagesDone: 0
@@ -205,15 +216,36 @@ Singleton {
         interval: 400
         repeat: true
         onTriggered: {
-            if (root.userBusy)
+            if (root.userBusy || !Config.ready)
                 return; // try again next tick
             const s = root.nextStage(root.onAc);
             if (s === "") {
                 stageTimer.stop(); // resumes below if we get plugged in
+                if (root.warming) warmEnd.restart();
                 return;
             }
             root[s] = true;
         }
+    }
+
+    // Quiet start: let the bar and the wallpaper draw first, then build the
+    // rest in the background; desktop widgets are revealed one by one.
+    Timer {
+        id: quietStageStart
+        interval: 1500
+        running: root.quietStart
+        onTriggered: {
+            root._revealReady = true;
+            if (root._revealQueue.length > 0) revealTimer.start();
+            if (root.nextStage(root.onAc) !== "") stageTimer.start();
+            else warmEnd.restart();
+        }
+    }
+    // The last stage's windows get a moment to draw their invisible frame.
+    Timer {
+        id: warmEnd
+        interval: 1000
+        onTriggered: root.warming = false
     }
 
     // Plugging in later finishes the heavy stages.

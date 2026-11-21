@@ -461,6 +461,16 @@ let
         "''${XDG_STATE_HOME:-$HOME/.local/state}/nixbook-shell/improve"; do
         [ -d "$dir" ] || mkdir -p -m 700 "$dir"
       done
+      # A restart within the same niri session (a switch, an update, a crash):
+      # the loading screen of this session's first start holds its niri
+      # socket (BootSplash.qml writes it). The shell then comes back in the
+      # background, with no loading screen (services/Preloader.qml quietStart).
+      unset NIXBOOK_SHELL_QUIET_START
+      marker="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/nixbook-shell/boot-splash-shown"
+      if [ -n "''${NIRI_SOCKET:-}" ] && [ -s "$marker" ] \
+        && [ "$(cat "$marker" 2>/dev/null)" = "$NIRI_SOCKET" ]; then
+        export NIXBOOK_SHELL_QUIET_START=1
+      fi
     fi
     exec ${quickshell}/bin/qs -c ${configName} "$@"
   '';
