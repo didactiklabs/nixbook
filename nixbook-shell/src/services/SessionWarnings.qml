@@ -26,7 +26,7 @@ Singleton {
         // NixOS: a rebuild / deploy / profile change in progress (process names
         // are matched exactly, comm is truncated to 15 chars), or the shell's
         // own update service running.
-        command: ["bash", "-c", "pgrep -x 'nixos-rebuild.*|colmena|home-manager|nix-env|switch-to-conf.*|nix-collect-gar.*' >/dev/null || systemctl is-active --quiet nixos-upgrade-manual.service nixos-upgrade.service"]
+        command: ["bash", "-c", "pgrep -x 'nixos-rebuild.*|colmena|home-manager|nix-env|switch-to-conf.*|nix-collect-gar.*' >/dev/null || systemctl is-active --quiet nixos-upgrade-manual.service nixos-upgrade-boot.service nixos-upgrade.service"]
         onExited: (exitCode, exitStatus) => {
             root.packageManagerRunning = (exitCode === 0);
         }

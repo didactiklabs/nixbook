@@ -36,6 +36,12 @@ import qs.services
  * background during it (Preloader.quietStart). A notification when it
  * starts and when it ends.
  *
+ * Next restart: `startUpdate(true)` (the "Next restart" buttons, and
+ * automatic updates with updates.auto.nextBoot) runs nixos-upgrade-boot
+ * instead (osupdate --boot: installed as the next boot's system, nothing
+ * running changes). The check then reports it as `stagedRev`; an update
+ * already installed that way (`stagedLatest`) isn't offered or started again.
+ *
  * Replaces upstream services/Updates.qml, which relied on a distro package
  * manager and was inert on NixOS.
  */
@@ -66,6 +72,17 @@ Singleton {
     property string lastRunLog: ""
     // Main's build of remoteRev: "passed", "pending", "failed" or "" (unknown).
     property string ci: ""
+    // The revision the next boot starts when it isn't the running one
+    // (installed with "Next restart"), else "".
+    property string stagedRev: ""
+    readonly property bool pendingRestart: root.stagedRev !== "" && root.stagedRev !== root.localRev
+    // The latest revision is already installed for the next boot.
+    readonly property bool stagedLatest: root.pendingRestart && root.stagedRev === root.remoteRev
+    // Something to do: an update neither running nor already installed.
+    readonly property bool needsAction: root.updateAvailable && !root.stagedLatest
+    // The running (or last) run's mode: "switch" (now) or "boot" (next restart).
+    property string runMode: "switch"
+    readonly property bool autoNextBoot: Config.options.updates.auto.nextBoot
 
     readonly property bool autoEnabled: Config.options.updates.auto.enable
     // Why an available update isn't installed on its own yet ("" when nothing
@@ -120,13 +137,16 @@ Singleton {
 
     // The whole log of the running (or last) update, in a terminal.
     function openLogs() {
-        AppLaunch.spawnInTerminal(["journalctl", "-u", "nixos-upgrade-manual", "-f", "-n", "300", "-o", "cat", "--no-pager"])
+        AppLaunch.spawnInTerminal(["journalctl", "-u", "nixos-upgrade-manual", "-u", "nixos-upgrade-boot",
+            "-f", "-n", "300", "-o", "cat", "--no-pager"])
     }
 
-    function startUpdate() {
+    // nextBoot: installed for the next restart only (nixos-upgrade-boot).
+    function startUpdate(nextBoot) {
         if (root.updating) return false
         root.updating = true
         root.step = ""
+        root.runMode = nextBoot === true ? "boot" : "switch"
         root.startUpdateProcess.running = true
         return true
     }
@@ -188,12 +208,14 @@ Singleton {
             root.updateAvailable = data.available === true
             root.changelogText = (data.changelog ?? []).map(c => `- ${c}`).join("\n")
             root.ci = data.ci ?? ""
+            root.stagedRev = data.stagedRev ?? ""
             root.considerAuto()
         }
     }
 
     property Process startUpdateProcess: Process {
-        command: ["systemctl", "start", "--no-block", "nixos-upgrade-manual.service"]
+        command: ["systemctl", "start", "--no-block",
+            root.runMode === "boot" ? "nixos-upgrade-boot.service" : "nixos-upgrade-manual.service"]
         onExited: code => {
             if (code !== 0) {
                 root.updating = false
@@ -218,6 +240,7 @@ Singleton {
             const wasUpdating = root.updating
             root.updating = data.state === "running"
             root.step = data.step ?? ""
+            if (data.mode === "boot" || data.mode === "switch") root.runMode = data.mode
             if (data.state === "success" || data.state === "failed") {
                 root.lastResult = data.state
                 root.lastRunTime = data.finished ? Qt.formatDateTime(new Date(data.finished * 1000), "MMM d hh:mm") : ""
@@ -251,6 +274,8 @@ Singleton {
     function autoHold() {
         if (!root.autoEnabled || !root.updateAvailable || root.updating || root.checking || root.remoteRev === "Unknown")
             return ""
+        if (root.stagedLatest)
+            return Translation.tr("installed, it applies at the next restart")
         const p = Persistent.states.updates
         if (root.localDirty)
             return Translation.tr("deployed from a local tree with uncommitted changes")
@@ -291,11 +316,13 @@ Singleton {
             return
         Persistent.states.updates.autoTarget = root.remoteRev
         Persistent.states.updates.autoStartedAt = Math.floor(Date.now() / 1000)
-        if (!root.startUpdate()) return
+        if (!root.startUpdate(root.autoNextBoot)) return
         Quickshell.execDetached(["notify-send", "-a", Translation.tr("System updates"), "-u", "low",
             "--hint=int:transient:1",
             Translation.tr("Updating in the background"),
-            Translation.tr("Installing %1. The shell restarts once on its own; you can keep working.").arg(root.remoteRev.slice(0, 7))])
+            root.autoNextBoot
+                ? Translation.tr("Installing %1 for the next restart: nothing changes until then.").arg(root.remoteRev.slice(0, 7))
+                : Translation.tr("Installing %1. The shell restarts once on its own; you can keep working.").arg(root.remoteRev.slice(0, 7))])
     }
 
     // An automatic run's result (also when the shell was restarted by it).
@@ -311,10 +338,14 @@ Singleton {
         const target = p.autoTarget
         p.autoTarget = ""
         if (!recent) return
-        if (data.state === "success")
+        if (data.state === "success" && data.mode === "boot")
+            Quickshell.execDetached(["notify-send", "-a", Translation.tr("System updates"), "-u", "low",
+                Translation.tr("Update ready"),
+                Translation.tr("%1 is installed: it applies at the next restart.").arg((data.rev || target).slice(0, 7))])
+        else if (data.state === "success")
             Quickshell.execDetached(["notify-send", "-a", Translation.tr("System updates"), "-u", "low",
                 Translation.tr("System updated"),
-                Translation.tr("Now on %1.").arg((data.rev ?? target).slice(0, 7))])
+                Translation.tr("Now on %1.").arg((data.rev || target).slice(0, 7))])
         else
             Quickshell.execDetached(["notify-send", "-a", Translation.tr("System updates"),
                 Translation.tr("Automatic update failed"),

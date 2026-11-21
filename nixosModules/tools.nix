@@ -25,29 +25,133 @@ let
       ]
     }:$PATH
 
+    # --force (or OSUPDATE_FORCE=1): skip the network preflight.
+    # --boot (or OSUPDATE_BOOT=1): install the new system for the next boot
+    # only (colmena's `boot` goal): nothing running changes until a restart.
+    force=''${OSUPDATE_FORCE:-0}
+    boot=''${OSUPDATE_BOOT:-0}
+    for arg in "$@"; do
+      case "$arg" in
+        --force) force=1 ;;
+        --boot) boot=1 ;;
+        *) echo "usage: osupdate [--force] [--boot]" >&2; exit 2 ;;
+      esac
+    done
+
     ${lib.optionalString config.networking.networkmanager.enable ''
-      # Network preflight, skipped with `osupdate --force` (or OSUPDATE_FORCE=1).
-      if [ "''${1:-}" != "--force" ] && [ "''${OSUPDATE_FORCE:-0}" != 1 ] \
-        && ! ${pkgs.networkmanager}/bin/nm-online -q -t 30; then
+      if [ "$force" != 1 ] && ! ${pkgs.networkmanager}/bin/nm-online -q -t 30; then
         echo "error: no network connection (use osupdate --force to try anyway)" >&2
         exit 1
       fi
     ''}
 
     target="$(git ls-remote https://github.com/didactiklabs/nixbook refs/heads/main | awk '{print $1}')"
-    echo last applied revision: $(${pkgs.jq}/bin/jq -r .rev /etc/nixos/version)
+    echo "last applied revision: $(${pkgs.jq}/bin/jq -r .rev /etc/nixos/version)"
     echo applying revision: "$target"...
 
+    goal=switch
+    # The new system's own copy: /etc only changes once it is running.
+    version=/etc/nixos/version
+    if [ "$boot" = 1 ]; then
+      goal=boot
+      version=/nix/var/nix/profiles/system/etc/nixos/version
+      echo "installing it for the next boot (the running system is left as it is)"
+    fi
+
     echo Running ginx...
-    ${ginx}/bin/ginx --source https://github.com/didactiklabs/nixbook -b main --now -- /run/wrappers/bin/sudo ${pkgs.colmena}/bin/colmena apply-local
+    ${ginx}/bin/ginx --source https://github.com/didactiklabs/nixbook -b main --now -- /run/wrappers/bin/sudo ${pkgs.colmena}/bin/colmena apply-local "$goal"
     # ginx exits 0 even when its command fails: check the result.
-    applied="$(${pkgs.jq}/bin/jq -r .rev /etc/nixos/version)"
+    applied="$(${pkgs.jq}/bin/jq -r .rev "$version")"
     if [ "$applied" != "$target" ]; then
       echo "error: the update did not apply (deployed revision: $applied, expected: $target)" >&2
       exit 1
     fi
-    echo "updated to $applied"
+    if [ "$boot" = 1 ]; then
+      echo "installed $applied: it applies at the next boot"
+    else
+      echo "updated to $applied"
+    fi
   '';
+  # The update units the desktop shell starts (passwordless, core.nix's
+  # polkit rule). Both write /run/nixos-upgrade/status.json, so the shell
+  # watches one file whichever ran; never both at once.
+  upgradeService =
+    { description, boot }:
+    let
+      other = if boot then "nixos-upgrade-manual.service" else "nixos-upgrade-boot.service";
+      mode = if boot then "boot" else "switch";
+      # What the run installed: the new system's copy when it is for the
+      # next boot (/etc only changes once it is running).
+      version = if boot then "/nix/var/nix/profiles/system/etc/nixos/version" else "/etc/nixos/version";
+    in
+    {
+      inherit description;
+      restartIfChanged = false;
+      stopIfChanged = false;
+      serviceConfig = {
+        Type = "oneshot";
+        # What the desktop shell's updates widget watches (it no longer
+        # follows the journal itself): /run/nixos-upgrade/status.json,
+        # {state: running|success|failed, started, finished, step (the
+        # latest log line, every 2 s), rev, tail (the log's last lines),
+        # mode: switch | boot}.
+        RuntimeDirectory = "nixos-upgrade";
+        RuntimeDirectoryMode = "0755";
+        RuntimeDirectoryPreserve = "yes";
+        # Never while the other one runs (both use the same files).
+        ExecCondition = "${pkgs.writeShellScript "nixos-upgrade-alone" ''
+          ! ${pkgs.systemd}/bin/systemctl is-active --quiet ${other}
+        ''}";
+        ExecStart = "${pkgs.writeShellScript "nixos-upgrade-wrapper" ''
+          set -o pipefail
+          export NIXPKGS_ALLOW_UNFREE=1
+          export PATH=$PATH:${
+            lib.makeBinPath [
+              pkgs.git
+              pkgs.jq
+              pkgs.colmena
+              ginx
+              osupdate
+            ]
+          }
+          dir=/run/nixos-upgrade
+          : >"$dir/log"
+          # Which unit the status is about (ExecStopPost runs for a skipped one too).
+          echo ${mode} >"$dir/owner"
+          started=$(date +%s)
+          running() {
+            jq -nc --argjson s "$started" --arg step "$(tail -n 1 "$dir/log" | cut -c1-200)" \
+              '{state: "running", started: $s, step: $step, mode: "${mode}"}' >"$dir/status.json.tmp" &&
+              mv -f "$dir/status.json.tmp" "$dir/status.json"
+          }
+          running
+          (while sleep 2; do running; done) &
+          ticker=$!
+          trap 'kill $ticker 2>/dev/null' EXIT
+          osupdate ${lib.optionalString boot "--boot"} 2>&1 | tee -a "$dir/log"
+        ''}";
+        ExecStopPost = "${pkgs.writeShellScript "nixos-upgrade-status" ''
+          dir=/run/nixos-upgrade
+          [ "$(cat "$dir/owner" 2>/dev/null)" = ${mode} ] || exit 0
+          state=failed
+          [ "''${SERVICE_RESULT:-}" = success ] && [ "''${EXIT_STATUS:-0}" = 0 ] && state=success
+          started=$(${pkgs.jq}/bin/jq '.started // null' "$dir/status.json" 2>/dev/null) || started=null
+          tail -n 60 "$dir/log" 2>/dev/null |
+            ${pkgs.jq}/bin/jq -Rsc --arg st "$state" --argjson s "''${started:-null}" --argjson f "$(date +%s)" \
+              --arg rev "$(${pkgs.jq}/bin/jq -r '.rev // ""' ${version} 2>/dev/null)" \
+              '{state: $st, started: $s, finished: $f, rev: $rev, mode: "${mode}", tail: (. | rtrimstr("\n"))}' >"$dir/status.json.tmp" &&
+            mv -f "$dir/status.json.tmp" "$dir/status.json"
+        ''}";
+        StandardOutput = "journal";
+        StandardError = "journal";
+        # Stay out of the way of the desktop while it evaluates and
+        # switches, and don't hang forever on a stuck download.
+        Nice = 10;
+        IOSchedulingClass = "idle";
+        TimeoutStartSec = "2h";
+      };
+    };
+
 in
 {
   options.customNixOSModules.tools = {
@@ -70,7 +174,8 @@ in
         - DS4 controller: user systemd service running ds4drv in HID-raw + xpad emulation
           mode for DualShock 4 controllers
         - osupdate: shell script that applies the latest nixbook main branch via ginx +
-          colmena apply-local
+          colmena apply-local (`--boot`: installed for the next boot only); the
+          nixos-upgrade-manual and nixos-upgrade-boot units run it for the desktop shell
         - udev: game-devices rules, and uinput for the users (the uinput group, which
           every nixbook user is in, and the active seat), not every local account
 
@@ -173,64 +278,15 @@ in
       #   };
       # };
       services = {
-        "nixos-upgrade-manual" = {
+        "nixos-upgrade-manual" = upgradeService {
           description = "Manual NixOS System Upgrade";
-          restartIfChanged = false;
-          stopIfChanged = false;
-          serviceConfig = {
-            Type = "oneshot";
-            # What the desktop shell's updates widget watches (it no longer
-            # follows the journal itself): /run/nixos-upgrade/status.json,
-            # {state: running|success|failed, started, finished, step (the
-            # latest log line, every 2 s), rev, tail (the log's last lines)}.
-            RuntimeDirectory = "nixos-upgrade";
-            RuntimeDirectoryMode = "0755";
-            RuntimeDirectoryPreserve = "yes";
-            ExecStart = "${pkgs.writeShellScript "nixos-upgrade-wrapper" ''
-              set -o pipefail
-              export NIXPKGS_ALLOW_UNFREE=1
-              export PATH=$PATH:${
-                lib.makeBinPath [
-                  pkgs.git
-                  pkgs.jq
-                  pkgs.colmena
-                  ginx
-                  osupdate
-                ]
-              }
-              dir=/run/nixos-upgrade
-              : >"$dir/log"
-              started=$(date +%s)
-              running() {
-                jq -nc --argjson s "$started" --arg step "$(tail -n 1 "$dir/log" | cut -c1-200)" \
-                  '{state: "running", started: $s, step: $step}' >"$dir/status.json.tmp" &&
-                  mv -f "$dir/status.json.tmp" "$dir/status.json"
-              }
-              running
-              (while sleep 2; do running; done) &
-              ticker=$!
-              trap 'kill $ticker 2>/dev/null' EXIT
-              osupdate 2>&1 | tee -a "$dir/log"
-            ''}";
-            ExecStopPost = "${pkgs.writeShellScript "nixos-upgrade-status" ''
-              dir=/run/nixos-upgrade
-              state=failed
-              [ "''${SERVICE_RESULT:-}" = success ] && [ "''${EXIT_STATUS:-0}" = 0 ] && state=success
-              started=$(${pkgs.jq}/bin/jq '.started // null' "$dir/status.json" 2>/dev/null) || started=null
-              tail -n 60 "$dir/log" 2>/dev/null |
-                ${pkgs.jq}/bin/jq -Rsc --arg st "$state" --argjson s "''${started:-null}" --argjson f "$(date +%s)" \
-                  --arg rev "$(${pkgs.jq}/bin/jq -r '.rev // ""' /etc/nixos/version 2>/dev/null)" \
-                  '{state: $st, started: $s, finished: $f, rev: $rev, tail: (. | rtrimstr("\n"))}' >"$dir/status.json.tmp" &&
-                mv -f "$dir/status.json.tmp" "$dir/status.json"
-            ''}";
-            StandardOutput = "journal";
-            StandardError = "journal";
-            # Stay out of the way of the desktop while it evaluates and
-            # switches, and don't hang forever on a stuck download.
-            Nice = 10;
-            IOSchedulingClass = "idle";
-            TimeoutStartSec = "2h";
-          };
+          boot = false;
+        };
+        # The same, installed for the next boot only (osupdate --boot): the
+        # shell's "Next restart" and updates.auto.nextBoot.
+        "nixos-upgrade-boot" = upgradeService {
+          description = "NixOS System Upgrade for the next boot";
+          boot = true;
         };
       };
     };

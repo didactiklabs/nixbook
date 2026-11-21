@@ -349,6 +349,21 @@ ContentPage {
                 }
 
                 ConfigSwitch {
+                    configKey: "updates.auto.nextBoot";
+                    shown: Config.options.updates.auto.enable
+                    enabled: !nixManaged;
+                    buttonIcon: "restart_alt"
+                    text: Translation.tr("Only from the next restart")
+                    checked: Config.options.updates.auto.nextBoot
+                    onCheckedChanged: {
+                        Config.options.updates.auto.nextBoot = checked;
+                    }
+                    StyledToolTip {
+                        text: Translation.tr("Installed in the background as the system the next restart starts: nothing running changes (no shell restart, no services restarted) until then.")
+                    }
+                }
+
+                ConfigSwitch {
                     configKey: "updates.auto.onBattery";
                     shown: Config.options.updates.auto.enable && Battery.available
                     enabled: !nixManaged;
@@ -382,11 +397,13 @@ ContentPage {
             StyledText {
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
-                color: UpdateState.updateAvailable && !UpdateState.checking && !UpdateState.updating
+                color: UpdateState.needsAction && !UpdateState.checking && !UpdateState.updating
                     ? Appearance.m3colors.m3error
                     : Appearance.colors.colOnLayer1
-                text: UpdateState.updating ? Translation.tr("Updating system...")
+                text: UpdateState.updating ? (UpdateState.runMode === "boot" ? Translation.tr("Installing the update for the next restart...") : Translation.tr("Updating system..."))
                     : UpdateState.checking ? Translation.tr("Checking for updates...")
+                    : UpdateState.stagedLatest
+                        ? Translation.tr("%1 is installed: it applies at the next restart").arg(UpdateState.stagedRev.slice(0, 7))
                     : UpdateState.updateAvailable
                         ? Translation.tr("Update available: %1 \u2192 %2").arg(UpdateState.localRev.slice(0, 7)).arg(UpdateState.remoteRev.slice(0, 7))
                         : Translation.tr("System up to date (%1)").arg(UpdateState.localRev.slice(0, 7))
@@ -395,7 +412,7 @@ ContentPage {
             StyledText {
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
-                visible: UpdateState.autoEnabled && UpdateState.updateAvailable && !UpdateState.updating
+                visible: UpdateState.autoEnabled && UpdateState.needsAction && !UpdateState.updating
                 color: Appearance.colors.colSubtext
                 text: UpdateState.autoWaiting !== ""
                     ? Translation.tr("Automatic update: %1").arg(UpdateState.autoWaiting)
@@ -419,9 +436,19 @@ ContentPage {
                     visible: UpdateState.updateAvailable || UpdateState.updating
                     buttonRadius: Appearance.rounding.normal
                     materialIcon: "deployed_code_update"
-                    mainText: UpdateState.updating ? Translation.tr("Updating...") : Translation.tr("Execute Update")
+                    mainText: UpdateState.updating ? Translation.tr("Updating...")
+                        : UpdateState.stagedLatest ? Translation.tr("Apply now") : Translation.tr("Execute Update")
                     enabled: !UpdateState.updating
-                    onClicked: UpdateState.startUpdate()
+                    onClicked: UpdateState.startUpdate(false)
+                }
+
+                RippleButtonWithIcon {
+                    Layout.fillWidth: true
+                    visible: UpdateState.needsAction && !UpdateState.updating
+                    buttonRadius: Appearance.rounding.normal
+                    materialIcon: "restart_alt"
+                    mainText: Translation.tr("Next restart")
+                    onClicked: UpdateState.startUpdate(true)
                 }
 
                 RippleButtonWithIcon {

@@ -440,7 +440,8 @@ in
           });
           polkit.addRule(function(action, subject) {
             if (action.id == "org.freedesktop.systemd1.manage-units" &&
-                action.lookup("unit") == "nixos-upgrade-manual.service" &&
+                (action.lookup("unit") == "nixos-upgrade-manual.service" ||
+                 action.lookup("unit") == "nixos-upgrade-boot.service") &&
                 subject.isInGroup("wheel")) {
               return polkit.Result.YES;
             }
