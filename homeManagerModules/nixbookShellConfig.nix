@@ -598,10 +598,10 @@ in
             vi = "Để áp dụng thay đổi cấu hình, chạy `colmena apply-local --sudo switch` trong kho nixbook.";
           };
           update = lib.mkIf (os != null && (os.customNixOSModules.tools.enable or false)) {
-            en = "To update the system, run `osupdate`: it applies the latest nixbook main branch (git@github.com:didactiklabs/nixbook).";
-            fr = "Pour mettre à jour le système, lancez `osupdate` : il applique la dernière version de la branche main de nixbook (git@github.com:didactiklabs/nixbook).";
-            de = "Um das System zu aktualisieren, führe `osupdate` aus: es wendet den neuesten Stand des nixbook-Branches main an (git@github.com:didactiklabs/nixbook).";
-            vi = "Để cập nhật hệ thống, chạy `osupdate`: nó áp dụng bản mới nhất của nhánh main của nixbook (git@github.com:didactiklabs/nixbook).";
+            en = "To update the system, run `osupdate`: it applies the latest nixbook main branch (git@github.com:didactiklabs/nixbook). Or turn on Settings > Services > System updates > Install updates automatically: it then runs on its own in the background once main's build is done.";
+            fr = "Pour mettre à jour le système, lancez `osupdate` : il applique la dernière version de la branche main de nixbook (git@github.com:didactiklabs/nixbook). Ou activez Paramètres > Services > System updates > Install updates automatically : elle se lance alors seule en arrière-plan une fois la compilation de main terminée.";
+            de = "Um das System zu aktualisieren, führe `osupdate` aus: es wendet den neuesten Stand des nixbook-Branches main an (git@github.com:didactiklabs/nixbook). Oder schalte Einstellungen > Dienste > System updates > Install updates automatically ein: es läuft dann von selbst im Hintergrund, sobald der Build von main fertig ist.";
+            vi = "Để cập nhật hệ thống, chạy `osupdate`: nó áp dụng bản mới nhất của nhánh main của nixbook (git@github.com:didactiklabs/nixbook). Hoặc bật Cài đặt > Dịch vụ > System updates > Install updates automatically: khi đó nó tự chạy ở chế độ nền khi bản build của main đã xong.";
           };
           # Screen sharing under niri (homeManagerModules/niri/niriConfig.nix).
           screenShare = lib.mkIf (config.customHomeManagerModules.niriConfig.enable or false) {

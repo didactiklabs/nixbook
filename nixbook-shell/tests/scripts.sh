@@ -694,12 +694,29 @@ esac
 STUB
 cat >"$uc/bin/curl" <<'STUB'
 #!/usr/bin/env bash
-echo "$*" >"$UC_CURL_LOG"
-printf '%s' '{"commits":[{"commit":{"message":"feat: one\n\nbody"}},{"commit":{"message":"fix: two"}}],"files":[]}'
+case "$*" in
+  *check-runs*)
+    echo "$*" >>"$UC_CURL_LOG.ci"
+    run() { printf '{"name":"%s","status":"%s","conclusion":%s}' "$1" "$2" "$3"; }
+    case "${UC_CI:-passed}" in
+      passed) runs="$(run 'build (testhost)' completed '"success"'),$(run 'build (other)' completed '"failure"'),$(run push-cache completed '"success"')" ;;
+      building) runs="$(run 'build (testhost)' in_progress null)" ;;
+      pushing) runs="$(run 'build (testhost)' completed '"success"'),$(run push-cache in_progress null)" ;;
+      failed) runs="$(run 'build (testhost)' completed '"failure"')" ;;
+      none) runs="$(run lint completed '"success"')" ;;
+      down) exit 22 ;;
+    esac
+    printf '{"check_runs":[%s]}' "$runs"
+    ;;
+  *)
+    echo "$*" >"$UC_CURL_LOG"
+    printf '%s' '{"commits":[{"commit":{"message":"feat: one\n\nbody"}},{"commit":{"message":"fix: two"}}],"files":[]}'
+    ;;
+esac
 STUB
 chmod +x "$uc/bin/git" "$uc/bin/curl"
 update_check() {
-  PATH="$uc/bin:$PATH" XDG_STATE_HOME="$uc/state" NIXBOOK_VERSION_FILE="$uc/version" UC_CURL_LOG="$uc/curl" \
+  PATH="$uc/bin:$PATH" XDG_STATE_HOME="$uc/state" NIXBOOK_VERSION_FILE="$uc/version" UC_CURL_LOG="$uc/curl" NIXBOOK_HOSTNAME=testhost \
     bash "$scripts/update-check.sh" "$@"
 }
 uc_out="$uc/state/nixbook-shell/update-check.json"
@@ -713,11 +730,19 @@ expect_eq "update-check: an update, with its changelog" \
   "$(jq -r '"\(.checking) \(.error | tojson) \(.localRev) \(.remoteRev) \(.available) \(.changelog | tojson)"' "$uc_out")"
 expect_contains "update-check: the changelog from GitHub's compare" "$(cat "$uc/curl")" \
   "repos/didactiklabs/nixbook/compare/$old...$new"
+expect_eq "update-check: main's build of it done here and pushed to the cache" passed "$(jq -r .ci "$uc_out")"
+expect_contains "update-check: the check runs of the new revision" "$(cat "$uc/curl.ci")" \
+  "repos/didactiklabs/nixbook/commits/$new/check-runs"
+for c in building:pending pushing:pending failed:failed none: down:; do
+  UC_CI=${c%%:*} update_check "$repo"
+  expect_eq "update-check: main's build ${c%%:*}" "${c#*:}" "$(jq -r .ci "$uc_out")"
+done
 echo "{\"rev\":\"$new\",\"branch\":\"refs/heads/main\"}" >"$uc/version"
-rm -f "$uc/curl"
+rm -f "$uc/curl" "$uc/curl.ci"
 update_check "$repo"
 expect_eq "update-check: up to date, no changelog fetched" "false [] no-curl" \
   "$(jq -r '"\(.available) \(.changelog | tojson)"' "$uc_out") $([ -e "$uc/curl" ] && echo curl || echo no-curl)"
+expect_eq "update-check: up to date, no build looked up" "" "$(jq -r .ci "$uc_out")"
 echo '{"rev":"0000000000000000000000000000000000000000","branch":"refs/heads/main"}' >"$uc/version"
 update_check "$repo"
 expect_eq "update-check: a dirty deploy, any remote commit is an update" "Unknown true true" \

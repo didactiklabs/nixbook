@@ -24,6 +24,18 @@ import qs.services
  * Used by the bar widget (modules/ii/bar/UpdatesCount.qml) and the Services
  * settings page.
  *
+ * Automatic updates (updates.auto.enable, off by default): an available
+ * update starts on its own once nothing holds it (autoWaiting says what
+ * does): main's build of it done for this machine and pushed to the cache
+ * (`ci` from the check, so it downloads instead of building, and never a
+ * revision whose build failed; when GitHub can't tell, an hour after the
+ * revision was first seen), on the charger (or a battery over half full
+ * with updates.auto.onBattery), no fullscreen window (a game, a film), no
+ * meeting, a system deployed from main without local changes, and not a
+ * revision whose update already failed. The shell restarts in the
+ * background during it (Preloader.quietStart). A notification when it
+ * starts and when it ends.
+ *
  * Replaces upstream services/Updates.qml, which relied on a distro package
  * manager and was inert on NixOS.
  */
@@ -52,9 +64,17 @@ Singleton {
     property string lastResult: ""
     property string lastRunTime: ""
     property string lastRunLog: ""
+    // Main's build of remoteRev: "passed", "pending", "failed" or "" (unknown).
+    property string ci: ""
+
+    readonly property bool autoEnabled: Config.options.updates.auto.enable
+    // Why an available update isn't installed on its own yet ("" when nothing
+    // holds it, or automatic updates are off / nothing to install).
+    property string autoWaiting: ""
 
     readonly property string checkPath: `${Quickshell.env("XDG_STATE_HOME") || `${Quickshell.env("HOME")}/.local/state`}/nixbook-shell/update-check.json`
-    readonly property string statusPath: "/run/nixos-upgrade/status.json"
+    // NIXBOOK_UPGRADE_STATUS: another file, for tests.
+    readonly property string statusPath: Quickshell.env("NIXBOOK_UPGRADE_STATUS") || "/run/nixos-upgrade/status.json"
 
     property bool started: false
 
@@ -76,6 +96,15 @@ Singleton {
         target: Config
         function onReadyChanged() {
             root.start()
+        }
+    }
+    // The automatic run's result and its state are kept there.
+    Connections {
+        target: Persistent
+        function onReadyChanged() {
+            if (!Persistent.ready || !root.started) return
+            root.statusFile.reload()
+            root.considerAuto()
         }
     }
 
@@ -148,13 +177,18 @@ Singleton {
             root.checking = false
             root.checkError = root.errorText(data.error ?? "")
             root.lastCheckTime = data.time ?? ""
-            if (data.localRev === undefined) return // failed before knowing more
+            if (data.localRev === undefined) {
+                root.considerAuto()
+                return // failed before knowing more
+            }
             root.localRev = data.localRev
             root.localBranch = data.localBranch ?? "Unknown"
             root.localDirty = data.localDirty === true
             root.remoteRev = data.remoteRev ?? "Unknown"
             root.updateAvailable = data.available === true
             root.changelogText = (data.changelog ?? []).map(c => `- ${c}`).join("\n")
+            root.ci = data.ci ?? ""
+            root.considerAuto()
         }
     }
 
@@ -188,6 +222,7 @@ Singleton {
                 root.lastResult = data.state
                 root.lastRunTime = data.finished ? Qt.formatDateTime(new Date(data.finished * 1000), "MMM d hh:mm") : ""
                 root.lastRunLog = data.tail ?? ""
+                if (Persistent.ready) root.noteResult(data)
                 if (wasUpdating) root.checkUpdate()
             }
         }
@@ -205,10 +240,101 @@ Singleton {
     // Services settings page (enable switch + interval) keeps working.
     property Timer updateTimer: Timer {
         interval: Config.options.updates.checkInterval * 60 * 1000
-        running: Config.ready && Config.options.updates.enableCheck
+        running: Config.ready && (Config.options.updates.enableCheck || root.autoEnabled)
         repeat: true
         onTriggered: root.checkUpdate()
     }
+
+    // ---- Automatic updates
+    readonly property int unknownBuildWaitMs: 60 * 60 * 1000
+
+    function autoHold() {
+        if (!root.autoEnabled || !root.updateAvailable || root.updating || root.checking || root.remoteRev === "Unknown")
+            return ""
+        const p = Persistent.states.updates
+        if (root.localDirty)
+            return Translation.tr("deployed from a local tree with uncommitted changes")
+        if (root.localBranch !== "Unknown" && root.localBranch !== "refs/heads/main")
+            return Translation.tr("deployed from another branch (%1)").arg(root.localBranch.replace("refs/heads/", ""))
+        if (p.failedRev === root.remoteRev)
+            return Translation.tr("the last update to %1 failed; Execute retries it").arg(root.remoteRev.slice(0, 7))
+        if (root.ci === "failed")
+            return Translation.tr("main's build of %1 failed for this machine").arg(root.remoteRev.slice(0, 7))
+        if (root.ci === "pending")
+            return Translation.tr("waiting for main's build to finish")
+        if (root.ci === "" && Date.now() - p.seenAt * 1000 < root.unknownBuildWaitMs)
+            return Translation.tr("waiting an hour after it appeared (its build can't be checked)")
+        if (Battery.available && (!Battery.isPluggedIn || Battery.chargerTooWeak)) {
+            if (!Config.options.updates.auto.onBattery)
+                return Translation.tr("waiting for the charger")
+            if (Battery.percentage < 0.5)
+                return Translation.tr("waiting for the charger (battery under 50%)")
+        }
+        if (Quickshell.screens.some(s => WM.fullscreenOnMonitor(s.name)))
+            return Translation.tr("a fullscreen window is open")
+        if (CalendarEvents.meetingNow(new Date()))
+            return Translation.tr("in a meeting")
+        return ""
+    }
+
+    // Looked at after each check and every minute while an update waits.
+    function considerAuto() {
+        if (!root.started || !Persistent.ready) return
+        if (root.updateAvailable && root.remoteRev !== "Unknown" && Persistent.states.updates.seenRev !== root.remoteRev) {
+            Persistent.states.updates.seenRev = root.remoteRev
+            Persistent.states.updates.seenAt = Math.floor(Date.now() / 1000)
+        }
+        const hold = root.autoHold()
+        root.autoWaiting = hold
+        if (hold !== "" || !root.autoEnabled || !root.updateAvailable || root.updating || root.checking
+                || root.remoteRev === "Unknown")
+            return
+        Persistent.states.updates.autoTarget = root.remoteRev
+        Persistent.states.updates.autoStartedAt = Math.floor(Date.now() / 1000)
+        if (!root.startUpdate()) return
+        Quickshell.execDetached(["notify-send", "-a", Translation.tr("System updates"), "-u", "low",
+            "--hint=int:transient:1",
+            Translation.tr("Updating in the background"),
+            Translation.tr("Installing %1. The shell restarts once on its own; you can keep working.").arg(root.remoteRev.slice(0, 7))])
+    }
+
+    // An automatic run's result (also when the shell was restarted by it).
+    function noteResult(data) {
+        const p = Persistent.states.updates
+        const finished = data.finished ?? 0
+        if (finished <= p.lastFinished) return
+        p.lastFinished = finished
+        const recent = Date.now() / 1000 - finished < 6 * 3600
+        if (data.state === "failed" && recent && root.updateAvailable && root.remoteRev !== "Unknown")
+            p.failedRev = p.autoTarget !== "" ? p.autoTarget : root.remoteRev
+        if (p.autoTarget === "" || finished < p.autoStartedAt) return
+        const target = p.autoTarget
+        p.autoTarget = ""
+        if (!recent) return
+        if (data.state === "success")
+            Quickshell.execDetached(["notify-send", "-a", Translation.tr("System updates"), "-u", "low",
+                Translation.tr("System updated"),
+                Translation.tr("Now on %1.").arg((data.rev ?? target).slice(0, 7))])
+        else
+            Quickshell.execDetached(["notify-send", "-a", Translation.tr("System updates"),
+                Translation.tr("Automatic update failed"),
+                Translation.tr("%1 wasn't installed; it won't be tried again on its own. The Updates widget has the log and Execute retries it.").arg(target.slice(0, 7))])
+    }
+
+    property Timer autoTimer: Timer {
+        interval: 60 * 1000
+        repeat: true
+        running: root.autoEnabled && root.updateAvailable && !root.updating
+        onTriggered: root.considerAuto()
+    }
+    // While main is still building the revision, look again sooner.
+    property Timer ciRecheck: Timer {
+        interval: 10 * 60 * 1000
+        repeat: true
+        running: root.autoEnabled && root.updateAvailable && root.ci === "pending" && !root.updating
+        onTriggered: root.checkUpdate()
+    }
+    onAutoEnabledChanged: root.considerAuto()
 
     Component.onCompleted: root.start()
 }

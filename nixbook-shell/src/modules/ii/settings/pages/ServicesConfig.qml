@@ -334,6 +334,32 @@ ContentPage {
                     }
                 }
 
+                ConfigSwitch {
+                    configKey: "updates.auto.enable";
+                    enabled: !nixManaged;
+                    buttonIcon: "autorenew"
+                    text: Translation.tr("Install updates automatically")
+                    checked: Config.options.updates.auto.enable
+                    onCheckedChanged: {
+                        Config.options.updates.auto.enable = checked;
+                    }
+                    StyledToolTip {
+                        text: Translation.tr("In the background, once main's build of the update is done: on the charger, never during a fullscreen window or a meeting. The shell restarts once, without a loading screen.")
+                    }
+                }
+
+                ConfigSwitch {
+                    configKey: "updates.auto.onBattery";
+                    shown: Config.options.updates.auto.enable && Battery.available
+                    enabled: !nixManaged;
+                    buttonIcon: "battery_5_bar"
+                    text: Translation.tr("Also on battery (over 50%)")
+                    checked: Config.options.updates.auto.onBattery
+                    onCheckedChanged: {
+                        Config.options.updates.auto.onBattery = checked;
+                    }
+                }
+
                 ConfigTextArea {
                     configKey: "updates.repoUrl";
                     enabled: !nixManaged;
@@ -364,6 +390,16 @@ ContentPage {
                     : UpdateState.updateAvailable
                         ? Translation.tr("Update available: %1 \u2192 %2").arg(UpdateState.localRev.slice(0, 7)).arg(UpdateState.remoteRev.slice(0, 7))
                         : Translation.tr("System up to date (%1)").arg(UpdateState.localRev.slice(0, 7))
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                visible: UpdateState.autoEnabled && UpdateState.updateAvailable && !UpdateState.updating
+                color: Appearance.colors.colSubtext
+                text: UpdateState.autoWaiting !== ""
+                    ? Translation.tr("Automatic update: %1").arg(UpdateState.autoWaiting)
+                    : Translation.tr("Automatic update: starting")
             }
 
             ConfigRow {
