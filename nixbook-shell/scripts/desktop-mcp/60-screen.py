@@ -203,9 +203,12 @@ def wl_copy(data, mime=None):
     try:
         p.communicate(data, timeout=5)
     except subprocess.TimeoutExpired:
-        p.kill()
+        # The whole group: p is wl-copy-text.sh's bash, the real wl-copy its
+        # child; killing p alone left that one running, holding the seat.
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(p.pid, signal.SIGKILL)
         p.wait()
-        raise ToolError("`wl-copy` timed out")
+        raise ToolError("`wl-copy` timed out (stopped)")
 
 
 def screenshot_window(ctx, wid):
