@@ -21,7 +21,11 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mcp="$root/scripts/desktop-mcp.py"
 # The user's own `trust set` (refused under Claude Code, as to an agent).
 user_trust() { env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT python3 "$mcp" trust "$@"; }
-tmp="$(mktemp -d)"
+# In /tmp, not $TMPDIR: the bridges' sockets live under it
+# ($tmp/runtime/nixbook-electron/youtube-music.sock), and nix-shell's TMPDIR on
+# CI (/home/runner/work/_temp/nix-shell-<pid>-<n>/) put that path at the
+# 107-character AF_UNIX limit, failing depending on the pid's digits.
+tmp="$(mktemp -d /tmp/dmcp.XXXXXXXX)"
 http_pid=""
 wl_pid=""
 cleanup() {

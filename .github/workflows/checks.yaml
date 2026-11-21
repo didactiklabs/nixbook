@@ -129,7 +129,7 @@ jobs:
         run: nix-shell -p jq yq-go --run "tests/run.sh repo"
       - name: nixbook-shell script tests
         if: ${{ !cancelled() }}
-        run: nix-shell -p jq python3 --run "tests/run.sh shell"
+        run: nix-shell -p jq python3 socat --run "tests/run.sh shell"
       - name: Installer ISO evaluates
         if: ${{ !cancelled() }}
         run: tests/run.sh iso
