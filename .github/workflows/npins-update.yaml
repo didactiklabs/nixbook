@@ -123,8 +123,10 @@ jobs:
               --input -
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      # Also on an update: GitHub can drop auto-merge from a PR (it was off on
+      # every open one, the oldest a month old), and only a creation set it.
       - name: Enable Pull Request Automerge
-        if: steps.cpr.outputs.pull-request-operation == 'created'
+        if: steps.cpr.outputs.pull-request-number != ''
         uses: peter-evans/enable-pull-request-automerge@a660677d5469627102a1c1e11409dd063606628d # v3.0.0
         with:
           token: ${{ steps.app-token.outputs.token }}
