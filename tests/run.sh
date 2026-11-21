@@ -105,7 +105,7 @@ cmd_repo() {
 }
 
 cmd_shell() {
-  need nix-instantiate jq python3 curl
+  need nix-instantiate jq python3 curl socat
   local failed=0
   section "nixbook-shell scripts"
   bash nixbook-shell/tests/scripts.sh || failed=1
