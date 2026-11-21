@@ -238,7 +238,9 @@ Singleton {
                 return
             }
             const wasUpdating = root.updating
-            root.updating = data.state === "running"
+            root.runStarted = data.started ?? 0
+            // A run already found to have no unit behind it stays ended.
+            root.updating = data.state === "running" && !(root.staleStarted > 0 && root.runStarted === root.staleStarted)
             root.step = data.step ?? ""
             if (data.mode === "boot" || data.mode === "switch") root.runMode = data.mode
             if (data.state === "success" || data.state === "failed") {
@@ -257,6 +259,40 @@ Singleton {
         repeat: true
         running: root.updating
         onTriggered: root.statusFile.reload()
+    }
+    // A "running" status with neither update unit running is stale: an
+    // update whose end was never recorded (2026-11-21: one started under the
+    // previous unit, whose new end script found no `owner` file and left the
+    // status alone). Taken at its word, it skipped every check and held the
+    // automatic updates for good. Looked at every 30 s once the run is 2
+    // minutes old (a unit started with --no-block isn't active at once).
+    property real runStarted: 0
+    property real staleStarted: 0
+    property Timer unitCheck: Timer {
+        interval: 30000
+        repeat: true
+        triggeredOnStart: true
+        running: root.updating
+        onTriggered: {
+            if (Date.now() / 1000 - root.runStarted > 120 && !root.unitProbe.running)
+                root.unitProbe.running = true
+        }
+    }
+    property Process unitProbe: Process {
+        command: ["systemctl", "show", "-p", "ActiveState", "--value",
+            "nixos-upgrade-manual.service", "nixos-upgrade-boot.service"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const states = text.split("\n").map(s => s.trim()).filter(s => s !== "")
+                if (states.length === 0 || !root.updating) return // systemctl failed: no verdict
+                if (states.some(s => ["active", "activating", "deactivating", "reloading"].includes(s))) return
+                console.warn(`[UpdateState] ${root.statusPath} says running, but no update unit runs: taken as ended`)
+                root.staleStarted = root.runStarted
+                root.updating = false
+                root.step = ""
+                root.checkUpdate()
+            }
+        }
     }
 
     // Periodic check — driven by the same config as the old service, so the
