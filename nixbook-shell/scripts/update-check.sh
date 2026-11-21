@@ -5,7 +5,8 @@
 # multi-megabyte GitHub /compare answer never blocks the shell. The answer
 # goes to $XDG_STATE_HOME/nixbook-shell/update-check.json, which the bar reads:
 #   {checking, time, error, localRev, localBranch, localDirty, remoteRev,
-#    available, changelog: [commit titles, oldest first]}
+#    available, changelog: [commit titles, oldest first],
+#    ci: "passed" | "pending" | "failed" | "" (main's build of remoteRev)}
 # error: "" or no-repo, no-version, bad-version, timeout, unreachable.
 set -uo pipefail
 
@@ -70,6 +71,30 @@ if [ "$available" = true ] && [ "$branch" = refs/heads/main ] && [ "$local_rev" 
   fi
 fi
 
+# Where main's build of the new revision is (automatic updates wait for it):
+# this machine's `build (<host>)` job and the cache push, from GitHub's check
+# runs. "passed": both done (the system comes from the cache, not built here);
+# "pending": still running; "failed": this machine's build failed; "": not
+# known (not GitHub, rate limit, no such job).
+ci=""
+if [ "$available" = true ]; then
+  IFS=/ read -r _ _ host owner name _ <<<"$repo"
+  name=${name%.git}
+  if [ "${host,,}" = github.com ] && [ -n "${owner:-}" ] && [ -n "$name" ]; then
+    machine=${NIXBOOK_HOSTNAME:-$(cat /proc/sys/kernel/hostname 2>/dev/null)}
+    ci=$(curl -sfL --max-time 15 "https://api.github.com/repos/$owner/$name/commits/$remote_rev/check-runs?per_page=100" |
+      jq -r --arg b "build ($machine)" '
+        [.check_runs[]? | select(.name == $b or .name == "push-cache")] as $runs
+        | ($runs | map(select(.name == $b)) | first) as $build
+        | ($runs | map(select(.name == "push-cache")) | first) as $push
+        | if $build == null then ""
+          elif $build.status != "completed" then "pending"
+          elif ($build.conclusion | IN("success", "skipped", "neutral") | not) then "failed"
+          elif $push == null or $push.status != "completed" then "pending"
+          else "passed" end' 2>/dev/null) || ci=""
+  fi
+fi
+
 finish "" "$(jq -nc --arg l "$local_rev" --arg b "$branch" --argjson d "$dirty" --arg r "$remote_rev" \
-  --argjson a "$available" --argjson c "$changelog" \
-  '{localRev: $l, localBranch: $b, localDirty: $d, remoteRev: $r, available: $a, changelog: $c}')"
+  --argjson a "$available" --argjson c "$changelog" --arg ci "$ci" \
+  '{localRev: $l, localBranch: $b, localDirty: $d, remoteRev: $r, available: $a, changelog: $c, ci: $ci}')"

@@ -1519,6 +1519,14 @@ Singleton {
                 property bool enableCheck: true
                 property int checkInterval: 120 // minutes
                 property string repoUrl: "" // NixOS configuration repository to compare /etc/nixos/version with; empty = no check
+                // Install an available update on its own (UpdateState): once
+                // main's build of it is done, on the charger (onBattery: also
+                // on a battery over half full), not during a fullscreen window
+                // or a meeting.
+                property JsonObject auto: JsonObject {
+                    property bool enable: false
+                    property bool onBattery: false
+                }
             }
             
             property JsonObject wallpaperSelector: JsonObject {

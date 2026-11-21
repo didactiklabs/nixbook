@@ -75,6 +75,20 @@ Singleton {
                 property bool meshQuickNudges: false
             }
 
+            // Automatic updates (UpdateState): the run started on its own
+            // (its target revision and when, to tell its result from a manual
+            // run's), a revision whose update failed (not retried on its own),
+            // the last result seen, and when the remote revision was first
+            // seen (the wait when main's build can't be asked).
+            property JsonObject updates: JsonObject {
+                property string autoTarget: ""
+                property real autoStartedAt: 0
+                property string failedRev: ""
+                property real lastFinished: 0
+                property string seenRev: ""
+                property real seenAt: 0
+            }
+
             property JsonObject ai: JsonObject {
                 property string model: "config-assistant"
                 // Claude's words the user has seen (Initiative.markRead), the

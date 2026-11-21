@@ -947,6 +947,10 @@
     "showItemId": false
   },
   "updates": {
+    "auto": {
+      "enable": false,
+      "onBattery": false
+    },
     "checkInterval": 120,
     "enableCheck": true,
     "repoUrl": ""

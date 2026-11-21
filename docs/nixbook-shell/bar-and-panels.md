@@ -41,6 +41,15 @@ The bar tells you what the pointer can do while you hover a widget: an **accent 
 
 The _Updates_ widget compares `/etc/nixos/version` with the repository (`updates.repoUrl`; nixbook sets its own). Hover for the deployed revision and branch, whether it was deployed from a dirty tree, the latest revision and the last run's result. Click for a panel with **Check**, **Execute** (runs the update service, passwordless through polkit), the changelog and a live, copyable journal of the run; right-click re-checks. The same controls are in **Settings → Services**.
 
+**Automatic updates** (Settings → Services → System updates → _Install updates automatically_; off by default, or `updates.auto.enable` in the shell's Nix settings): once a check finds a newer revision, the update starts on its own in the background. It waits until:
+
+- main's build of that revision is done for this machine and pushed to the cache (the check reads the `build (<host>)` and `push-cache` jobs from GitHub), so it downloads instead of compiling and a revision whose build failed is never installed; for a repository whose build can't be asked, an hour after the revision appeared;
+- the laptop is on the charger (_Also on battery_: over 50 %);
+- no window is fullscreen (a game, a film) and no meeting is under way;
+- the system was deployed from `main` without local changes.
+
+A notification says when it starts and when it ends. One that fails isn't retried on its own: **Execute** retries it, and the next revision is tried as usual. The widget's hover card and panel say what an update is waiting for. With automatic updates on, the checks run even when _Enable update checks_ is off, and every 10 minutes while main is still building the revision.
+
 An update that brings a new shell restarts it in the background: the bar and wallpaper blink back after a second or two, with no loading screen (see [Loading screen](./lock-and-login#loading-screen)).
 
 ### Battery

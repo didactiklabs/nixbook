@@ -229,6 +229,16 @@ MouseArea {
                     + (UpdateState.lastRunTime !== "" ? " — " + UpdateState.lastRunTime : "")
             }
 
+            StyledPopupValueRow {
+                Layout.fillWidth: true
+                visible: UpdateState.autoEnabled
+                icon: "autorenew"
+                label: Translation.tr("Automatic")
+                value: !UpdateState.updateAvailable || UpdateState.updating ? Translation.tr("On")
+                    : UpdateState.autoWaiting !== "" ? UpdateState.autoWaiting
+                    : Translation.tr("starting")
+            }
+
             StyledText {
                 text: Translation.tr("Click to manage · right click to check")
                 font.pixelSize: Appearance.font.pixelSize.smaller
@@ -291,6 +301,17 @@ MouseArea {
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
                 text: Translation.tr("Deployed from a local tree with uncommitted changes.")
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                visible: UpdateState.autoEnabled && UpdateState.updateAvailable && !UpdateState.updating
+                wrapMode: Text.Wrap
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+                text: UpdateState.autoWaiting !== ""
+                    ? Translation.tr("Automatic update: %1").arg(UpdateState.autoWaiting)
+                    : Translation.tr("Automatic update: starting")
             }
 
             RowLayout {
