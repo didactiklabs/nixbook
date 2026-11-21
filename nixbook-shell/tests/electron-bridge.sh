@@ -389,6 +389,8 @@ w = b.Watcher(opts, b.read_config(sys.argv[3] + "/bridge.json"))
 b.in_call = lambda pid: True
 w.poll(); w.poll()
 open(b.electron_dir() + "/discord.ask", "w").close()
+# A machine booted a minute ago (monotonic time counts from boot).
+b.time.monotonic = lambda: 60.0
 w.asked.clear(); w.poll()
 EOF
 expect_eq "watcher: told once per instance, again when an agent asks" 2 "$(grep -c 'without nixbook' "$FAKE_NOTIFY_LOG")"
