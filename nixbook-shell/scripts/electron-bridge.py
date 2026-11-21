@@ -1488,8 +1488,10 @@ class Watcher:
             call = in_call(p["pid"])
             unbridged[app] = {"pid": p["pid"], "label": label_of(app), "age": int(age), "inCall": call}
             if self.notified.get(app) == p["pid"]:
-                last = self.asked.get((app, p["pid"]), 0)
-                if asked and time.monotonic() - last > 600:
+                # None, not 0, for never: monotonic time counts from boot, so
+                # in a machine's first 10 minutes an ask was always dropped.
+                last = self.asked.get((app, p["pid"]))
+                if asked and (last is None or time.monotonic() - last > 600):
                     self.asked[(app, p["pid"])] = time.monotonic()
                     self.tell(app, p["pid"], "An agent tried to use it.")
                 continue
