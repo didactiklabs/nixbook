@@ -347,9 +347,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "b6ca87f78ec5bafc4b2aef7b29803dcf419266af",
-      "url": "https://github.com/NixOS/nixos-hardware/archive/b6ca87f78ec5bafc4b2aef7b29803dcf419266af.tar.gz",
-      "hash": "sha256-4s5CRvkYX4oAJVZ+zu2bBKFH2gG2GqN6OKHEWgJr1AY="
+      "revision": "33475966110df258f52d05ec4d4cd6394637cbb9",
+      "url": "https://github.com/NixOS/nixos-hardware/archive/33475966110df258f52d05ec4d4cd6394637cbb9.tar.gz",
+      "hash": "sha256-glQAHvZGgBVjzGIWgIZYSf3X10gvtO2LPR4rtyP/Soc="
     },
     "nixpkgs": {
       "type": "Git",
