@@ -6,12 +6,16 @@
 # goes to $XDG_STATE_HOME/nixbook-shell/update-check.json, which the bar reads:
 #   {checking, time, error, localRev, localBranch, localDirty, remoteRev,
 #    available, changelog: [commit titles, oldest first],
-#    ci: "passed" | "pending" | "failed" | "" (main's build of remoteRev)}
+#    ci: "passed" | "pending" | "failed" | "" (main's build of remoteRev),
+#    stagedRev: the revision installed for the next boot when it isn't the
+#      running one (osupdate --boot), else ""}
 # error: "" or no-repo, no-version, bad-version, timeout, unreachable.
 set -uo pipefail
 
 repo=${1:-}
 version_file=${NIXBOOK_VERSION_FILE:-/etc/nixos/version}
+# The system the next boot starts (the system profile's own copy).
+staged_file=${NIXBOOK_STAGED_VERSION_FILE:-/nix/var/nix/profiles/system/etc/nixos/version}
 dir="${XDG_STATE_HOME:-$HOME/.local/state}/nixbook-shell"
 out="$dir/update-check.json"
 mkdir -p "$dir"
@@ -43,6 +47,8 @@ rev=$(jq -r '.rev // ""' <<<"$version")
 if [ -z "$rev" ] || [[ $rev =~ ^0+$ ]]; then local_rev=Unknown; else local_rev=$rev; fi
 branch=$(jq -r '.branch // "Unknown"' <<<"$version")
 dirty=$(jq --arg r "$rev" '.dirty == true or ($r | test("^0+$"))' <<<"$version")
+staged=$(jq -r '.rev // ""' "$staged_file" 2>/dev/null) || staged=""
+if [ -z "$staged" ] || [[ $staged =~ ^0+$ ]] || [ "$staged" = "$rev" ]; then staged=""; fi
 
 # Bounded, and never prompting (credentials, ssh host keys).
 remote=$(GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=10" \
@@ -96,5 +102,5 @@ if [ "$available" = true ]; then
 fi
 
 finish "" "$(jq -nc --arg l "$local_rev" --arg b "$branch" --argjson d "$dirty" --arg r "$remote_rev" \
-  --argjson a "$available" --argjson c "$changelog" --arg ci "$ci" \
-  '{localRev: $l, localBranch: $b, localDirty: $d, remoteRev: $r, available: $a, changelog: $c, ci: $ci}')"
+  --argjson a "$available" --argjson c "$changelog" --arg ci "$ci" --arg st "$staged" \
+  '{localRev: $l, localBranch: $b, localDirty: $d, remoteRev: $r, available: $a, changelog: $c, ci: $ci, stagedRev: $st}')"

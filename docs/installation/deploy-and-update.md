@@ -25,6 +25,7 @@ Users created with `mkUser` may run `colmena` through `sudo` without a password,
 ```bash
 osupdate           # refuses to run while offline
 osupdate --force   # skip the network check (or OSUPDATE_FORCE=1)
+osupdate --boot    # install it for the next boot only (or OSUPDATE_BOOT=1)
 ```
 
 `osupdate` (installed by the `tools` module):
@@ -34,7 +35,9 @@ osupdate --force   # skip the network check (or OSUPDATE_FORCE=1)
 3. runs [`ginx`](/packages/#ginx) to fetch that revision and run `colmena apply-local` in it;
 4. verifies that `/etc/nixos/version` now records that revision, and **exits non-zero** if it does not (ginx itself exits 0 even when its command fails).
 
-The same update can run without a terminal as the `nixos-upgrade-manual.service` systemd unit (niced, idle I/O, two-hour timeout), which is what the desktop shells' **update widgets** trigger — passwordless through polkit.
+With `--boot` it runs colmena's `boot` goal instead of `switch`: the new system is built and made the default boot entry, but nothing running changes (no service or shell restart) until the next reboot. It then checks the new system's own copy, `/nix/var/nix/profiles/system/etc/nixos/version`.
+
+The same update can run without a terminal as the `nixos-upgrade-manual.service` systemd unit (`nixos-upgrade-boot.service` for `--boot`; niced, idle I/O, two-hour timeout, never both at once), which is what the desktop shells' **update widgets** trigger — passwordless through polkit.
 
 ### Manually, without the helper
 
@@ -54,7 +57,7 @@ A deployment from a tree with uncommitted changes is recorded as **dirty** in `/
 
 Both desktop shells show whether the machine is behind `main`:
 
-- **nixbook-shell** — the _Updates_ bar widget compares `/etc/nixos/version` with the repository (`updates.repoUrl`). Hover for the deployed revision, branch and the last run's result; click for a panel with **Check**, **Execute** (runs `nixos-upgrade-manual.service`), the changelog, and a live journal of the run. Right-click re-checks. See [Bar, launcher & panels](/nixbook-shell/bar-and-panels#updates).
+- **nixbook-shell** — the _Updates_ bar widget compares `/etc/nixos/version` with the repository (`updates.repoUrl`). Hover for the deployed revision, branch and the last run's result; click for a panel with **Check**, **Execute** (runs `nixos-upgrade-manual.service`), **Next restart** (`nixos-upgrade-boot.service`), the changelog, and a live journal of the run. Right-click re-checks. See [Bar, launcher & panels](/nixbook-shell/bar-and-panels#updates).
 - **DankMaterialShell** — the `nixosUpdate` plugin (`dmsConfig.enableNixosUpdate`) does the same from the DMS bar.
 
 ## Rolling back

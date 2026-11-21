@@ -717,6 +717,7 @@ STUB
 chmod +x "$uc/bin/git" "$uc/bin/curl"
 update_check() {
   PATH="$uc/bin:$PATH" XDG_STATE_HOME="$uc/state" NIXBOOK_VERSION_FILE="$uc/version" UC_CURL_LOG="$uc/curl" NIXBOOK_HOSTNAME=testhost \
+    NIXBOOK_STAGED_VERSION_FILE="${UC_STAGED:-$uc/version}" \
     bash "$scripts/update-check.sh" "$@"
 }
 uc_out="$uc/state/nixbook-shell/update-check.json"
@@ -743,6 +744,13 @@ update_check "$repo"
 expect_eq "update-check: up to date, no changelog fetched" "false [] no-curl" \
   "$(jq -r '"\(.available) \(.changelog | tojson)"' "$uc_out") $([ -e "$uc/curl" ] && echo curl || echo no-curl)"
 expect_eq "update-check: up to date, no build looked up" "" "$(jq -r .ci "$uc_out")"
+echo "{\"rev\":\"$old\",\"branch\":\"refs/heads/main\"}" >"$uc/version"
+echo "{\"rev\":\"$new\",\"branch\":\"refs/heads/main\"}" >"$uc/staged"
+UC_STAGED="$uc/staged" update_check "$repo"
+expect_eq "update-check: the next boot's revision (osupdate --boot), the running one still behind" "$new true" \
+  "$(jq -r '"\(.stagedRev) \(.available)"' "$uc_out")"
+UC_STAGED="$uc/version" update_check "$repo"
+expect_eq "update-check: the next boot starts the running revision, nothing staged" "" "$(jq -r .stagedRev "$uc_out")"
 echo '{"rev":"0000000000000000000000000000000000000000","branch":"refs/heads/main"}' >"$uc/version"
 update_check "$repo"
 expect_eq "update-check: a dirty deploy, any remote commit is an update" "Unknown true true" \

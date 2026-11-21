@@ -119,7 +119,7 @@ MouseArea {
                 Layout.alignment: Qt.AlignVCenter
                 text: "deployed_code_update"
                 iconSize: Appearance.font.pixelSize.normal
-                color: UpdateState.updateAvailable ? Appearance.m3colors.m3error
+                color: UpdateState.needsAction ? Appearance.m3colors.m3error
                     : Appearance.colors.colOnLayer1
                 rotation: root.spin
             }
@@ -130,7 +130,7 @@ MouseArea {
                 width: 24
                 height: 24
                 radius: Appearance.rounding.full
-                color: UpdateState.updateAvailable ? Appearance.m3colors.m3error
+                color: UpdateState.needsAction ? Appearance.m3colors.m3error
                     : Appearance.colors.colPrimary
 
                 MaterialSymbol {
@@ -154,7 +154,7 @@ MouseArea {
                 Layout.alignment: Qt.AlignHCenter
                 text: "deployed_code_update"
                 iconSize: Appearance.font.pixelSize.normal
-                color: UpdateState.updateAvailable ? Appearance.m3colors.m3error
+                color: UpdateState.needsAction ? Appearance.m3colors.m3error
                     : Appearance.colors.colOnLayer1
                 rotation: root.spin
             }
@@ -164,7 +164,7 @@ MouseArea {
                 width: 24
                 height: 24
                 radius: Appearance.rounding.full
-                color: UpdateState.updateAvailable ? Appearance.m3colors.m3error
+                color: UpdateState.needsAction ? Appearance.m3colors.m3error
                     : Appearance.colors.colPrimary
                 Layout.alignment: Qt.AlignHCenter
 
@@ -195,10 +195,12 @@ MouseArea {
             StyledPopupValueRow {
                 Layout.fillWidth: true
                 icon: UpdateState.updating || UpdateState.checking ? "sync"
+                    : UpdateState.stagedLatest ? "restart_alt"
                     : UpdateState.updateAvailable ? "upgrade" : "check_circle"
                 label: Translation.tr("Status")
-                value: UpdateState.updating ? Translation.tr("Updating...")
+                value: UpdateState.updating ? (UpdateState.runMode === "boot" ? Translation.tr("Installing for the next restart...") : Translation.tr("Updating..."))
                     : UpdateState.checking ? Translation.tr("Checking...")
+                    : UpdateState.stagedLatest ? Translation.tr("Installed, restart to apply")
                     : UpdateState.updateAvailable ? Translation.tr("Update available")
                     : Translation.tr("Up to date")
             }
@@ -225,7 +227,9 @@ MouseArea {
                 visible: UpdateState.lastResult !== ""
                 icon: UpdateState.lastResult === "failed" ? "error" : "check_circle"
                 label: Translation.tr("Last update")
-                value: (UpdateState.lastResult === "failed" ? Translation.tr("Failed") : Translation.tr("Succeeded"))
+                value: (UpdateState.lastResult === "failed" ? Translation.tr("Failed")
+                        : UpdateState.runMode === "boot" ? Translation.tr("Installed for the next restart")
+                        : Translation.tr("Succeeded"))
                     + (UpdateState.lastRunTime !== "" ? " — " + UpdateState.lastRunTime : "")
             }
 
@@ -234,7 +238,8 @@ MouseArea {
                 visible: UpdateState.autoEnabled
                 icon: "autorenew"
                 label: Translation.tr("Automatic")
-                value: !UpdateState.updateAvailable || UpdateState.updating ? Translation.tr("On")
+                value: !UpdateState.needsAction || UpdateState.updating
+                    ? (UpdateState.autoNextBoot ? Translation.tr("On, from the next restart") : Translation.tr("On"))
                     : UpdateState.autoWaiting !== "" ? UpdateState.autoWaiting
                     : Translation.tr("starting")
             }
@@ -271,11 +276,13 @@ MouseArea {
             StyledText {
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
-                color: UpdateState.updateAvailable && !UpdateState.checking && !UpdateState.updating
+                color: UpdateState.needsAction && !UpdateState.checking && !UpdateState.updating
                     ? Appearance.m3colors.m3error
                     : Appearance.colors.colOnLayer1
-                text: UpdateState.updating ? Translation.tr("Updating system...")
+                text: UpdateState.updating ? (UpdateState.runMode === "boot" ? Translation.tr("Installing the update for the next restart...") : Translation.tr("Updating system..."))
                     : UpdateState.checking ? Translation.tr("Checking for updates...")
+                    : UpdateState.stagedLatest
+                        ? Translation.tr("%1 is installed: it applies at the next restart").arg(root.shortRev(UpdateState.stagedRev))
                     : UpdateState.updateAvailable
                         ? Translation.tr("Update available: %1 \u2192 %2").arg(root.shortRev(UpdateState.localRev)).arg(root.shortRev(UpdateState.remoteRev))
                         : Translation.tr("System up to date (%1)").arg(root.shortRev(UpdateState.localRev))
@@ -305,7 +312,7 @@ MouseArea {
 
             StyledText {
                 Layout.fillWidth: true
-                visible: UpdateState.autoEnabled && UpdateState.updateAvailable && !UpdateState.updating
+                visible: UpdateState.autoEnabled && UpdateState.needsAction && !UpdateState.updating
                 wrapMode: Text.Wrap
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colSubtext
@@ -332,9 +339,23 @@ MouseArea {
                     visible: UpdateState.updateAvailable || UpdateState.updating
                     buttonRadius: Appearance.rounding.normal
                     materialIcon: "deployed_code_update"
-                    mainText: UpdateState.updating ? Translation.tr("Updating...") : Translation.tr("Execute")
+                    mainText: UpdateState.updating ? Translation.tr("Updating...")
+                        : UpdateState.stagedLatest ? Translation.tr("Apply now") : Translation.tr("Execute")
                     enabled: !UpdateState.updating
-                    onClicked: UpdateState.startUpdate()
+                    onClicked: UpdateState.startUpdate(false)
+                }
+
+                // Installed for the next restart only: nothing running changes.
+                RippleButtonWithIcon {
+                    Layout.fillWidth: true
+                    visible: UpdateState.needsAction && !UpdateState.updating
+                    buttonRadius: Appearance.rounding.normal
+                    materialIcon: "restart_alt"
+                    mainText: Translation.tr("Next restart")
+                    onClicked: UpdateState.startUpdate(true)
+                    StyledToolTip {
+                        text: Translation.tr("Install it now, applied at the next restart: nothing running changes")
+                    }
                 }
 
                 RippleButtonWithIcon {

@@ -1526,6 +1526,9 @@ Singleton {
                 property JsonObject auto: JsonObject {
                     property bool enable: false
                     property bool onBattery: false
+                    // Installed for the next restart only (nixos-upgrade-boot):
+                    // nothing running changes.
+                    property bool nextBoot: false
                 }
             }
             
