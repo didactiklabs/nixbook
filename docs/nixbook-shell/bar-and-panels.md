@@ -41,6 +41,8 @@ The bar tells you what the pointer can do while you hover a widget: an **accent 
 
 The _Updates_ widget compares `/etc/nixos/version` with the repository (`updates.repoUrl`; nixbook sets its own). Hover for the deployed revision and branch, whether it was deployed from a dirty tree, the latest revision and the last run's result. Click for a panel with **Check**, **Execute** (runs the update service, passwordless through polkit), the changelog and a live, copyable journal of the run; right-click re-checks. The same controls are in **Settings → Services**.
 
+An update that brings a new shell restarts it in the background: the bar and wallpaper blink back after a second or two, with no loading screen (see [Loading screen](./lock-and-login#loading-screen)).
+
 ### Battery
 
 Hover or click the _Battery_ widget for its panel: charge, time left, health and power draw, and two things to choose (the panel stays open while the pointer is on it):
