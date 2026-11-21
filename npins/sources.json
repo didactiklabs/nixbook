@@ -447,10 +447,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v1.2.0",
-      "revision": "e288a18c04452fd26192f59132e5324a8bb6924d",
-      "url": "https://api.github.com/repos/rtk-ai/rtk/tarball/refs/tags/v1.2.0",
-      "hash": "sha256-dkMae+wh/W0qytr5AyRbibmrGMtIous88Asq13FLnjI="
+      "version": "v1.2.1",
+      "revision": "d0f0399a5ff8cd1d81325a033f0b2d8864d665f6",
+      "url": "https://api.github.com/repos/rtk-ai/rtk/tarball/refs/tags/v1.2.1",
+      "hash": "sha256-sfx7rfoiXgnaqW0Gq5fiQqKY2NsSO7rwmxWxqTgkzbQ="
     },
     "rust-overlay": {
       "type": "Git",
