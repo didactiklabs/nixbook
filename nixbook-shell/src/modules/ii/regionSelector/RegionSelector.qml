@@ -62,7 +62,7 @@ Scope {
         if (Persistent.states.record.enable) {
             // Recording: the selector would show in the video, so slurp picks the region.
             Quickshell.execDetached(["bash", "-c", `${ScreenshotAction.outputFileCommand(ScreenshotAction.saveDir)} && `
-                + `grim -g "$(slurp)" "$out" && wl-copy --type image/png < "$out" && ${ScreenshotAction.notifyCommand}`]);
+                + `grim -g "$(slurp)" "$out" && wl-copy --type image/png < "$out" && ${ScreenshotAction.notifyCommand} && ${ScreenshotAction.qrCommand('"$out"')}`]);
             return;
         }
         root.action = RegionSelection.SnipAction.Copy

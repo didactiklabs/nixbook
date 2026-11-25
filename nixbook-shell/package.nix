@@ -316,6 +316,7 @@ let
       ydotool
       wtype # desktop-mcp keyboard input (virtual keyboard, no uinput)
       tesseract # region OCR
+      zbar # zbarimg: QR codes in screenshots (scripts/images/qr-from-image.sh)
       libqalculate # qalc: the launcher's maths (LauncherSearch's mathProc)
       poppler-utils # pdftotext/pdftoppm/pdfinfo: DAI reads PDFs (its Bash; read_document OCRs with tesseract)
 
