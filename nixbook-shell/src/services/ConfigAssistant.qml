@@ -463,7 +463,7 @@ Singleton {
         "configuration": ["setting", "configure"], "preference": ["setting"], "option": ["setting"],
         "disappear": ["hide"], "caffeine": ["idle"], "awake": ["idle", "display"], "sleep": ["suspend", "idle"],
         "screen": ["display"], "display": ["screen"], "monitor": ["screen"], "copy": ["clipboard"], "paste": ["clipboard"],
-        "capture": ["screenshot"], "snip": ["screenshot"], "log": ["session"], "restart": ["reboot"],
+        "capture": ["screenshot"], "snip": ["screenshot"], "qr": ["screenshot"], "barcode": ["screenshot"], "log": ["session"], "restart": ["reboot"],
         "background": ["wallpaper"], "panel": ["sidebar"], "chat": ["assistant", "ai"], "raise": ["up"],
         "lower": ["down"], "next": ["below"], "previous": ["above"], "history": ["clipboard"],
         "vim": ["neovim"], "nvim": ["neovim"], "nixvim": ["neovim"],

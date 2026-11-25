@@ -15,6 +15,8 @@
 
 Every capture is copied to the clipboard, shown in a notification with the image, and saved as `Screenshot-YYYY-MM-DD-HH-MM-SS.png` in `screenSnip.savePath` (default `~/Pictures/Screenshots`; empty = clipboard only; Settings → Services → Screenshot path).
 
+**QR codes**: when a copied capture holds a QR code, a second notification shows what it says, with **Open link** (web links only, in your browser) and **Copy text** (e.g. a Wi-Fi code). Nothing is opened or copied until you click; the buttons stay on the notification in the side panel. It reads the first QR code in the capture (with `zbarimg`, on this computer).
+
 The selector also offers **OCR** / screen translation of a selection.
 
 ## Recording — Shift+Print

@@ -54,8 +54,9 @@ Singleton {
         const annotationCommand = `${Config.options.regionSelector.annotation.useSatty ? "satty" : "swappy"} -f -`;
         switch (action) {
             case ScreenshotAction.Action.Copy: {
-                // Written to a file first, which the notification shows.
-                return ["bash", "-c", `${root.outputFileCommand(saveDir)} && ${cropBase} "$out" && wl-copy --type image/png < "$out" && ${cleanup} && ${root.notifyCommand}`]
+                // Written to a file first, which the notification shows; a QR
+                // code in it gets a notification of its own.
+                return ["bash", "-c", `${root.outputFileCommand(saveDir)} && ${cropBase} "$out" && wl-copy --type image/png < "$out" && ${cleanup} && ${root.notifyCommand} && ${root.qrCommand('"$out"')}`]
             }
             case ScreenshotAction.Action.Edit:
                 return ["bash", "-c", `${cropToStdout} | ${annotationCommand} && ${cleanup}`]
@@ -88,6 +89,15 @@ Singleton {
         return [Directories.recordScriptPath, ...target, ...(withSound ? [] : ["--no-sound"])];
     }
 
+    // Scans the image at `pathExpr` (a shell word, e.g. "$out") for a QR code
+    // and, when there is one, notifies with Open link / Copy text. It waits
+    // for the answer: run it last, in the background of the snip command.
+    function qrCommand(pathExpr) {
+        const q = s => `'${StringUtils.shellSingleQuoteEscape(s)}'`;
+        return `${q(FileUtils.trimFileProtocol(`${Directories.scriptPath}/images/qr-from-image.sh`))} ${pathExpr} `
+            + `${q(Translation.tr("QR code found"))} ${q(Translation.tr("Open link"))} ${q(Translation.tr("Copy text"))}`;
+    }
+
     // The notification niri sends for its own screenshots (a window capture
     // gets that one), for the region and screen copies: the image in "$out".
     readonly property string notifyCommand: `notify-send -a '${StringUtils.shellSingleQuoteEscape(Translation.tr("Screenshot"))}' `
@@ -111,7 +121,7 @@ Singleton {
             + `[ "$size" -gt 0 ] && [ "$size" = "$prev" ] && break; prev=$size; sleep 0.05; done && [ -s "$win" ]`;
         if (action === ScreenshotAction.Action.Copy) {
             const save = saveDir === "" ? "" : ` && ${root.outputFileCommand(saveDir)} && cp "$win" "$out"`;
-            return ["bash", "-c", capture + save];
+            return ["bash", "-c", `${capture}${save} && ${root.qrCommand('"$win"')}`];
         }
         const command = root.getCommand(0, 0, 0, 0, workPath, action, "");
         if (!command) return;
