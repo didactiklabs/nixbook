@@ -16,7 +16,7 @@ darwin.nix                    the macOS machines (talia; withUser: the same for 
 │   ├── core.nix              Nix daemon (Lix, nixbook's cache, pinned nixpkgs), Touch ID sudo, zsh, GC
 │   ├── defaults.nix          macOS preferences for a tiling window manager
 │   ├── caCertificates.nix    the internal CAs in Nix's trust store
-│   └── tools.nix             darwin-switch
+│   └── tools.nix             osupdate (main from GitHub, through ginx), darwin-switch (a checkout)
 ├── lib/darwinUserConfig.nix  the Home Manager user (mkUser, home in /Users)
 └── profiles/talia/           the machine and its user (khoa/)
 ```
@@ -30,31 +30,32 @@ What it needs:
 1. An Apple Silicon Mac on macOS 26 (Tahoe) or later (OmniWM's requirement).
 2. An **admin** account whose short name is the profile's user (`khoa` on talia), made in Setup Assistant as usual: nix-darwin uses the account, it doesn't create it.
 3. Nix, from the [Lix installer](https://lix.systems/install/) (or upstream Nix). Not Determinate Nix: it runs its own daemon, and nix-darwin manages it here.
-4. This repository: `nix run nixpkgs#git -- clone git@github.com:didactiklabs/nixbook.git ~/Documents/perso/nixbook` (no Xcode command-line tools needed).
+   No checkout of this repository is needed on the Mac.
 
-The first switch (`darwin-switch` doesn't exist yet):
+The first time (`osupdate` doesn't exist yet), build talia straight from GitHub and run the `osupdate` it contains:
 
 ```sh
-cd ~/Documents/perso/nixbook
-$(nix-build darwin.nix -A talia.system)/sw/bin/darwin-switch
+$(nix-build https://github.com/didactiklabs/nixbook/archive/main.tar.gz -A talia.system)/sw/bin/osupdate
 ```
 
-nix-darwin refuses to replace the `/etc/nix/nix.conf`, `/etc/bashrc` and `/etc/zshrc` the installer wrote: rename them to `*.before-nix-darwin` when it says so.
+nix-darwin refuses to replace the `/etc/nix/nix.conf`, `/etc/bashrc` and `/etc/zshrc` the installer wrote: rename them to `*.before-nix-darwin` when it says so, and run it again.
 
 Then, once:
 
 - System Settings → Privacy & Security → **Accessibility** and **Input Monitoring**: allow OmniWM (it asks at its first start).
 - Log out and back in: "Displays have separate Spaces" (`system.defaults.spaces.spans-displays`) applies after a new login.
 - If macOS asks to let the terminal manage apps (App Management), allow it.
+- Confirm Zen as the default browser in the dialog macOS shows.
 
 ## Updating
 
 ```sh
-darwin-switch            # build darwin.nix's talia from the checkout and activate it
+osupdate                 # apply nixbook's main from GitHub (as osupdate on NixOS)
+darwin-switch            # apply a checkout (the current directory, --repo DIR or $NIXBOOK_REPO)
 darwin-switch --build    # build only
 ```
 
-`darwin-switch` is `colmena apply-local switch` for the Macs: it builds as you, then activates as root through `sudo` (Touch ID), which is why the account must be an admin. It uses the checkout the system was built from (`NIXBOOK_REPO` or `--repo` for another one) and this machine's name (`--host`).
+`osupdate` is the NixOS command's counterpart: ginx clones `main` into a temporary directory, runs `darwin-switch` in it and removes the clone, then `osupdate` checks that `/etc/nixos/version` is at `main`'s revision (ginx exits 0 even when its command fails). `darwin-switch` is `colmena apply-local switch` for a checkout, to try a change before it is on `main`. Both build as you, then activate as root through `sudo` (Touch ID), which is why the account must be an admin. Both build this machine for the account it was built for (`--host`, `--user` for another).
 
 ## Apps and the default browser
 

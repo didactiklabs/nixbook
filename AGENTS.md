@@ -67,7 +67,8 @@ darwinModules/                    nix-darwin modules (`customDarwinModules.*`): 
                                   (Lix daemon, nixbook's cache, pinned nixpkgs, Touch ID sudo,
                                   zsh, GC), defaults.nix (macOS preferences for a tiling WM,
                                   separate Spaces), caCertificates.nix, tools.nix
-                                  (`darwin-switch`); imports nixosModules/getRevision.nix as is
+                                  (`osupdate`: main from GitHub through ginx, as on NixOS,
+                                  no checkout on the Mac; `darwin-switch`: a checkout); imports nixosModules/getRevision.nix as is
 ```
 
 `lib/homeManagerBase.nix` is what every Home Manager user starts from on both platforms (the external HM modules, `homeManagerModules/`, `profileCustomization`): `lib/userConfig.nix` (NixOS) and `lib/darwinUserConfig.nix` (macOS: home in `/Users`, `system.primaryUser`, niri-flake's settings module only so `programs.niri.*` exists, its `config.kdl` off — niri itself is never installed on a Mac) use it. The Linux desktop modules stay importable on macOS but off; a module on by default that only works on Linux defaults to `pkgs.stdenv.hostPlatform.isLinux` (desktopEntriesConfig, nixvim's wl-copy provider, stylix's `home.pointerCursor`). Nothing on a Mac may read a darwin derivation while evaluating (import from derivation): `tests/run.sh darwin` evaluates talia on Linux with it forbidden (hence stylix's inline tomorrow-night scheme on darwin instead of the base16-schemes file or the wallpaper-derived palette).
@@ -283,7 +284,7 @@ darwinModules/                    nix-darwin modules (`customDarwinModules.*`): 
 - **Window manager:** OmniWM (`omniwmConfig`)
 - **Darwin modules:** core, defaults, caCertificates (didactiklabs, bealv, rpcu), tools (`darwin-switch`), getRevision; Tailscale (`services.tailscale`)
 - **Home Manager Modules:** cliTools, devTools, fontConfig, gitConfig (no signing by default), sshConfig, starship, fastfetchConfig, kubeTools (+ didactiklabs/bealv/rpcu kubeconfigs), nixvimConfig, gojiConfig, atuinConfig, kittyConfig, zshConfig, kubeswitchConfig, opencodeConfig, rtk, omniwmConfig (stylix on, tomorrow-night)
-- **Setup:** Lix installer, clone, `$(nix-build darwin.nix -A talia.system)/sw/bin/darwin-switch`, then OmniWM's two permissions and one logout (docs/machines/macos.md)
+- **Setup:** Lix installer, then `$(nix-build https://github.com/didactiklabs/nixbook/archive/main.tar.gz -A talia.system)/sw/bin/osupdate` (no checkout on the Mac), then OmniWM's two permissions, one logout, the default-browser dialog (docs/machines/macos.md). Updates: `osupdate`
 
 ## Key Features
 
@@ -371,7 +372,8 @@ colmena apply-local --sudo -v switch
 ### Deploy a Mac (nix-darwin)
 
 ```bash
-darwin-switch            # on the Mac: build darwin.nix's <host> from the checkout, activate (sudo)
+osupdate                 # on the Mac: nixbook's main from GitHub (ginx), activated (sudo)
+darwin-switch            # on the Mac: a checkout's darwin.nix (current dir / --repo), activated
 darwin-switch --build    # build only
 ```
 
