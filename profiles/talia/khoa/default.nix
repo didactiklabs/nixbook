@@ -1,11 +1,26 @@
 # khoa on talia: the shell, editor, Kubernetes and AI tools of the NixOS
-# machines, and OmniWM (niri-like scrolling tiling) instead of niri. Linux
-# desktop modules (niri, nixbook-shell, DMS, GTK, fcitx5…) are left off: they
-# don't exist on macOS.
-{ ... }:
+# machines, totoro's apps where they exist for macOS, and OmniWM (niri-like
+# scrolling tiling) instead of niri. Linux desktop modules (niri,
+# nixbook-shell, DMS, GTK, fcitx5, desktopApps' Dolphin/imv/OBS…) are left
+# off: they don't exist on macOS.
+{ pkgs, ... }:
 {
   imports = [
     ./gitConfig.nix
+  ];
+
+  # Copied into ~/Applications/Home Manager Apps (lib/darwinUserConfig.nix):
+  # Spotlight and Launchpad find them. Not on macOS: Nextcloud's client,
+  # KDE Connect, OBS, Actual Budget, Meru, Moonfin (Linux builds or AppImages).
+  home.packages = with pkgs; [
+    vesktop # Discord
+    slack
+    spotify
+    pear-desktop # YouTube Music
+    moonlight-qt
+    anki-bin
+    libreoffice-bin
+    mpv
   ];
 
   customHomeManagerModules = {
@@ -31,5 +46,11 @@
     opencodeConfig.enable = true;
     rtk.enable = true;
     omniwmConfig.enable = true;
+    zenBrowserConfig.enable = true;
+    rbwConfig = {
+      enable = true;
+      email = "vhvictorhang@gmail.com";
+      baseUrl = "https://pass.bealv.io";
+    };
   };
 }

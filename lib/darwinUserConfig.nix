@@ -50,6 +50,13 @@ in
             # are set, checked by running niri) is left out, and with it every
             # use of the niri package; tests/darwin.nix checks none is left.
             xdg.configFile.niri-config.enable = lib.mkForce false;
+            # The apps of home.packages (Vesktop, Slack, kitty…) copied into
+            # ~/Applications/Home Manager Apps: Spotlight and Launchpad don't
+            # index symlinks (linkApps, the default before stateVersion 25.11).
+            targets.darwin = {
+              copyApps.enable = true;
+              linkApps.enable = false;
+            };
             home = {
               stateVersion = "24.05";
               inherit username;
