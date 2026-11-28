@@ -83,6 +83,12 @@
     coreutils
   ];
 
+  # nix-darwin's activation refuses to run unless <darwin-config> is on
+  # NIX_PATH: that is darwin-rebuild's way of finding the configuration. The
+  # Macs are built from this repository's darwin.nix (osupdate, darwin-switch),
+  # which never reads <darwin-config>, so nixPath above holds nixpkgs only.
+  system.checks.verifyNixPath = false;
+
   # nix-darwin's state version for the machines installed from this repository.
   system.stateVersion = 6;
 }
