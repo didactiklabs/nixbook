@@ -442,7 +442,9 @@ Scope { // Scope
                 target: sidebarLeftBackground
                 radius: sidebarLeftBackground.radius
                 visible: !Persona.shapes && !Cyberpunk.frames // the theme frames draw their own
-                opacity: MakeWay.fade(1)
+                // With the panel: a shadow left at full opacity drew at the
+                // screen's left edge while it was closed.
+                opacity: sidebarLeftBackground.opacity
             }
             Rectangle {
                 id: sidebarLeftBackground
@@ -518,7 +520,11 @@ Scope { // Scope
                         color: Appearance.colors.colOnPrimary
                     }
                 }
-                x: Appearance.sizes.gapsOut - (!sidebarOpen ? width : 0)
+                // Closed: wholly off the screen, its shadow's reach too. It
+                // used to stop at gapsOut - width, which left its last 5 px
+                // (and the shadow beyond) on the left edge: a line there, and
+                // the panel's text in that strip while it closed.
+                x: sidebarOpen ? Appearance.sizes.gapsOut : -(width + 3 * Appearance.sizes.elevationMargin)
 
                 // On the panel itself, not on the item on top below: hover goes
                 // to the topmost item under the pointer and its ancestors, so a
