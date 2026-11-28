@@ -130,6 +130,7 @@ let
           procps # pgrep: a watched process
           cliphist # find_anything: the clipboard history
           poppler-utils # pdftotext: find_anything reads PDFs' first pages
+          bubblewrap # bwrap: run_script's sandbox (no network, no home)
         ]
       )
     }:$PATH"

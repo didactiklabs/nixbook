@@ -46,6 +46,8 @@ CORE_TOOLS = {
     "recall", "remember", "recall_about_user", "remember_about_user",
     "page_list", "page_read", "page_act", "page_go",
     "youtube_music_player", "system_info", "machine_help", "tool_help", "read_document",
+    # Code mode: several calls in one step (87-script.py).
+    "run_script",
 }
 
 

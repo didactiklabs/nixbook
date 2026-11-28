@@ -443,6 +443,28 @@ The time words of the request become a range: today, yesterday, this morning, la
 
 poppler-utils (`pdftotext`, `pdftoppm`, `pdfinfo`) and `tesseract` are also on the PATH DAI's commands get, when its command line is on.
 
+## Code mode
+
+Every tool call of an agent is a round trip: the model reads its whole
+conversation again for each step, and each answer stays in it for every later
+step. For work of several calls — a loop over playlists, mails, windows or
+events, reading many things to act on a few — DAI writes a short Python
+script instead (`run_script`): the script calls the tools itself and only what
+it prints comes back. Measured on one task (the 3 most frequent artists of
+each of 12 playlists of 60 songs, three runs each, the same answers): 14 steps,
+$0.27–0.30 and 25–42 s with one call per playlist; 4 steps, $0.034 and 9 s with
+a script. A two-call question still cost a third less.
+
+The script runs in a sandbox (bubblewrap): nothing of the machine but the Nix
+store, no network, no home, no session; its only way out is the desktop
+server, through `tools.<name>(…)` (the desktop tools) and
+`servers.<name>.<tool>(…)` (the side panel's other MCP servers: Jellyfin,
+Seerr…). Each of its calls is checked as DAI's own would be: the tool groups,
+the pause, the privacy mask, the audit log, the rate limit, the
+[trust ladder](#trust-ladder) (each step asked, told or let go as you set it)
+and the tools' own asking before what sends, pays or deletes. At most 300
+calls and 15 minutes a script; pictures (screenshots) stay outside it.
+
 ## Guardrails
 
 Whatever the transport:
