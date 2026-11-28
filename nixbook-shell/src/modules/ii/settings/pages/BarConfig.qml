@@ -195,7 +195,7 @@ ContentPage {
 
             GroupedList {
                 LayoutSection {
-                    sectionTitle: Config.options.bar.vertical ? Translation.tr("Top") : Translation.tr("Left")
+                    sectionTitle: Config.options.bar.vertical ? (Config.options.bar.verticalReversed ? Translation.tr("Bottom") : Translation.tr("Top")) : Translation.tr("Left")
                     layout: Config.options.bar.layouts.leftLayout
                     configKey: "bar.layouts.leftLayout"
                     availableWidgets: page.availableFor("left")
@@ -213,7 +213,7 @@ ContentPage {
                 }
 
                 LayoutSection {
-                    sectionTitle: Config.options.bar.vertical ? Translation.tr("Bottom") : Translation.tr("Right")
+                    sectionTitle: Config.options.bar.vertical ? (Config.options.bar.verticalReversed ? Translation.tr("Top") : Translation.tr("Bottom")) : Translation.tr("Right")
                     layout: Config.options.bar.layouts.rightLayout
                     configKey: "bar.layouts.rightLayout"
                     availableWidgets: page.availableFor("right")
@@ -244,6 +244,14 @@ ContentPage {
                         { displayName: Translation.tr("Bottom"), icon: "arrow_downward", value: 1 },
                         { displayName: Translation.tr("Right"),  icon: "arrow_forward",  value: 3 }
                     ]
+                }
+                ConfigSwitch {
+                    configKey: "bar.verticalReversed";
+                    shown: Config.options.bar.vertical
+                    buttonIcon: "swap_vert"
+                    text: Translation.tr("Read the side bar bottom-up (the layout's end on top)")
+                    checked: Config.options.bar.verticalReversed
+                    onCheckedChanged: { Config.options.bar.verticalReversed = checked; }
                 }
                 ConfigSelectionArray {
                     configKey: "bar.cornerStyle";

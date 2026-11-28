@@ -577,6 +577,7 @@
     },
     "verbose": true,
     "vertical": false,
+    "verticalReversed": true,
     "weather": {
       "city": "",
       "enableGPS": true,

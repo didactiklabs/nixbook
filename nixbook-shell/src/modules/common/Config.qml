@@ -1044,6 +1044,7 @@ Singleton {
                 property bool showBackground: true
                 property bool verbose: true
                 property bool vertical: false
+                property bool verticalReversed: true // vertical bar read bottom-up: the layout's end (right) on top
                 property JsonObject resources: JsonObject {
                     property string style: "filled"
                     property bool showValue: false

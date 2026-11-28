@@ -38,6 +38,18 @@ Item {
     readonly property var effectiveMiddleLayout: filterLayout(Config.options.bar.layouts.middleLayout)
     readonly property var effectiveRightLayout:  filterLayout(Config.options.bar.layouts.rightLayout)
 
+    // bar.verticalReversed (default on): the whole bar read bottom-up — the
+    // end of the layout (right: power, battery, tray…) on top, its start
+    // (left: launcher, workspaces) at the bottom, every column's order
+    // flipped; each widget's own content stays as it is.
+    readonly property bool reversed: Config.options.bar.verticalReversed ?? false
+    function flipped(layout) {
+        return Array.from(layout).reverse();
+    }
+    readonly property var topLayout: root.reversed ? root.flipped(root.effectiveRightLayout) : root.effectiveLeftLayout
+    readonly property var centerLayout: root.reversed ? root.flipped(root.effectiveMiddleLayout) : root.effectiveMiddleLayout
+    readonly property var bottomLayout: root.reversed ? root.flipped(root.effectiveLeftLayout) : root.effectiveRightLayout
+
     readonly property bool centerOnly: !root.isMaterial
         && root.effectiveLeftLayout.length === 0
         && root.effectiveRightLayout.length === 0
@@ -156,7 +168,7 @@ Item {
                     Repeater {
                         // Diffing model: a changed layout (e.g. sysTray shown once the tray has
                         // items) only adds/removes that delegate instead of rebuilding them all.
-                        model: ScriptModel { values: root.effectiveLeftLayout }
+                        model: ScriptModel { values: root.topLayout }
                         delegate: topMaterialGroupDelegate
                     }
 
@@ -166,7 +178,7 @@ Item {
                             Layout.fillWidth: true
                             vertical: true
                             currentIndex: index
-                            totalCount: root.effectiveLeftLayout.length
+                            totalCount: root.topLayout.length
                             paintMaterialPill: root.shouldPaintMaterialPill(modelData)
                             bgColor: root.getMaterialPillColor(modelData)
                             Loader {
@@ -181,7 +193,7 @@ Item {
                                 Binding {
                                     target: barWidget10.item
                                     property: "barMirrored"
-                                    value: root.getMirroredForIndex(root.effectiveLeftLayout, index)
+                                    value: root.getMirroredForIndex(root.topLayout, index)
                                     when: barWidget10.item?.barMirrored !== undefined
                                 }
                             }
@@ -199,12 +211,12 @@ Item {
                 Repeater {
                     // Diffing model: a changed layout (e.g. sysTray shown once the tray has
                     // items) only adds/removes that delegate instead of rebuilding them all.
-                    model: ScriptModel { values: root.effectiveLeftLayout }
+                    model: ScriptModel { values: root.topLayout }
                     delegate: Bar.BarGroup {
                         Layout.fillWidth: true
                         vertical: true
                         currentIndex: index
-                        totalCount: root.effectiveLeftLayout.length
+                        totalCount: root.topLayout.length
                         Loader {
                             id: barWidget11
                             Layout.fillWidth: true
@@ -217,7 +229,7 @@ Item {
                             Binding {
                                 target: barWidget11.item
                                 property: "barMirrored"
-                                value: root.getMirroredForIndex(root.effectiveLeftLayout, index)
+                                value: root.getMirroredForIndex(root.topLayout, index)
                                 when: barWidget11.item?.barMirrored !== undefined
                             }
                         }
@@ -262,7 +274,7 @@ Item {
                     Repeater {
                         // Diffing model: a changed layout (e.g. sysTray shown once the tray has
                         // items) only adds/removes that delegate instead of rebuilding them all.
-                        model: ScriptModel { values: root.effectiveMiddleLayout }
+                        model: ScriptModel { values: root.centerLayout }
                         delegate: centerMaterialGroupDelegate
                     }
 
@@ -273,7 +285,7 @@ Item {
                             vertical: true
                             currentIndex: index
                             paintBackground: modelData !== "dynamicIsland"
-                            totalCount: root.effectiveMiddleLayout.length
+                            totalCount: root.centerLayout.length
                             paintMaterialPill: root.shouldPaintMaterialPill(modelData)
                             bgColor: root.getMaterialPillColor(modelData)
                             Loader {
@@ -288,7 +300,7 @@ Item {
                                 Binding {
                                     target: barWidget12.item
                                     property: "barMirrored"
-                                    value: root.getMirroredForIndex(root.effectiveMiddleLayout, index)
+                                    value: root.getMirroredForIndex(root.centerLayout, index)
                                     when: barWidget12.item?.barMirrored !== undefined
                                 }
                             }
@@ -306,13 +318,13 @@ Item {
                 Repeater {
                     // Diffing model: a changed layout (e.g. sysTray shown once the tray has
                     // items) only adds/removes that delegate instead of rebuilding them all.
-                    model: ScriptModel { values: root.effectiveMiddleLayout }
+                    model: ScriptModel { values: root.centerLayout }
                     delegate: Bar.BarGroup {
                         Layout.fillWidth: true
                         vertical: true
                         currentIndex: index
                         paintBackground: modelData !== "dynamicIsland"
-                        totalCount: root.effectiveMiddleLayout.length
+                        totalCount: root.centerLayout.length
                         Loader {
                             id: barWidget13
                             Layout.fillWidth: true
@@ -325,7 +337,7 @@ Item {
                             Binding {
                                 target: barWidget13.item
                                 property: "barMirrored"
-                                value: root.getMirroredForIndex(root.effectiveMiddleLayout, index)
+                                value: root.getMirroredForIndex(root.centerLayout, index)
                                 when: barWidget13.item?.barMirrored !== undefined
                             }
                         }
@@ -362,7 +374,7 @@ Item {
                     Repeater {
                         // Diffing model: a changed layout (e.g. sysTray shown once the tray has
                         // items) only adds/removes that delegate instead of rebuilding them all.
-                        model: ScriptModel { values: root.effectiveRightLayout }
+                        model: ScriptModel { values: root.bottomLayout }
                         delegate: bottomMaterialGroupDelegate
                     }
 
@@ -372,7 +384,7 @@ Item {
                             Layout.fillWidth: true
                             vertical: true
                             currentIndex: index
-                            totalCount: root.effectiveRightLayout.length
+                            totalCount: root.bottomLayout.length
                             paintMaterialPill: root.shouldPaintMaterialPill(modelData)
                             bgColor: root.getMaterialPillColor(modelData)
                             Loader {
@@ -387,7 +399,7 @@ Item {
                                 Binding {
                                     target: barWidget14.item
                                     property: "barMirrored"
-                                    value: root.getMirroredForIndex(root.effectiveRightLayout, index)
+                                    value: root.getMirroredForIndex(root.bottomLayout, index)
                                     when: barWidget14.item?.barMirrored !== undefined
                                 }
                             }
@@ -405,12 +417,12 @@ Item {
                 Repeater {
                     // Diffing model: a changed layout (e.g. sysTray shown once the tray has
                     // items) only adds/removes that delegate instead of rebuilding them all.
-                    model: ScriptModel { values: root.effectiveRightLayout }
+                    model: ScriptModel { values: root.bottomLayout }
                     delegate: Bar.BarGroup {
                         Layout.fillWidth: true
                         vertical: true
                         currentIndex: index
-                        totalCount: root.effectiveRightLayout.length
+                        totalCount: root.bottomLayout.length
                         Loader {
                             id: barWidget15
                             Layout.fillWidth: true
@@ -423,7 +435,7 @@ Item {
                             Binding {
                                 target: barWidget15.item
                                 property: "barMirrored"
-                                value: root.getMirroredForIndex(root.effectiveRightLayout, index)
+                                value: root.getMirroredForIndex(root.bottomLayout, index)
                                 when: barWidget15.item?.barMirrored !== undefined
                             }
                         }
