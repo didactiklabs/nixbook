@@ -4,6 +4,8 @@
 
 The bar's layout (left, centre, right) is edited in **Settings → Bar** (or pinned in Nix); it can sit at the top or bottom, or be vertical, and be shown on chosen monitors. **Mod+B** toggles it.
 
+On the left or right, the bar is read bottom-up by default (`bar.verticalReversed`, Settings → Bar → Positioning & Styles): the end of the layout (the right section: updates, power, battery, tray…) is on top, its start (launcher, workspaces) at the bottom, and every section's order is flipped; the layout editor names the sections after where they land.
+
 ### Styles
 
 **Settings → Bar → Positioning & Styles** sets the bar's shape (`bar.cornerStyle`: Hug — flush with the screen edge, its corners curving into the screen, the default —, Float, Islands, M3, Panel) and how its widget groups are drawn (`bar.borderless`: none — the default, the widgets straight on the bar —, Pills, Separated, Segmented). Under the Liquid Glass look (every theme but Persona, see [Themes](./themes#liquid-glass)): Float is a floating glass slab with a soft shadow; group capsules lying on the bar are one tonal step above it, with a light edge and no outline, and capsules floating over the wallpaper (Islands, M3, the background switched off) get the glass outline; Separated capsules are 4 px apart; a widget with nothing to show (Phone Connect with no phone, the VPN while off…) leaves no empty capsule.
