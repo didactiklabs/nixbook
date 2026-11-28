@@ -56,6 +56,12 @@ darwin-switch --build    # build only
 
 `darwin-switch` is `colmena apply-local switch` for the Macs: it builds as you, then activates as root through `sudo` (Touch ID), which is why the account must be an admin. It uses the checkout the system was built from (`NIXBOOK_REPO` or `--repo` for another one) and this machine's name (`--host`).
 
+## Apps and the default browser
+
+talia gets the apps of totoro that nixpkgs builds for macOS: Vesktop, Slack, Spotify, YouTube Music, Moonlight, Anki, LibreOffice, mpv, Zen (`zenBrowserConfig`) and rbw (Bitwarden, its password asked in macOS's own dialog). Home Manager copies them into `~/Applications/Home Manager Apps` (`targets.darwin.copyApps`), so Spotlight and Launchpad find them. Not on macOS: Nextcloud's client, KDE Connect, OBS, Actual Budget, Meru, Moonfin.
+
+**Zen is the default browser.** macOS has no silent way to set it: each switch checks whether Zen is the default and, when it isn't, asks for it (`defaultbrowser`), and macOS shows a "change your default web browser?" dialog to confirm. So it's asked once, and again only if the default is changed back.
+
 ## OmniWM
 
 [OmniWM](https://omniwm.app) is a tiling window manager with niri's scrolling columns. `customHomeManagerModules.omniwmConfig` installs it (nixpkgs' `omniwm`, Home Manager's `programs.omniwm`) and starts it at login (a launchd agent).

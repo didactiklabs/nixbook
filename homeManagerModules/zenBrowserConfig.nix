@@ -533,6 +533,34 @@ in
         fi
       '';
 
+    # macOS: Zen as the default browser (Linux: xdg.mimeApps below). Since
+    # macOS 12 setting it always shows a "change your default web browser?"
+    # dialog to confirm, so it's only asked while Zen isn't already the
+    # default: once, unless it is changed back. defaultbrowser names a browser
+    # by its bundle id's last part, lowercased; the id is read from the app
+    # (Home Manager's copy in ~/Applications, which Spotlight and
+    # LaunchServices know).
+    home.activation.zenDefaultBrowser = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin (
+      lib.hm.dag.entryAfter [ "copyApps" ] ''
+        zenApp=""
+        for app in ${config.programs.zen-browser.package}/Applications/*.app; do
+          zenApp="$app"
+          copied="$HOME/Applications/Home Manager Apps/$(basename "$app")"
+          [ -d "$copied" ] && zenApp="$copied"
+        done
+        if [ -n "$zenApp" ] && zenId=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$zenApp/Contents/Info.plist" 2>/dev/null); then
+          zenName=$(echo "''${zenId##*.}" | tr '[:upper:]' '[:lower:]')
+          /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$zenApp" || true
+          if ! ${pkgs.defaultbrowser}/bin/defaultbrowser | grep -qx "\* $zenName"; then
+            echo "zen-browser: making Zen ($zenId) the default browser: confirm in the dialog macOS shows"
+            run ${pkgs.defaultbrowser}/bin/defaultbrowser "$zenName" || echo "zen-browser: couldn't set the default browser" >&2
+          fi
+        else
+          echo "zen-browser: Zen's app wasn't found, the default browser is left as it is" >&2
+        fi
+      ''
+    );
+
     xdg.mimeApps.defaultApplications = lib.mkMerge [
       {
         "text/html" = "zen-twilight.desktop";
