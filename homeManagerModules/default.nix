@@ -24,6 +24,7 @@
     ./mpvConfig.nix
     ./niri
     ./ocmConfig.nix
+    ./omniwmConfig.nix
     ./opencodeConfig.nix
     ./oversteerConfig.nix
     ./nixvim

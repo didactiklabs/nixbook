@@ -325,6 +325,19 @@
       "url": "https://github.com/sodiboo/niri-flake/archive/9ee3e13b60643448228353097880521658b2fe0e.tar.gz",
       "hash": "sha256-25q05zpF1sqOCxPPUG9DPPGd+EDW7SiAOWCzBWRS7r0="
     },
+    "nix-darwin": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "nix-darwin",
+        "repo": "nix-darwin"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "594c680c429be020d7130cc2b17d43c4760d17c7",
+      "url": "https://github.com/nix-darwin/nix-darwin/archive/594c680c429be020d7130cc2b17d43c4760d17c7.tar.gz",
+      "hash": "sha256-VTPsIOYem/zQCO1QF3cpa4pLg2EoexjX5R1u3fs3L4k="
+    },
     "nix-proton-cachyos": {
       "type": "Git",
       "repository": {

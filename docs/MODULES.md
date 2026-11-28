@@ -52,6 +52,7 @@
 - [nixbookShellConfig](#nixbookshellconfig)
 - [nixvimConfig](#nixvimconfig)
 - [ocmConfig](#ocmconfig)
+- [omniwmConfig](#omniwmconfig)
 - [opencodeConfig](#opencodeconfig)
 - [oversteerConfig](#oversteerconfig)
 - [rbwConfig](#rbwconfig)
@@ -1027,6 +1028,31 @@ Global OpenCode configuration shared by every workspace. Written to `~/.config/o
 - **Default:** `"podman"`
 
 Container runtime opencode-manager drives (`docker` or `podman`). Set to `podman` to match what nixbook installs system-wide through `customNixOSModules.tools`.
+
+---
+
+## omniwmConfig
+
+### `customHomeManagerModules.omniwmConfig.enable`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Whether to enable OmniWM, the tiling window manager of the macOS machines.
+
+### `customHomeManagerModules.omniwmConfig.hotkeys`
+
+- **Type:** `attribute set of string`
+- **Default:** `{}`
+
+Action id → binding ("Control+Option+Shift+Command+Key", key names as OmniWM writes them: "Left Arrow", "Return", "Page Up"…, or "Unassigned"). An action already on that chord is unassigned. `openApp.<bundle id>` opens (or focuses) an app.
+
+### `customHomeManagerModules.omniwmConfig.settings`
+
+- **Type:** `attribute set of anything`
+- **Default:** `{}`
+
+settings.toml keys (OmniWM's settings reference: https://omniwm.app/config/settings-reference/), table by table, merged into OmniWM's own file. Use floats where OmniWM reads floats (8.0, not 8).
 
 ---
 

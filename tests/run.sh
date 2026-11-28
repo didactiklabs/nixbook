@@ -12,6 +12,9 @@
 #                                      jellyfin-mcp against a fake Jellyfin)
 #   tests/run.sh iso                   the installer ISO evaluates
 #   tests/run.sh docs                  docs/MODULES.md lists the modules' current options
+#   tests/run.sh darwin [NAME...]      the macOS machines (darwin.nix) evaluate, on Linux
+#                                      too, and keep their invariants (tests/darwin.nix);
+#                                      the OmniWM settings merge
 #   tests/run.sh hosts                 print the hive's node names (JSON)
 #   tests/run.sh host NAME [--all-modules]
 #                                      evaluate a machine + check its invariants
@@ -98,6 +101,18 @@ cmd_repo() {
     echo "ok   - build.yaml build matrix builds every hive node"
   else
     echo "FAIL - build.yaml build matrix $matrix != hive nodes $nodes" >&2
+    failed=1
+  fi
+  local darwin_hosts darwin_matrix
+  darwin_hosts=$(nix-instantiate --eval --strict --json tests/repo.nix -A darwinHosts | jq -c 'sort') || {
+    echo "FAIL - could not list the darwin.nix hosts" >&2
+    return 1
+  }
+  darwin_matrix=$(yq -o=json '.jobs."build-darwin".strategy.matrix.host' .github/workflows/build.yaml | jq -c 'sort')
+  if [ "$darwin_matrix" = "$darwin_hosts" ]; then
+    echo "ok   - build.yaml build-darwin matrix builds every darwin.nix host"
+  else
+    echo "FAIL - build.yaml build-darwin matrix $darwin_matrix != darwin.nix hosts $darwin_hosts" >&2
     failed=1
   fi
   tests/nixpkgs-sync.sh --check || failed=1
@@ -200,6 +215,53 @@ cmd_hosts() {
   nix-instantiate --eval --strict --json tests/repo.nix -A hiveNodes
 }
 
+# The macOS machines (darwin.nix): evaluated here, on Linux too; built and
+# activated on a macOS runner by build.yaml (tests/darwin-switch.sh).
+cmd_darwin() {
+  need nix-instantiate nix-store jq
+  local failed=0 host hosts
+  if [ $# -gt 0 ]; then
+    hosts="$*"
+  else
+    hosts=$(nix-instantiate --eval --strict --json tests/repo.nix -A darwinHosts | jq -r '.[]') || return 1
+  fi
+  for host in $hosts; do
+    section "darwin $host: evaluate + invariants"
+    local result drv
+    if ! result=$(nix-instantiate --eval --strict --json tests/darwin.nix --argstr host "$host" \
+      --option allow-import-from-derivation false 2> >(annotate >&2)); then
+      echo "FAIL - darwin $host does not evaluate" >&2
+      failed=1
+      continue
+    fi
+    jq -r '.checks | to_entries[] | "ok   - \(.key)"' <<<"$result"
+    jq -r '.warnings[] | "nix-darwin warning: \(.)"' <<<"$result"
+    # Instantiating builds nothing: it fails on a darwin derivation needed
+    # while evaluating (import from derivation), which a Linux runner
+    # couldn't build.
+    if ! drv=$(nix-instantiate darwin.nix -A "$host.system" --add-root "$tmpdir/$host.drv" --indirect \
+      --option allow-import-from-derivation false 2> >(annotate >&2)); then
+      echo "FAIL - darwin $host does not instantiate without import from derivation" >&2
+      failed=1
+      continue
+    fi
+    echo "ok   - instantiates: $drv"
+    # No Linux desktop in the system (niri, Sway, Quickshell, nixbook-shell…).
+    local linux
+    linux=$(nix-store -qR "$drv" | grep -E -- '-(niri|swayfx|sway|quickshell|nixbook-shell|wl-clipboard|xwayland|greetd)-[0-9]' || true)
+    if [ -z "$linux" ]; then
+      echo "ok   - no Linux desktop package in its closure"
+    else
+      echo "FAIL - Linux desktop packages in darwin $host's closure:" >&2
+      while IFS= read -r line; do echo "       $line"; done <<<"$linux" >&2
+      failed=1
+    fi
+  done
+  section "darwin: OmniWM settings merge (homeManagerModules/omniwm/apply-settings.py)"
+  bash tests/omniwm-settings.sh || failed=1
+  return "$failed"
+}
+
 cmd_host() {
   local host="${1:?usage: tests/run.sh host NAME [--all-modules]}" all=false
   [ "${2:-}" = "--all-modules" ] && all=true
@@ -268,6 +330,7 @@ cmd_all() {
   cmd_shell || failed=1
   cmd_iso || failed=1
   cmd_docs || failed=1
+  cmd_darwin || failed=1
   for host in $hosts; do
     cmd_host "$host" || failed=1
   done
@@ -280,6 +343,10 @@ trap 'rm -rf "$tmpdir"' EXIT
 
 case "${1:-}" in
 repo | shell | iso | docs | hosts | all) "cmd_$1" ;;
+darwin)
+  shift
+  cmd_darwin "$@"
+  ;;
 host)
   shift
   cmd_host "$@"

@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -56,7 +57,9 @@ in
   options.customHomeManagerModules.desktopEntriesConfig = {
     enable = lib.mkOption {
       type = lib.types.bool;
-      default = true;
+      # Linux launchers only (Home Manager refuses xdg.desktopEntries on macOS).
+      default = pkgs.stdenv.hostPlatform.isLinux;
+      defaultText = lib.literalExpression "pkgs.stdenv.hostPlatform.isLinux";
       description = ''
         Whether to hide desktop launcher entries for non-user-facing utilities,
         settings tools, background daemons and duplicate launchers (e.g.

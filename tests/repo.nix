@@ -6,9 +6,9 @@
 
   Each attribute is an independent check that evaluates to "ok" (or, for
   `packages.<name>`, the .drv path) and throws with the reason otherwise:
-    - machines: hive.nix nodes and profiles/ directories agree (a machine can't be
-      half-added or half-removed);
-    - orphans: every module file under nixosModules/ and homeManagerModules/ is
+    - machines: hive.nix nodes plus darwin.nix hosts and profiles/ directories
+      agree (a machine can't be half-added or half-removed);
+    - orphans: every module file under nixosModules/, darwinModules/ and homeManagerModules/ is
       referenced somewhere (an unimported module silently does nothing);
     - packages.<name>: every custom package in customPkgs/ instantiates (its .drv evaluates),
       including the ones no profile uses;
@@ -26,6 +26,8 @@ let
 
   # -- Machines -----------------------------------------------------------------
   hiveNodes = sorted (lib.attrNames (removeAttrs (import ../hive.nix) [ "meta" ]));
+  # The macOS machines (darwin.nix), without its `withUser` function.
+  darwinHosts = sorted (lib.attrNames (removeAttrs (import ../darwin.nix) [ "withUser" ]));
   profiles = dirsIn ../profiles;
 
   # -- Orphan modules -----------------------------------------------------------
@@ -97,7 +99,9 @@ let
       map (e: "${prefix}/${e}") (lib.filter (e: !isReferenced dir e) (moduleEntries dir))
     );
   orphans =
-    orphansIn "nixosModules" ../nixosModules ++ orphansIn "homeManagerModules" ../homeManagerModules;
+    orphansIn "nixosModules" ../nixosModules
+    ++ orphansIn "darwinModules" ../darwinModules
+    ++ orphansIn "homeManagerModules" ../homeManagerModules;
 
   # -- nixbook-shell -------------------------------------------------------------
   # Its own tests (nixbook-shell/tests/lib.nix), plus proof that the directory
@@ -113,14 +117,15 @@ let
 in
 {
   machines =
-    check "hive.nix nodes (${toString hiveNodes}) differ from profiles/ (${toString profiles})"
-      (hiveNodes == profiles);
+    check
+      "hive.nix nodes (${toString hiveNodes}) and darwin.nix hosts (${toString darwinHosts}) differ from profiles/ (${toString profiles})"
+      (sorted (hiveNodes ++ darwinHosts) == profiles);
   orphans = check "modules referenced from nowhere: ${toString orphans}" (orphans == [ ]);
   shellLib = check "nixbook-shell lib.nix unit tests failed:\n${
     lib.generators.toPretty { } shellLibFailures
   }" (shellLibFailures == [ ]);
   shellStandalone = check "nixbook-shell/ is not self-contained" (standaloneShell == "ok");
-  # Not a check: the node names, for CI's host matrix.
-  inherit hiveNodes;
+  # Not checks: the node names, for CI's host matrices.
+  inherit hiveNodes darwinHosts;
   packages = lib.mapAttrs (_: pkg: pkg.drvPath) pkgs.customPkgs;
 }

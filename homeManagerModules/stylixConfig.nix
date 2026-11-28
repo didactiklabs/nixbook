@@ -52,7 +52,9 @@ in
   };
 
   config = lib.mkIf cfg.stylixConfig.enable {
-    home.pointerCursor.enable = true;
+    # X/Wayland cursor themes: macOS draws its own (stylix sets no cursor
+    # there, and Home Manager's then has no name).
+    home.pointerCursor.enable = pkgs.stdenv.hostPlatform.isLinux;
 
     stylix = {
       enable = true;
@@ -104,6 +106,32 @@ in
     // lib.optionalAttrs (
       (config.customHomeManagerModules.dmsConfig.enable or false)
       || (config.customHomeManagerModules.nixbookShellConfig.enable or false)
-    ) { base16Scheme = "${pkgs.base16-schemes}/share/themes/tomorrow-night.yaml"; };
+    ) { base16Scheme = "${pkgs.base16-schemes}/share/themes/tomorrow-night.yaml"; }
+    # macOS: the same tomorrow-night, written out. The wallpaper-derived
+    # palette and the base16-schemes file are both read while evaluating
+    # (import from derivation), which a Linux machine can't build for darwin:
+    # tests/darwin.nix evaluates talia on Linux.
+    // lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
+      base16Scheme = {
+        scheme = "Tomorrow Night";
+        author = "Chris Kempson (http://chriskempson.com)";
+        base00 = "1d1f21";
+        base01 = "282a2e";
+        base02 = "373b41";
+        base03 = "969896";
+        base04 = "b4b7b4";
+        base05 = "c5c8c6";
+        base06 = "e0e0e0";
+        base07 = "ffffff";
+        base08 = "cc6666";
+        base09 = "de935f";
+        base0A = "f0c674";
+        base0B = "b5bd68";
+        base0C = "8abeb7";
+        base0D = "81a2be";
+        base0E = "b294bb";
+        base0F = "a3685a";
+      };
+    };
   };
 }

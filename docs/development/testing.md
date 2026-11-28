@@ -11,6 +11,7 @@ Besides the full machine builds, every push and pull request runs **cheap regres
 | `run-tests iso`                         | The installer ISO evaluates                                                                                                                                                                                                                                          |
 | `run-tests docs`                        | `docs/MODULES.md` documents the current options (run `generate-docs` if not)                                                                                                                                                                                         |
 | `run-tests host <name> [--all-modules]` | The machine evaluates exactly as `colmena build` would, keeps its invariants (`tests/hosts.nix`: hardening sysctls, boot editor off, deployment settings, state version…) and its generated config files build                                                       |
+| `run-tests darwin [<name>]`             | The macOS machines (`darwin.nix`) evaluate on Linux with import from derivation forbidden, keep their invariants (`tests/darwin.nix`) and have no Linux desktop package in their closure; the OmniWM settings merge (`tests/omniwm-settings.sh`)                     |
 | `run-tests all`                         | All of the above, for every machine                                                                                                                                                                                                                                  |
 
 `--all-modules` evaluates a machine with **every optional `customNixOSModules` toggle forced on**, so modules no profile enables are still evaluated and can't rot unnoticed.
@@ -26,7 +27,8 @@ sudo install -D -m 644 tests/hardware-stub.nix /etc/nixos/hardware-configuration
 
 ## Rules of thumb
 
-- **Adding a machine**: `hive.nix`, `profiles/` and the `build.yaml` matrix must agree — `run-tests repo` checks it.
+- **Adding a machine**: `hive.nix`, `profiles/` and the `build.yaml` matrix must agree — `run-tests repo` checks it. A Mac goes in `darwin.nix`'s `hosts` and `build.yaml`'s `build-darwin` matrix instead; that job builds it and switches a GitHub macOS runner to it ([macOS](/machines/macos#tests)).
+- **A Home Manager module used on macOS too**: Linux-only parts behind `pkgs.stdenv.hostPlatform.isLinux`, and nothing read from a derivation while evaluating — `run-tests darwin` checks both.
 - **Adding a NixOS module no profile enables**: add its toggle to `optionalModules` in `tests/hosts.nix`.
 - **Changing an invariant on purpose** (e.g. a sysctl asserted in `tests/hosts.nix`): update the check in the same change.
 - **Changing module options**: run `generate-docs` and commit `docs/MODULES.md`.

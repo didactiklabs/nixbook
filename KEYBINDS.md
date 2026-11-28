@@ -6,6 +6,7 @@
 >
 > - `homeManagerModules/niri/niriConfig.nix` (`programs.niri.settings.binds`)
 > - `homeManagerModules/sway/swayConfig.nix` (`wayland.windowManager.sway.config.keybindings` + `modes`)
+> - `homeManagerModules/omniwmConfig.nix` (`customHomeManagerModules.omniwmConfig.hotkeys`, macOS)
 > - `homeManagerModules/kittyConfig.nix` (terminal binds + the `Mod+Return` spawn bind for every compositor)
 > - `homeManagerModules/mpv/upscale.lua` (mpv's picture modes)
 > - `homeManagerModules/nixvim/default.nix` and `homeManagerModules/nixvim/plugins/*.nix`
@@ -169,6 +170,38 @@ In the app's share dialog, pick the window "niri Dynamic Cast Target" once; thes
 | `Esc`             | Cancel                                                                                        |
 
 The same selector opens to record the screen (`Shift+Print`, the bar's record button, or `nixbook-shell ipc call region recordWithSound`): a rectangle, `W` a window (the area it is shown in when clicked) or `S` a whole screen, recorded with the desktop audio. `Shift+Print` or the record button again stops it; the video is then copied to the clipboard as a file.
+
+---
+
+## OmniWM (macOS)
+
+Source: `homeManagerModules/omniwmConfig.nix` (`customHomeManagerModules.omniwmConfig.hotkeys`), on talia.
+niri's binds with **Option** as niri's `Mod` (OmniWM's own modifier; Command stays the apps'). An action
+not listed keeps OmniWM's default (Settings → Keyboard Shortcuts); an OmniWM default on a chord taken here
+is unassigned. Workspaces are numbered in OmniWM: `Option+1`–`9` switch, `Option+Shift+1`–`9` move the
+window there (OmniWM defaults, by physical key, so AZERTY's digit row works too).
+
+| Keybind                                      | Action                                            | niri                        |
+| -------------------------------------------- | ------------------------------------------------- | --------------------------- |
+| `Option+Return`                              | Open (or focus) kitty                             | same                        |
+| `Option+D`                                   | Command palette: launcher                         | same                        |
+| `Option+Q`                                   | Command palette: clipboard history                | same                        |
+| `Option+B`                                   | Toggle the workspace bar                          | same                        |
+| `Option+Tab`                                 | Toggle overview                                   | `Mod+Tab`                   |
+| `Option+A`                                   | Close window                                      | same                        |
+| `Option+F`                                   | Fullscreen                                        | same                        |
+| `Option+Z`                                   | Column full width (maximize column)               | same                        |
+| `Option+C`                                   | Center column                                     | same                        |
+| `Option+R`                                   | Cycle preset column widths                        | same                        |
+| `Option+Left` / `Option+Right`               | Focus column left / right                         | same                        |
+| `Option+Up` / `Option+Down`                  | Previous / next workspace                         | same                        |
+| `Control+Option+Up` / `Down`                 | Focus window up / down in the column              | `Mod+Ctrl+Up/Down`          |
+| `Option+Shift+Left` / `Right`                | Move column left / right                          | same                        |
+| `Option+Shift+Up` / `Down`                   | Move column to workspace up / down                | same                        |
+| `Control+Option+Shift+Left` / `Right`        | Move window left / right (into / out of a column) | `Mod+E`                     |
+| `Control+Option+Shift+Up` / `Down`           | Move window up / down in the column               | —                           |
+| `Control+Option+Left` / `Right`              | Focus previous / next monitor                     | `Ctrl+Alt+Left/Right`       |
+| `Control+Option+Shift+Page Up` / `Page Down` | Move window to the monitor on the left / right    | `Ctrl+Alt+Shift+Left/Right` |
 
 ---
 
