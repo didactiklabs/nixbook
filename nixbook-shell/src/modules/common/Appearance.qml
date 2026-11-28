@@ -21,6 +21,44 @@ Singleton {
     // an offset rectangle, no blur pass).
     readonly property bool tonal: !Persona.shapes
 
+    // Liquid Glass (macOS Tahoe) surfaces: the floating panels (whatever
+    // declares a StyledRectangularShadow) and the bar's group capsules get a
+    // specular rim (GlassRim: a hairline, a light inner edge, a glint along
+    // the top and a faint sheen) and a soft SDF shadow. All static items: no
+    // layer, no blur pass, nothing animated, so a still screen costs nothing
+    // more. Tuned per theme (themes.json style.glass, Themes.glass); the
+    // Persona style keeps its comic frames and hard shadows instead.
+    property QtObject glass: QtObject {
+        id: glassTokens
+        readonly property var spec: Themes.glass ?? ({})
+        readonly property bool enabled: !Persona.shapes && Themes.glass !== null
+        readonly property bool dark: root.m3colors.darkmode
+        function resolve(value, fallback) {
+            if (typeof value !== "string" || value.length === 0)
+                return fallback;
+            if (value.startsWith("#"))
+                return value;
+            const p = Themes.palette?.[value];
+            if (p)
+                return p;
+            const m3 = root.m3colors["m3" + value.charAt(0).toUpperCase() + value.slice(1)];
+            return m3 ?? fallback;
+        }
+        function num(key, darkValue, lightValue) {
+            const v = glassTokens.spec[key];
+            return typeof v === "number" ? v : (glassTokens.dark ? darkValue : lightValue);
+        }
+        readonly property color rimColor: glassTokens.resolve(glassTokens.spec.rimColor, "#ffffff")
+        // The glint along the top edge, the inner edge all around, the outer
+        // hairline (black), the sheen over the top.
+        readonly property real rim: glassTokens.num("rim", 0.32, 0.9)
+        readonly property real edge: glassTokens.num("edge", 0.07, 0.55)
+        readonly property real hairline: glassTokens.num("hairline", 0.45, 0.1)
+        readonly property real sheen: glassTokens.num("sheen", 0.045, 0.3)
+        readonly property color shadowColor: glassTokens.resolve(glassTokens.spec.shadowColor, "#000000")
+        readonly property real shadowAlpha: glassTokens.num("shadowAlpha", 0.42, 0.17)
+    }
+
     // Transparency. The quadratic functions were derived from analysis of hand-picked transparency values.
     ColorQuantizer {
         id: wallColorQuant
@@ -245,15 +283,16 @@ Singleton {
     rounding: QtObject {
         readonly property bool sharp: Persona.shapes
         property int unsharpen: 2
-        property int unsharpenmore: sharp ? Persona.corner : Themes.rounded(6)
-        property int verysmall: sharp ? Persona.corner : Themes.rounded(8)
+        // Tahoe's concentric corners: a little rounder than Material's.
+        property int unsharpenmore: sharp ? Persona.corner : Themes.rounded(7)
+        property int verysmall: sharp ? Persona.corner : Themes.rounded(9)
         property int small: sharp ? Persona.corner : Themes.rounded(12)
-        property int normal: sharp ? Persona.corner : Themes.rounded(17)
-        property int large: sharp ? Persona.corner : Themes.rounded(23)
+        property int normal: sharp ? Persona.corner : Themes.rounded(18)
+        property int large: sharp ? Persona.corner : Themes.rounded(24)
         property int verylarge: sharp ? Persona.corner : Themes.rounded(30)
         property int full: Themes.pillRadius
         property int screenRounding: large
-        property int windowRounding: sharp ? Persona.corner : Themes.rounded(18)
+        property int windowRounding: sharp ? Persona.corner : Themes.rounded(22)
     }
 
     font: QtObject {
@@ -275,8 +314,8 @@ Singleton {
             property var numbers: ({
                 "wght": 450,
             })
-            property var title: ({ // Slightly bold weight for title
-                "wght": 550, // Weight (Lowered to compensate for increased grade)
+            property var title: ({ // Semibold titles, as on macOS
+                "wght": 600,
             })
         }
         property QtObject pixelSize: QtObject {
@@ -294,22 +333,24 @@ Singleton {
     }
 
     animationCurves: QtObject {
-        readonly property list<real> expressiveFastSpatial: [0.42, 1.67, 0.21, 0.90, 1, 1] // Default, 350ms
-        readonly property list<real> expressiveDefaultSpatial: [0.38, 1.21, 0.22, 1.00, 1, 1] // Default, 500ms
-        readonly property list<real> expressiveSlowSpatial: [0.39, 1.29, 0.35, 0.98, 1, 1] // Default, 650ms
-        readonly property list<real> expressiveEffects: [0.34, 0.80, 0.34, 1.00, 1, 1] // Default, 200ms
+        // Fluid springs in the macOS manner: a slight settle, not Material
+        // Expressive's big overshoot, and shorter (fewer frames to draw).
+        readonly property list<real> expressiveFastSpatial: [0.3, 1.16, 0.4, 1.00, 1, 1] // Default, 320ms
+        readonly property list<real> expressiveDefaultSpatial: [0.28, 1.08, 0.36, 1.00, 1, 1] // Default, 420ms
+        readonly property list<real> expressiveSlowSpatial: [0.3, 1.06, 0.36, 1.00, 1, 1] // Default, 560ms
+        readonly property list<real> expressiveEffects: [0.3, 0.8, 0.3, 1.00, 1, 1] // Default, 180ms
         readonly property list<real> emphasized: [0.05, 0, 2 / 15, 0.06, 1 / 6, 0.4, 5 / 24, 0.82, 0.25, 1, 1, 1]
         readonly property list<real> emphasizedFirstHalf: [0.05, 0, 2 / 15, 0.06, 1 / 6, 0.4, 5 / 24, 0.82]
         readonly property list<real> emphasizedLastHalf: [5 / 24, 0.82, 0.25, 1, 1, 1]
         readonly property list<real> emphasizedAccel: [0.3, 0, 0.8, 0.15, 1, 1]
-        readonly property list<real> emphasizedDecel: [0.05, 0.7, 0.1, 1, 1, 1]
+        readonly property list<real> emphasizedDecel: [0.16, 1, 0.3, 1, 1, 1]
         readonly property list<real> standard: [0.2, 0, 0, 1, 1, 1]
         readonly property list<real> standardAccel: [0.3, 0, 1, 1, 1, 1]
         readonly property list<real> standardDecel: [0, 0, 0, 1, 1, 1]
-        readonly property real expressiveFastSpatialDuration: 350
-        readonly property real expressiveDefaultSpatialDuration: 500
-        readonly property real expressiveSlowSpatialDuration: 650
-        readonly property real expressiveEffectsDuration: 200
+        readonly property real expressiveFastSpatialDuration: 320
+        readonly property real expressiveDefaultSpatialDuration: 420
+        readonly property real expressiveSlowSpatialDuration: 560
+        readonly property real expressiveEffectsDuration: 180
     }
 
     animation: QtObject {
@@ -470,7 +511,7 @@ Singleton {
         property real barCenterSideModuleWidthHellaShortened: 190
         property real barShortenScreenWidthThreshold: 1200 // Shorten if screen width is at most this value
         property real barHellaShortenScreenWidthThreshold: 1000 // Shorten even more...
-        property real elevationMargin: 10
+        property real elevationMargin: 12 // room for the soft shadow
         property real fabShadowRadius: 5
         property real fabHoveredShadowRadius: 7
         property real gapsOut: 5

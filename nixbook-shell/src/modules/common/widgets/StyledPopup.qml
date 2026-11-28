@@ -182,7 +182,8 @@ LazyLoader {
 
             color: Persona.shapes || Cyberpunk.frames ? "transparent" : Appearance.colors.colLayer1Base
             radius: Appearance.rounding.normal + 4
-            border.width: Persona.shapes || Cyberpunk.frames ? 0 : 1
+            // Liquid Glass: the shadow's GlassRim draws the edge.
+            border.width: Persona.shapes || Cyberpunk.frames || Appearance.glass.enabled ? 0 : 1
             border.color: Appearance.colors.colLayer0Border
 
             // Reparent content here once the window is ready

@@ -54,6 +54,8 @@ Item {
 
                     sourceComponent: StyledRectangularShadow {
                         target: thumbnailImageLoader
+                        // Desktop / grid: the layer redraws often, keep it tonal.
+                        elevated: false
                         anchors.fill: undefined
                         radius: Appearance.rounding.small
                     }

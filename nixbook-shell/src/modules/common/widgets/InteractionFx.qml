@@ -26,10 +26,12 @@ Item {
     anchors.fill: parent
 
     property Item target: parent?.item !== undefined ? parent.item : parent
-    property real hoverGrowPx: 2.5
-    property real pressShrinkPx: 4
-    property real maxHoverScale: 1.08
-    property real minPressScale: 0.88
+    // Liquid Glass: a slight lift and press, as on macOS; Persona keeps its
+    // springier one.
+    property real hoverGrowPx: Persona.motion ? 2.5 : 1.5
+    property real pressShrinkPx: Persona.motion ? 4 : 3
+    property real maxHoverScale: Persona.motion ? 1.08 : 1.04
+    property real minPressScale: Persona.motion ? 0.88 : 0.94
     // Vertical lift while hovered, in px (negative = up). Dock icons use it.
     property real hoverLiftPx: 0
 
@@ -213,8 +215,10 @@ Item {
         target: ripple; property: "opacity"; to: 0
         duration: 360; easing.type: Easing.OutCubic
     }
+    // No ripple under Liquid Glass: the state layer alone darkens.
+    readonly property bool rippleOn: !Appearance.glass.enabled
     onPressedChanged: {
-        if (!root.stateLayer) return;
+        if (!root.stateLayer || !root.rippleOn) return;
         if (root.pressed) {
             // PointHandler position is in this item's coordinates, which match
             // the state layer's parent.

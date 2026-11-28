@@ -73,6 +73,7 @@ Singleton {
                 property bool meshWidget: false
                 property bool musicRecognitionRemoved: false
                 property bool meshQuickNudges: false
+                property bool interFont: false
             }
 
             // Automatic updates (UpdateState): the run started on its own

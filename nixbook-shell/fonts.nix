@@ -2,7 +2,10 @@
 # The faces the shell names in appearance.fonts that nixpkgs doesn't ship (or
 # nothing installed): without them every label fell back to fontconfig's
 # sans-serif. Installed by the Home Manager module and the greeter.
-#   Google Sans Flex  main, title and numbers (variable: weight, width,
+#   Inter             main, title and numbers (Inter Variable: weight,
+#                     optical size; nixpkgs), the closest free face to
+#                     Apple's SF Pro, for the Liquid Glass look
+#   Google Sans Flex  the desktop's digital clock (variable: weight, width,
 #                     optical size, roundness)
 #   Space Grotesk     expressive: the desktop clock and date
 #   Readex Pro        reading: the AI chat (nixpkgs)
@@ -92,6 +95,7 @@ pkgs.symlinkJoin {
       ${installWeights klee kleeWeights (klee "Regular" kleeWeights.Regular).license "KleeOne"}
     '')
     pkgs.readexpro
+    pkgs.inter
   ];
   meta.license = pkgs.lib.licenses.ofl;
 }

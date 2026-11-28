@@ -25,6 +25,17 @@ Singleton {
                 root.options.screenSnip.savePath = "~/Pictures/Screenshots";
             done.screenshotSavePath = true;
         }
+        // The UI font used to default to Google Sans Flex: Inter (the
+        // closest free face to Apple's SF Pro) with the Liquid Glass look.
+        // Only the keys still at the old default, once.
+        if (!done.interFont) {
+            const fonts = root.options.appearance.fonts;
+            for (const key of ["main", "title", "numbers"]) {
+                if (fonts[key] === "Google Sans Flex" && !NixManaged.isPinned("appearance.fonts." + key))
+                    fonts[key] = "Inter Variable";
+            }
+            done.interFont = true;
+        }
         // apps.* used to default to KDE's kcmshell6 and a Hyprland script, none
         // of which is installed, so the Wi-Fi/Bluetooth/volume "Details"
         // buttons did nothing. Replace only those dead commands.
@@ -649,9 +660,9 @@ Singleton {
                 property bool extraBackgroundTint: true
                 property int fakeScreenRounding: 2 // 0: None | 1: Always | 2: When not fullscreen
                 property JsonObject fonts: JsonObject {
-                    property string main: "Google Sans Flex"
-                    property string numbers: "Google Sans Flex"
-                    property string title: "Google Sans Flex"
+                    property string main: "Inter Variable"
+                    property string numbers: "Inter Variable"
+                    property string title: "Inter Variable"
                     property string iconNerd: "JetBrains Mono NF"
                     property string monospace: "JetBrains Mono NF"
                     property string reading: "Readex Pro"

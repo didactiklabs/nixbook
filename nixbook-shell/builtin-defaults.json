@@ -160,11 +160,11 @@
     "fonts": {
       "expressive": "Space Grotesk",
       "iconNerd": "JetBrains Mono NF",
-      "main": "Google Sans Flex",
+      "main": "Inter Variable",
       "monospace": "JetBrains Mono NF",
-      "numbers": "Google Sans Flex",
+      "numbers": "Inter Variable",
       "reading": "Readex Pro",
-      "title": "Google Sans Flex"
+      "title": "Inter Variable"
     },
     "ghibli": {
       "fonts": true,

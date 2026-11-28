@@ -17,6 +17,12 @@ Item {
     implicitWidth: Appearance.sizes.osdWidth + 4 * Appearance.sizes.elevationMargin + 80
     implicitHeight: valueIndicator.implicitHeight + 2 * Appearance.sizes.elevationMargin
 
+    // Liquid Glass: soft shadow + rim (drawn only while the OSD changes).
+    StyledRectangularShadow {
+        target: valueIndicator
+        visible: !Persona.shapes && !Cyberpunk.frames
+    }
+
     Rectangle {
         id: valueIndicator
         anchors {

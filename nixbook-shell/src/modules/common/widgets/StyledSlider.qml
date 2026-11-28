@@ -29,6 +29,10 @@ Slider {
     }
 
     property var configuration: StyledSlider.Configuration.S
+    // Liquid Glass (macOS Tahoe) for the small sliders: a thin track filled
+    // up to a white lozenge knob. The bigger ones (icons in the track) and
+    // the wavy one keep the Material look.
+    readonly property bool glassStyle: Appearance.glass.enabled && !root.wavy && root.configuration <= StyledSlider.Configuration.S
 
     property real handleDefaultWidth: 3
     property real handlePressedWidth: 1.5
@@ -38,16 +42,16 @@ Slider {
     property color dotColor: Appearance.m3colors.m3onSecondaryContainer
     property color dotColorHighlighted: Appearance.m3colors.m3onPrimary
     property real unsharpenRadius: Appearance.rounding.unsharpen
-    property real trackWidth: configuration
+    property real trackWidth: root.glassStyle ? 6 : configuration
     property real trackRadius: trackWidth >= StyledSlider.Configuration.XL ? 21
         : trackWidth >= StyledSlider.Configuration.L ? 12
         : trackWidth >= StyledSlider.Configuration.M ? 9
         : trackWidth >= StyledSlider.Configuration.S ? 6
         : height / 2
-    property real handleHeight: (configuration === StyledSlider.Configuration.Wavy) ? 24 : Math.max(33, trackWidth + 9)
-    property real handleWidth: root.pressed ? handlePressedWidth : handleDefaultWidth
-    property real handleMargins: 4
-    property real dividerMargins: 2
+    property real handleHeight: root.glassStyle ? 20 : (configuration === StyledSlider.Configuration.Wavy) ? 24 : Math.max(33, trackWidth + 9)
+    property real handleWidth: root.glassStyle ? (root.pressed ? 32 : 28) : root.pressed ? handlePressedWidth : handleDefaultWidth
+    property real handleMargins: root.glassStyle ? 0 : 4
+    property real dividerMargins: root.glassStyle ? 0 : 2 // one continuous fill under glass
     property real trackDotSize: 3
     property bool usePercentTooltip: true
     property string tooltipContent: usePercentTooltip ? `${Math.round(((value - from) / (to - from)) * 100)}%` : `${Math.round(value)}`
@@ -57,8 +61,11 @@ Slider {
     property real waveFrequency: 6
     property real waveFps: 60
 
-    leftPadding: handleMargins
-    rightPadding: handleMargins
+    // The fill stops this far before the handle (Material's gap); under the
+    // glass knob it runs to the knob's centre.
+    readonly property real handleGap: root.glassStyle ? 0 : root.handleWidth / 2
+    leftPadding: root.glassStyle ? 14 : handleMargins
+    rightPadding: root.glassStyle ? 14 : handleMargins
     property real effectiveDraggingWidth: width - leftPadding - rightPadding
 
     Layout.fillWidth: true
@@ -120,7 +127,7 @@ Slider {
                 property real leftMargin: index > 0 ? root.dividerMargins : 0
                 property real rightMargin: index < background.leftWidths.length - 1 ? root.dividerMargins : root.handleMargins
                 x: background.leftValues[index] * root.effectiveDraggingWidth + leftMargin + (index > 0 ? leftPadding : 0)
-                width: background.leftWidths[index] * root.effectiveDraggingWidth - leftMargin - rightMargin - (index === background.leftWidths.length - 1 ? handleWidth / 2 : 0) + (index === 0 ? leftPadding : 0)
+                width: background.leftWidths[index] * root.effectiveDraggingWidth - leftMargin - rightMargin - (index === background.leftWidths.length - 1 ? root.handleGap : 0) + (index === 0 ? leftPadding : 0)
                 height: root.trackWidth
                 active: !root.wavy
                 sourceComponent: Rectangle {
@@ -142,7 +149,7 @@ Slider {
                 property real leftMargin: index > 0 ? root.dividerMargins : 0
                 property real rightMargin: index < background.leftWidths.length - 1 ? root.dividerMargins : root.handleMargins
                 x: background.leftValues[index] * root.effectiveDraggingWidth + leftMargin + (index > 0 ? leftPadding : 0)
-                width: background.leftWidths[index] * root.effectiveDraggingWidth - leftMargin - rightMargin - (index === background.leftWidths.length - 1 ? handleWidth / 2 : 0) + (index === 0 ? leftPadding : 0)
+                width: background.leftWidths[index] * root.effectiveDraggingWidth - leftMargin - rightMargin - (index === background.leftWidths.length - 1 ? root.handleGap : 0) + (index === 0 ? leftPadding : 0)
                 height: root.height
                 active: root.wavy
                 sourceComponent: WavyLine {
@@ -177,8 +184,8 @@ Slider {
                 anchors.verticalCenter: background.verticalCenter
                 property real leftMargin: index > 0 ? root.dividerMargins : root.handleMargins
                 property real rightMargin: index < background.rightWidths.length - 1 ? root.dividerMargins : 0
-                x: background.rightValues[index] * root.effectiveDraggingWidth + leftMargin + (index === 0 ? handleWidth / 2 : 0) + leftPadding
-                width: background.rightWidths[index] * root.effectiveDraggingWidth - leftMargin - rightMargin - (index === 0 ? handleWidth / 2 : 0) + (index === background.rightWidths.length - 1 ? rightPadding : 0)
+                x: background.rightValues[index] * root.effectiveDraggingWidth + leftMargin + (index === 0 ? root.handleGap : 0) + leftPadding
+                width: background.rightWidths[index] * root.effectiveDraggingWidth - leftMargin - rightMargin - (index === 0 ? root.handleGap : 0) + (index === background.rightWidths.length - 1 ? rightPadding : 0)
                 height: trackWidth
                 color: root.trackColor
                 topRightRadius: index === background.rightWidths.length - 1 ? root.trackRadius : root.unsharpenRadius
@@ -190,7 +197,7 @@ Slider {
 
         // Stop indicators
         Repeater {
-            model: root.stopIndicatorValues
+            model: root.glassStyle ? [] : root.stopIndicatorValues
             TrackDot {
                 required property real modelData
                 value: modelData
@@ -207,7 +214,9 @@ Slider {
         x: root.leftPadding + (root.visualPosition * root.effectiveDraggingWidth) - (root.handleWidth / 2)
         anchors.verticalCenter: parent.verticalCenter
         radius: Appearance.rounding.full
-        color: root.handleColor
+        color: root.glassStyle ? "#ffffff" : root.handleColor
+        border.width: root.glassStyle ? 1 : 0
+        border.color: Qt.rgba(0, 0, 0, Appearance.m3colors.darkmode ? 0.35 : 0.12)
 
         Behavior on implicitWidth {
             animation: Appearance?.animation.elementMoveFast.numberAnimation.createObject(this)
