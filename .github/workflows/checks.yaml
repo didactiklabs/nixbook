@@ -137,6 +137,22 @@ jobs:
         if: ${{ !cancelled() }}
         run: tests/run.sh docs
 
+  # The macOS machines evaluate on Linux (no build, no import from
+  # derivation) and keep their invariants (tests/darwin.nix); the OmniWM
+  # settings merge. build.yaml's build (<host>) builds them on macOS.
+  darwin:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # see the repo job
+      - *pin-nixpkgs
+      - *install-nix
+      - *nix-cache
+      - name: Evaluate the macOS machines
+        run: nix-shell -p jq --run "tests/run.sh darwin"
+
   # Every hive node, plus one leg with all optional modules switched on.
   host-matrix:
     timeout-minutes: 10

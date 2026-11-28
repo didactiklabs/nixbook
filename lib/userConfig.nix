@@ -5,11 +5,7 @@
   overrides ? { },
 }:
 let
-  # Use runCommand for simple asset copying - faster evaluation than mkDerivation
-  defaultImagePath = pkgs.runCommand "default-images" { src = ../assets/images; } ''
-    mkdir -p $out
-    cp -r $src/* $out
-  '';
+  homeManagerBase = import ./homeManagerBase.nix { inherit pkgs sources; };
 
   defaultConfig = {
     extraGroups = [
@@ -146,42 +142,9 @@ let
         users.${username} =
           { config, ... }:
           {
-            imports =
-              let
-                dmsFlake = import sources.flake-compat {
-                  src = sources.dms;
-                };
-                dmsPluginRegistryFlake = import sources.flake-compat {
-                  src = sources.dms-plugin-registry;
-                };
-                zenBrowserFlake = import sources.flake-compat {
-                  src = sources.zen-browser-flake;
-                };
-              in
-              [
-                (import sources.stylix).homeModules.stylix
-                (import sources.nixvim).homeModules.nixvim
-                (import "${sources.agenix}/modules/age-home.nix")
-                dmsFlake.defaultNix.homeModules.dank-material-shell
-                dmsPluginRegistryFlake.defaultNix.homeModules.default
-                zenBrowserFlake.defaultNix.homeModules.twilight
-                ../homeManagerModules
-              ]
-              ++ mergedConfig.imports
-              ++ userImports;
+            imports = homeManagerBase.imports ++ mergedConfig.imports ++ userImports;
 
-            options.profileCustomization = {
-              mainWallpaper = lib.mkOption {
-                type = lib.types.str;
-                default = "${defaultImagePath}/nixos-wallpaper.png";
-                description = "Image to set as main wallpaper.";
-              };
-              lockWallpaper = lib.mkOption {
-                type = lib.types.str;
-                default = "${defaultImagePath}/nixos-wallpaper.png";
-                description = "Image to set as lock wallpaper.";
-              };
-            };
+            options.profileCustomization = homeManagerBase.profileCustomizationOptions;
 
             config = {
               # Open plain-text files with VSCode when it is installed, otherwise

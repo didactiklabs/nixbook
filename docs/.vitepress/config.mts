@@ -103,6 +103,7 @@ export default defineConfig({
         items: [
           { text: 'The fleet', link: '/machines/' },
           { text: 'Machine profiles', link: '/machines/profiles' },
+          { text: 'macOS (talia)', link: '/machines/macos' },
           { text: 'Adding a machine or user', link: '/machines/adding-a-machine' },
         ],
       },

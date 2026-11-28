@@ -1,6 +1,6 @@
 # The fleet
 
-Nixbook manages five machines. Each is a node in `hive.nix` and a directory in `profiles/`; the profile is chosen automatically from the hostname.
+Nixbook manages five NixOS machines and one Mac. Each NixOS machine is a node in `hive.nix` and a directory in `profiles/`; the profile is chosen automatically from the hostname.
 
 | Machine                           | Role                               | User          | Compositor | Desktop shell                             |
 | --------------------------------- | ---------------------------------- | ------------- | ---------- | ----------------------------------------- |
@@ -9,6 +9,8 @@ Nixbook manages five machines. Each is a node in `hive.nix` and a directory in `
 | [nishinoya](./profiles#nishinoya) | Development laptop                 | aamoyel       | Niri       | DankMaterialShell                         |
 | [hanamichi](./profiles#hanamichi) | Everyday & gaming desktop (NVIDIA) | chocomooncake | Niri       | nixbook-shell                             |
 | [anya](./profiles#anya)           | Gaming & streaming desktop (AMD)   | khoa          | SwayFX     | Steam Big Picture (nixbook-shell enabled) |
+
+And one Mac, on nix-darwin (`darwin.nix`, not the hive): [talia](./macos), khoa's Apple Silicon Mac, with OmniWM (niri-like scrolling tiling) and the shell, editor, Kubernetes and AI tools of the NixOS machines.
 
 ## Feature matrix
 

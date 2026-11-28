@@ -65,6 +65,11 @@
     run-tests.exec = ''
       "$DEVENV_ROOT/tests/run.sh" "$@"
     '';
+    # A darwin.nix machine on a Mac that isn't yours: a rented one (ssh) or a
+    # tart VM on an Apple Silicon Mac.
+    darwin-try.exec = ''
+      "$DEVENV_ROOT/tests/darwin-try.sh" "$@"
+    '';
     doc-dev.exec = ''
       cd "$DEVENV_ROOT/docs" && pnpm install --frozen-lockfile && pnpm run docs:dev "$@"
     '';
@@ -87,6 +92,7 @@
     echo "  generate-docs  - Auto-generates module documentation to docs/MODULES.md"
     echo "  npins-update   - npins update [PINS...], keeping devenv's nixpkgs in sync"
     echo "  run-tests      - Cheap regression checks (tests/run.sh; run-tests for usage)"
+    echo "  darwin-try     - Try talia on a rented Mac (remote USER@HOST) or a tart VM (vm up)"
     echo "  doc-dev        - Run the documentation website locally (VitePress, port 5173)"
     echo "  doc-build      - Build the documentation website (docs/.vitepress/dist)"
     echo "  doc-preview    - Preview the built documentation website"

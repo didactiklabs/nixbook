@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -22,7 +23,8 @@ in
         # Use system clipboard
         register = "unnamedplus";
 
-        providers.wl-copy.enable = true;
+        # Wayland's; on macOS Neovim finds pbcopy/pbpaste by itself.
+        providers.wl-copy.enable = pkgs.stdenv.hostPlatform.isLinux;
       };
 
       opts = {
