@@ -92,7 +92,7 @@ The launcher also adds tasks to the to-do list.
 
 ## Sidebars
 
-Besides their shortcuts and bar buttons, both open from the middle of their screen edge: click the pill to open one to stay, or hold the pointer against the edge a moment (`sidebar.edgeHandles.hoverDelay`, 200 ms by default, or turn `hoverToOpen` off; Settings → Panels) for a peek. A peek is only a glance until you use it, by moving into it and staying a moment or by clicking it: until then your keyboard stays with the window you were in, and moving off the panel closes it at once. A used peek takes the keyboard, and closes shortly after the pointer leaves it.
+Besides their shortcuts and bar buttons, both open from the middle of their screen edge: click the pill to open one to stay, or hold the pointer against the edge a moment (`sidebar.edgeHandles.hoverDelay`, 200 ms by default, or turn `hoverToOpen` off; Settings → Panels) for a peek. A peek is only a glance until you use it, by moving into it and staying a moment or by clicking it: until then your keyboard stays with the window you were in, and moving off the panel closes it at once. A used peek takes the keyboard, and closes shortly after the pointer leaves it. With the bar vertical on that side, the edge is still the trigger — the screen's own edge, over the bar's outer border, so throwing the pointer against it works as with a horizontal bar — and the pill shows just outside the bar (clickable too); with the bar auto-hiding, the edge reveals the bar instead.
 
 ### Right sidebar — Mod+N
 
