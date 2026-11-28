@@ -1086,6 +1086,13 @@ in
                     "toggle"
                   ];
                 };
+                "Mod+Shift+D" = {
+                  title = "Peek at the desktop widgets";
+                  call = [
+                    "widgetsPeek"
+                    "toggle"
+                  ];
+                };
                 "Mod+Escape" = {
                   title = "Shell settings";
                   call = [

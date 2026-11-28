@@ -47,6 +47,7 @@ Niri is column/scroll based; it has no numbered workspaces (workspaces stack ver
 | `Mod+B`            | Toggle top bar (+ dock when `showDock` is enabled)       | Toggle top bar                                                          |
 | `Mod+O`            | Toggle dash overview                                     | Toggle workspaces overview                                              |
 | `Mod+W`            | Open wallpaper picker / dankdash                         | Open wallpaper selector                                                 |
+| `Mod+Shift+D`      | —                                                        | Peek at the desktop widgets over the windows (again / Escape: back)     |
 | `Mod+L`            | Power menu                                               | Session screen (power menu)                                             |
 | `Mod+Space`        | Toggle Sathi AI assistant widget                         | Toggle left sidebar (pinned: closes it, frees its room; again: pinned)  |
 | `Mod+I`            | Toggle idle inhibitor                                    | Start/stop `hypridle` (idle inhibit)                                    |

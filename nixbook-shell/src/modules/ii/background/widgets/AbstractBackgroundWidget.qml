@@ -45,6 +45,8 @@ AbstractWidget {
     readonly property real blurReach: 48
     readonly property bool desktopVisible: {
         if (Idle.screensOff) return false;
+        // Peeked at over the windows (WidgetsPeek): nothing covers them.
+        if (GlobalStates.desktopWidgetsOnTop) return true;
         const niri = WM.backend;
         if (!niri || root.screenName === "") return true;
         const ws = niri.activeWorkspaceForMonitor(root.screenName);

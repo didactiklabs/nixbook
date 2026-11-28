@@ -902,6 +902,10 @@
           {
             "size": 2,
             "type": "nightLight"
+          },
+          {
+            "size": 1,
+            "type": "widgetsPeek"
           }
         ]
       },
