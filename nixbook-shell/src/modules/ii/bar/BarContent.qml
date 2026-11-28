@@ -18,6 +18,16 @@ Item {
     readonly property real centerPillX: centerPill.x
     readonly property real centerPillWidth: centerPill.width
     readonly property bool isPanel: Config.options.bar.cornerStyle === 4
+    // Space between the widget groups: Separated capsules get room to read
+    // as separate (Liquid Glass), Pills a hairline gap; no backgrounds or
+    // segmented ones overlap or touch on purpose.
+    readonly property real groupSpacing: {
+        const style = Config.options?.bar.borderless;
+        if (style === "transparent") return -7;
+        if (style === "segmented") return root.isPanel ? 3 : -1;
+        if (style === "separated") return Appearance.glass.enabled ? 4 : (root.isPanel ? 4 : 2);
+        return root.isPanel ? 4 : (Appearance.glass.enabled ? 3 : 2);
+    }
     readonly property var diLeftWidgets:  filterLayout(Config.options.bar.dynamicIsland.leftWidgets ?? [])
     readonly property var diRightWidgets: filterLayout(Config.options.bar.dynamicIsland.rightWidgets ?? [])
 
@@ -74,6 +84,12 @@ Item {
     // The bar's body, for niri's blur (Bar.qml); transparent in the styles
     // that have none (islands, center-only).
     readonly property Rectangle background: barBackground
+    // Float: a floating Liquid Glass slab (soft shadow + GlassRim). Static:
+    // drawn only when the bar redraws anyway.
+    StyledRectangularShadow {
+        target: barBackground
+        visible: Config.options.bar.cornerStyle === 1 && barBackground.color.a > 0 && !Cyberpunk.frames
+    }
     Rectangle {
         id: barBackground
         anchors.fill: parent
@@ -84,7 +100,7 @@ Item {
                 : Appearance.colors.colLayer0)
             : "transparent"
         radius: Config.options.bar.cornerStyle === 1 ? Appearance.rounding.windowRounding : 0
-        border.width: (!centerOnly && Config.options.bar.cornerStyle === 1) ? 1 : 0
+        border.width: (!centerOnly && Config.options.bar.cornerStyle === 1 && !Appearance.glass.enabled) ? 1 : 0
         border.color: Config.options.bar.cornerStyle === 1 && !Config.options.bar.showBackground ? "transparent" : ColorUtils.transparentize(Appearance.colors.colLayer0Border, 0.8) 
     }
 
@@ -203,6 +219,8 @@ Item {
                 implicitHeight: leftMaterialRow.implicitHeight
                 radius: Appearance.rounding.full
                 color: Appearance.colors.colLayer0
+                // M3 islands float over the wallpaper: Liquid Glass edge.
+                GlassRim { anchors.fill: parent; radius: parent.radius }
 
                 RowLayout {
                     id: leftMaterialRow
@@ -249,10 +267,7 @@ Item {
                 id: leftRow
                 visible: !root.isMaterial
                 anchors.fill: parent
-                spacing: Config.options.bar.borderless === "transparent" ? -7
-                    : (Config.options?.bar.borderless === "segmented" && root.isPanel) ? 3
-                    : Config.options?.bar.borderless === "segmented" ? -1
-                    : root.isPanel ? 4 : 2
+                spacing: root.groupSpacing
 
                 Repeater {
                     // Diffing model: a changed layout (e.g. sysTray shown once the tray has
@@ -342,6 +357,8 @@ Item {
                 implicitHeight: centerMaterialRow.implicitHeight 
                 radius: Appearance.rounding.full
                 color: Appearance.colors.colLayer0
+                // M3 islands float over the wallpaper: Liquid Glass edge.
+                GlassRim { anchors.fill: parent; radius: parent.radius }
 
                 RowLayout {
                     id: centerMaterialRow
@@ -387,10 +404,7 @@ Item {
                 id: middleRow
                 visible: !root.isMaterial
                 anchors.fill: parent
-                spacing: Config.options.bar.borderless === "transparent" ? -7
-                    : (Config.options?.bar.borderless === "segmented" && root.isPanel) ? 3
-                    : Config.options?.bar.borderless === "segmented" ? -1
-                    : root.isPanel ? 4 : 2
+                spacing: root.groupSpacing
 
                 Repeater {
                     // Diffing model: a changed layout (e.g. sysTray shown once the tray has
@@ -459,6 +473,8 @@ Item {
                 implicitHeight: rightMaterialRow.implicitHeight 
                 radius: Appearance.rounding.full
                 color: Appearance.colors.colLayer0
+                // M3 islands float over the wallpaper: Liquid Glass edge.
+                GlassRim { anchors.fill: parent; radius: parent.radius }
 
                 RowLayout {
                     id: rightMaterialRow
@@ -503,10 +519,7 @@ Item {
                 id: rightRow
                 visible: !root.isMaterial
                 anchors.fill: parent
-                spacing: Config.options.bar.borderless === "transparent" ? -7
-                    : (Config.options?.bar.borderless === "segmented" && root.isPanel) ? 3
-                    : Config.options?.bar.borderless === "segmented" ? -1
-                    : root.isPanel ? 4 : 2
+                spacing: root.groupSpacing
 
                 Repeater {
                     // Diffing model: a changed layout (e.g. sysTray shown once the tray has

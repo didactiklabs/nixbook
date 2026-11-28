@@ -1,5 +1,6 @@
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.common.functions
 import QtQuick
 import QtQuick.Layouts
 
@@ -17,8 +18,33 @@ Item {
     readonly property color resolvedGroupColor: {
         const name = Config.options.bar.groupColor
         const key = `col${name.charAt(0).toUpperCase()}${name.slice(1)}`
-        return Appearance.colors[key] ?? Appearance.colors.colLayer1
+        const base = Appearance.colors[key] ?? Appearance.colors.colLayer1
+        // Liquid Glass: a capsule lying on the bar's own background is one
+        // clear tonal step above it (layer 1 is nearly the bar's layer 0, so
+        // the groups read as muddy boxes); a floating one keeps its colour.
+        return Appearance.glass.enabled && root.onBarBackground
+            ? ColorUtils.mix(base, Appearance.colors.colOnLayer0, 0.92)
+            : base
     }
+    // The bar draws a background of its own behind the groups (not Islands,
+    // M3, or the background switched off).
+    readonly property bool onBarBackground: Config.options.bar.showBackground
+        && Config.options.bar.cornerStyle !== 2 && !root.isMaterial
+
+    // A widget with nothing to show (hidden, or no width: Phone Connect
+    // with no phone, the VPN while off…) leaves no empty capsule behind: the
+    // group collapses and gives back the layout's spacing. The group itself
+    // stays visible (hiding it would hide the widget too, and it could
+    // never say it has something to show again).
+    readonly property Item widget: {
+        const first = gridLayout.children[0];
+        return first?.item !== undefined ? first.item : (first ?? null);
+    }
+    readonly property bool empty: root.widget !== null && (!root.widget.visible
+        || (root.vertical ? root.widget.implicitHeight : root.widget.implicitWidth) < 1)
+    readonly property real layoutSpacing: root.parent?.spacing ?? 0
+    Layout.leftMargin: root.empty && !root.vertical ? -root.layoutSpacing : 0
+    Layout.topMargin: root.empty && root.vertical ? -root.layoutSpacing : 0
 
     readonly property bool isSegmented: Config.options?.bar.borderless === "segmented"
     readonly property bool isPanel: Config.options.bar.cornerStyle === 4
@@ -42,8 +68,8 @@ Item {
         return midRadius;
     }
 
-    implicitWidth: vertical && root.isMaterial ? Appearance.sizes.baseVerticalBarWidth - 6 : (gridLayout.implicitWidth + padding * 2)
-    implicitHeight: vertical ? (gridLayout.implicitHeight + padding * 2) : Appearance.sizes.baseBarHeight
+    implicitWidth: root.empty && !vertical ? 0 : vertical && root.isMaterial ? Appearance.sizes.baseVerticalBarWidth - 6 : (gridLayout.implicitWidth + padding * 2)
+    implicitHeight: root.empty && vertical ? 0 : vertical ? (gridLayout.implicitHeight + padding * 2) : Appearance.sizes.baseBarHeight
 
     default property alias items: gridLayout.children
 
@@ -70,6 +96,7 @@ Item {
             leftMargin: root.vertical ? 4 : 0
             rightMargin: root.vertical ? 4 : 0
         }
+        visible: !root.empty
         color: !root.paintBackground
             ? "transparent"
             : (root.isMaterial && !root.paintMaterialPill)
@@ -97,6 +124,7 @@ Item {
         // Liquid Glass capsule edge (static: the bar draws nothing more).
         GlassRim {
             anchors.fill: parent
+            outline: !root.onBarBackground
             visible: Appearance.glass.enabled && background.color.a > 0.02 && width > 4 && height > 4
             topLeftRadius: background.topLeftRadius
             topRightRadius: background.topRightRadius

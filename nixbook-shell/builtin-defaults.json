@@ -489,10 +489,10 @@
       "hoverRegionWidth": 2,
       "pushWindows": false
     },
-    "borderless": "pills",
+    "borderless": "transparent",
     "bottom": false,
     "centerOnlyReserveFrame": false,
-    "cornerStyle": 1,
+    "cornerStyle": 0,
     "divider": {
       "spacing": 20,
       "style": "rect"

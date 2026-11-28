@@ -155,6 +155,18 @@ Singleton {
             }
             done.barDockDefaults = true;
         }
+        // The bar's built-in look became Hug with no group backgrounds (the
+        // Liquid Glass bar, khoa's choice, 2026-11-28): a config.json still at
+        // the former built-ins (Float, pills) moves to it once; a value
+        // chosen in the menu or set in Nix stays.
+        if (!done.barHugDefaults) {
+            const bar = root.options.bar;
+            if (bar.cornerStyle === 1 && !NixManaged.isPinned("bar.cornerStyle"))
+                bar.cornerStyle = 0;
+            if (bar.borderless === "pills" && !NixManaged.isPinned("bar.borderless"))
+                bar.borderless = "transparent";
+            done.barHugDefaults = true;
+        }
         // The mesh's bar widget (hidden until the mesh is set up) joins a
         // middle layout saved before it existed, after Phone Connect; not
         // when the layout is set in Nix.
@@ -1026,9 +1038,9 @@ Singleton {
                 property bool followFrameColor: false
                 property bool centerOnlyReserveFrame: false
                 property bool bottom: false // Instead of top
-                property int cornerStyle: 1 // 0: Hug | 1: Float | 2: Plain rectangle
+                property int cornerStyle: 0 // 0: Hug | 1: Float | 2: Islands | 3: M3 | 4: Panel
                 property string groupColor: "layer1"
-                property string borderless: "pills"
+                property string borderless: "transparent" // group style: transparent (none) | pills | separated | segmented
                 property bool showBackground: true
                 property bool verbose: true
                 property bool vertical: false

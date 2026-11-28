@@ -21,6 +21,9 @@ Item {
     property real bottomLeftRadius: root.radius
     property real bottomRightRadius: root.radius
     property bool sheen: true
+    // The dark outer hairline: for a surface floating over something else;
+    // off for a capsule lying on its own panel (the bar's groups).
+    property bool outline: true
 
     readonly property var glass: Appearance.glass
     visible: root.glass.enabled && root.width > 4 && root.height > 4
@@ -36,7 +39,7 @@ Item {
         color: "transparent"
         border.width: 1
         border.color: ColorUtils.transparentize("#000000", 1 - root.glass.hairline)
-        visible: root.glass.hairline > 0
+        visible: root.outline && root.glass.hairline > 0
     }
 
     // Light inner edge, all around.

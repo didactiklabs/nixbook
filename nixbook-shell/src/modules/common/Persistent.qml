@@ -74,6 +74,7 @@ Singleton {
                 property bool musicRecognitionRemoved: false
                 property bool meshQuickNudges: false
                 property bool interFont: false
+                property bool barHugDefaults: false
             }
 
             // Automatic updates (UpdateState): the run started on its own

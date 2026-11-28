@@ -178,7 +178,8 @@ Item {
         }
         color: root.stateColor
         // Persona's accent is darker (P5 red on black): a bit stronger there.
-        opacity: (root.pressed ? 0.26 : root.hovered ? 0.14 : 0) + (Persona.shapes && root.hovered ? 0.08 : 0)
+        // Liquid Glass: a quieter hover, as on macOS.
+        opacity: (root.pressed ? (Appearance.glass.enabled ? 0.2 : 0.26) : root.hovered ? (Appearance.glass.enabled ? 0.1 : 0.14) : 0) + (Persona.shapes && root.hovered ? 0.08 : 0)
         Behavior on opacity {
             NumberAnimation {
                 duration: root.pressed ? 90 : 220
