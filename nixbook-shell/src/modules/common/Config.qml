@@ -191,6 +191,21 @@ Singleton {
                 mesh.quickMessages = [];
             done.meshQuickNudges = true;
         }
+        // The bar's system icons are separate buttons and no longer open the
+        // right panel: the bell (notificationButton) does, right after them,
+        // in a layout saved before it; not when the layout is set in Nix.
+        if (!done.notificationButton) {
+            const layouts = root.options.bar?.layouts;
+            for (const side of ["leftLayout", "middleLayout", "rightLayout"]) {
+                const list = layouts ? Array.from(layouts[side] ?? []) : [];
+                const at = list.indexOf("systemIcons");
+                if (at >= 0 && !list.includes("notificationButton") && !NixManaged.isPinned(`bar.layouts.${side}`)) {
+                    list.splice(at + 1, 0, "notificationButton");
+                    layouts[side] = list;
+                }
+            }
+            done.notificationButton = true;
+        }
         // Music recognition was removed: its bar widget leaves the layouts
         // saved with it (a Loader would look for a file that is gone).
         if (!done.musicRecognitionRemoved) {
@@ -1085,7 +1100,7 @@ Singleton {
                 property JsonObject layouts: JsonObject {
                     property list<string> leftLayout: ["launcherButton", "workspaces", "activeWindow", "leftSidebarButton"]
                     property list<string> middleLayout: ["clockWidget", "kdeConnect", "mesh", "resources", "networkSpeed", "anthropicUsage"]
-                    property list<string> rightLayout: ["sysTray", "utilButtons", "systemIcons", "vpnStatus", "desktopControl", "batteryIndicator", "powerButton", "updatesCount"]
+                    property list<string> rightLayout: ["sysTray", "utilButtons", "systemIcons", "notificationButton", "vpnStatus", "desktopControl", "batteryIndicator", "powerButton", "updatesCount"]
                 }
                 
                 property list<string> screenList: [] // List of names, like "eDP-1", find out with `niri msg outputs`

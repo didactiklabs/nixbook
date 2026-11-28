@@ -76,6 +76,7 @@ Singleton {
                 property bool interFont: false
                 property bool barHugDefaults: false
                 property bool widgetsPeekToggle: false
+                property bool notificationButton: false
             }
 
             // Automatic updates (UpdateState): the run started on its own
