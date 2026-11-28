@@ -104,6 +104,11 @@ IPC = {
         "ouvrir le sélecteur de fond d'écran (changer le fond d'écran)",
         "die Hintergrundbild-Auswahl öffnen (Hintergrundbild ändern)",
         "mở trình chọn hình nền (đổi hình nền)"),
+    ("widgetsPeek", "toggle"): t(
+        "peek at the desktop widgets over the windows (again, Escape or a click on the empty space: back behind)",
+        "voir les widgets du bureau par-dessus les fenêtres (à nouveau, Échap ou un clic dans le vide : retour derrière)",
+        "die Desktop-Widgets über den Fenstern ansehen (noch einmal, Escape oder ein Klick ins Leere: wieder dahinter)",
+        "xem nhanh các widget màn hình nền trên các cửa sổ (nhấn lại, Escape hoặc nhấp vào chỗ trống: trở về phía sau)"),
     ("region", "screenshot"): t(
         "take a screenshot of a screen region",
         "faire une capture d'écran d'une zone",

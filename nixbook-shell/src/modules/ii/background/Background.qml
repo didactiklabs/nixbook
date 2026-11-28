@@ -523,11 +523,17 @@ Variants {
                             onClicked: GlobalStates.centeredWallpaperThumpRequested()
                         }
 
-                        WidgetsLoader {
-                            instant: !bgRoot.shownNow
-                            screen: bgRoot.screen
-                            wallpaperItem: wallpaper
-                            wallpaperSafetyTriggered: bgRoot.wallpaperSafetyTriggered
+                        // Not during a peek over the windows (WidgetsPeek
+                        // holds them then).
+                        Loader {
+                            anchors.fill: parent
+                            active: !GlobalStates.desktopWidgetsOnTop
+                            sourceComponent: WidgetsLoader {
+                                instant: !bgRoot.shownNow || GlobalStates.desktopWidgetsMoved
+                                screen: bgRoot.screen
+                                wallpaperItem: wallpaper
+                                wallpaperSafetyTriggered: bgRoot.wallpaperSafetyTriggered
+                            }
                         }
                     }
 

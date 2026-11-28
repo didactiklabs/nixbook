@@ -2,7 +2,7 @@
 
 ## Desktop widgets
 
-Widgets live on the desktop, behind your windows. Toggle and arrange them from the desktop's **right-click menu → Widgets** or **Settings → Desktop widgets**:
+Widgets live on the desktop, behind your windows, and never take a click there; [peek](#peek-over-the-windows) to see them over the windows. Toggle and arrange them from the desktop's **right-click menu → Widgets** or **Settings → Desktop widgets**:
 
 | Widget      | What                                                                   |
 | ----------- | ---------------------------------------------------------------------- |
@@ -28,6 +28,10 @@ Widgets live on the desktop, behind your windows. Toggle and arrange them from t
 - The visualizer **pauses behind windows** (and cava stops), which matters a lot for GPU load. It follows what plays on this computer: music on your phone, which KDE Connect only relays, doesn't start it. cava is started again by itself when it ends on its own (the audio output changed, PipeWire or EasyEffects restarted). If a visualizer stays flat, `nixbook-shell ipc call mediaControls visualizerStatus` says what feeds it: the player, whether it plays, whether a visualizer can be seen, and whether cava runs.
 
 AI agents can read and edit notes and tasks, set timers and alarms and arrange widgets through the [`widget` tool](./desktop-agents#what-agents-can-do).
+
+### Peek over the windows
+
+The **Widgets** quick toggle in the right panel (in the quick toggles by default; else add it from their edit mode), **Mod+Shift+D** or `nixbook-shell ipc call widgetsPeek toggle` bring the widgets over the windows, on every screen, the windows dimmed a little behind them. They work as on the desktop: read them, drag them, type in a note, tick a task. A click on the empty space, **Escape**, the toggle again, a workspace switch, another popup opening or the lock puts them back behind the windows, so they are never left in the way. While peeking, _Blur widgets_ has nothing to blur (the wallpaper is behind the windows).
 
 ## Wallpapers
 

@@ -153,6 +153,19 @@ Singleton {
     // layer turns keyboard-focusable *before* the click, so the click that
     // opens a note/todo editor already gives it the keyboard.
     property int desktopWidgetsHovered: 0
+    // A peek at the desktop widgets over the windows (the Widgets quick
+    // toggle, Mod+Shift+D, `ipc call widgetsPeek toggle`): they stay on the
+    // wallpaper, behind the windows, and never take a click there; peeking
+    // moves them into WidgetsPeek's Overlay windows until a click on the
+    // empty space, Escape, the toggle again, a workspace switch or the lock.
+    property bool desktopWidgetsPeek: false
+    onScreenLockedChanged: if (root.screenLocked) root.desktopWidgetsPeek = false
+    // Where they are now: one window holds them at a time.
+    readonly property bool desktopWidgetsOnTop: root.desktopWidgetsPeek && !root.screenLocked
+    // Moving them rebuilds them in the other window: at once, not one by
+    // one as after the loading screen (WidgetsLoader.instant).
+    property bool desktopWidgetsMoved: false
+    onDesktopWidgetsOnTopChanged: root.desktopWidgetsMoved = true
     // Popups opened from the dock (e.g. the media card's ⋯ menu): the dock
     // stays revealed while any is open, so the button that closes it stays
     // reachable (moving into the popup leaves the dock's hover area).

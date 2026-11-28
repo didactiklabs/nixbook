@@ -202,6 +202,19 @@ Singleton {
             }
             done.musicRecognitionRemoved = true;
         }
+        // The Widgets quick toggle (a peek at the desktop widgets over the
+        // windows) joins a toggle grid saved before it existed (last); not
+        // when the grid is set in Nix.
+        if (!done.widgetsPeekToggle) {
+            const android = root.options.sidebar?.quickToggles?.android;
+            const toggles = android ? Array.from(android.toggles ?? []) : null;
+            if (toggles && !toggles.some(t => t?.type === "widgetsPeek")
+                    && !NixManaged.isPinned("sidebar.quickToggles.android.toggles")) {
+                toggles.push({ size: 1, type: "widgetsPeek" });
+                android.toggles = toggles;
+            }
+            done.widgetsPeekToggle = true;
+        }
     }
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
@@ -1472,7 +1485,8 @@ Singleton {
                             { "size": 1, "type": "idleInhibitor" },
                             { "size": 1, "type": "mic" },
                             { "size": 2, "type": "audio" },
-                            { "size": 2, "type": "nightLight" }
+                            { "size": 2, "type": "nightLight" },
+                            { "size": 1, "type": "widgetsPeek" }
                         ]
                     }
                 }
