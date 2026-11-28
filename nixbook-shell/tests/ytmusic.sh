@@ -168,6 +168,12 @@ class YTMusic:
     def create_playlist(self, title, description, privacy_status="PRIVATE", video_ids=None):
         self._log("create", title, privacy_status, video_ids)
         return "PLnew123"
+    def delete_playlist(self, pid):
+        self._log("delete", pid)
+        return {"error": "forbidden"} if pid == "PLtheirs" else "STATUS_SUCCEEDED"
+    def edit_playlist(self, pid, title=None):
+        self._log("rename", pid, title)
+        return {"error": "forbidden"} if pid == "PLtheirs" else "STATUS_SUCCEEDED"
 EOF
 found="$(PYTHONPATH="$tmp/fakeapi" "$py" -P "$script" search persona 5 | "$py" -c 'import json,sys
 a = json.load(sys.stdin)
@@ -282,6 +288,36 @@ get PLmine
 remove PLmine song1111111/SETA
 get PLmine
 rate song2222222 INDIFFERENT" "$(cat "$tmp/ytm-edits.log")"
+# Several songs out in one call (the agents' tool), every copy of each;
+# deleting and renaming a playlist.
+: >"$tmp/ytm-edits.log"
+ya playlist PLmine >/dev/null
+expect "remove: several songs, every copy of each, one request" \
+  '{"ok": true, "playlist": "PLmine", "removed": ["song2222222", "song1111111"], "absent": ["dupe1111111"], "failed": []}' \
+  "$(ya remove PLmine -- song1111111 dupe1111111 song2222222 song1111111)"
+expect "remove: one song after -- answered as several" '["song2222222"]' \
+  "$(ya remove PLmine -- song2222222 | "$py" -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["removed"]))')"
+expect "remove: the copy without the songs removed" "" \
+  "$("$py" -c 'import json,sys; print(" ".join(t["setVideoId"] for t in json.load(open(sys.argv[1]))["tracks"]))' "$(ls "$tmp"/cache/nixbook-ytmusic/offline/playlist-PLmine*.json)")"
+expect "rename: one of yours" '{"ok": true, "playlist": "PLmine", "title": "Night City Drive"}' "$(ya rename PLmine Night City Drive)"
+expect "delete: Liked Music refused before anything is asked" "1" "$(
+  ya delete LM >/dev/null
+  echo $?
+)"
+expect "delete: a playlist that isn't yours refused" "1" "$(
+  ya delete PLtheirs >/dev/null
+  echo $?
+)"
+expect "delete: one of yours, its copy gone" "deleted none" \
+  "$(ya delete PLmine | field status) $(ls "$tmp"/cache/nixbook-ytmusic/offline/playlist-PLmine*.json 2>/dev/null || echo none)"
+expect "remove, rename, delete: what YouTube Music was asked" "get PLmine
+get PLmine
+remove PLmine song2222222/SETB,song1111111/SETA,song1111111/SETC
+get PLmine
+remove PLmine song2222222/SETB
+rename PLmine Night City Drive
+delete PLtheirs
+delete PLmine" "$(cat "$tmp/ytm-edits.log")"
 # A session gone stale: renewed from the browser it came from (Zen, its
 # most recent login of the same account), then the add done.
 : >"$tmp/ytm-edits.log"

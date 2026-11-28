@@ -32,6 +32,11 @@ friend's song with it.
   nixbook-ytmusic remove PLAYLIST VIDEO [SET_VIDEO]
                                        a song out of one of your playlists
                                        (LM: the like taken back)
+  nixbook-ytmusic remove PLAYLIST [--] VIDEO VIDEO...
+                                       several songs out, every copy of each
+  nixbook-ytmusic delete PLAYLIST      one of your playlists deleted (no undo)
+  nixbook-ytmusic rename PLAYLIST TITLE...
+                                       one of your playlists renamed
   nixbook-ytmusic create TITLE... [VIDEO]
                                        a new private playlist (with a song)
   nixbook-ytmusic play ID [--index N] [--shuffle]
@@ -789,10 +794,63 @@ def cmd_add(args):
     out({"ok": True, "playlist": pid, "videoId": vid, "status": status})
 
 
+def edited(answer):
+    """A playlist edit or deletion YouTube Music says it did."""
+    return "SUCCEEDED" in str(answer.get("status") if isinstance(answer, dict) else answer)
+
+
+def drop_from_copy(pid, vids):
+    """The playlist's last copy (offline) without those songs."""
+    copy = read_json(playlist_copy_path(pid), {}) or {}
+    if copy.get("tracks"):
+        save_playlist_copy(pid, copy.get("title") or "",
+                           [t for t in copy["tracks"] if t.get("videoId") not in vids])
+
+
+def remove_many(pid, vids):
+    """Several songs out of one of your playlists in one go, every copy of
+    each: the playlist read once, one request (Liked Music: the likes taken
+    back)."""
+    vids = list(dict.fromkeys(vids))
+
+    def remove(yt):
+        if pid == "LM":
+            for vid in vids:
+                yt.rate_song(vid, "INDIFFERENT")
+            return vids, [], []
+        raw = yt.get_playlist(pid, limit=MAX_TRACKS) or {}
+        items = [{"videoId": t["videoId"], "setVideoId": t["setVideoId"]} for t in raw.get("tracks") or []
+                 if t.get("videoId") in vids and t.get("setVideoId")]
+        there = list(dict.fromkeys(i["videoId"] for i in items))
+        absent = [v for v in vids if v not in there]
+        if not items:
+            return [], absent, []
+        ok = edited(yt.remove_playlist_items(pid, items))
+        return (there, absent, []) if ok else ([], absent, there)
+
+    try:
+        removed, absent, failed = signed_in(remove)
+    except Error:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        out({"error": f"YouTube Music didn't remove them: {exc}"[:300]}, 1)
+    if failed and not removed:
+        out({"error": "YouTube Music didn't remove them (is the playlist yours?)"}, 1)
+    drop_from_copy(pid, set(removed))
+    out({"ok": True, "playlist": pid, "removed": removed, "absent": absent, "failed": failed})
+
+
 def cmd_remove(args):
     """A song out of one of your playlists (Liked Music: the like taken
     back). SET_VIDEO is the playlist item's own id (a song can be in a
-    playlist twice); without it, the song's first item is looked up."""
+    playlist twice); without it, the song's first item is looked up.
+    Several songs (VIDEO VIDEO…: an item id is never 11 characters):
+    remove_many, every copy of each; `PLAYLIST -- VIDEO...` too (one song
+    answered the same way as several)."""
+    vids = args[2:] if len(args) >= 3 and args[1] == "--" else args[1:]
+    if len(args) >= 3 and len(vids) <= ADD_MAX \
+            and PLAYLIST_ID.match(args[0]) and vids and all(VIDEO_ID.match(v) for v in vids):
+        remove_many(args[0], vids)
     if len(args) not in (2, 3) or not PLAYLIST_ID.match(args[0]) or not VIDEO_ID.match(args[1]) \
             or (len(args) == 3 and not PLAYLIST_ID.match(args[2])):
         out({"error": "usage: nixbook-ytmusic remove PLAYLIST VIDEO [SET_VIDEO]"}, 1)
@@ -811,7 +869,7 @@ def cmd_remove(args):
             if not item:
                 return "absent"
         answer = yt.remove_playlist_items(pid, [{"videoId": vid, "setVideoId": item}])
-        return "removed" if "SUCCEEDED" in str(answer.get("status") if isinstance(answer, dict) else answer) else None
+        return "removed" if edited(answer) else None
 
     try:
         status = signed_in(remove)
@@ -859,6 +917,70 @@ def cmd_create(args):
         out({"error": "YouTube Music didn't make the playlist"}, 1)
     out({"ok": True, "playlist": answer, "title": title, "videoId": vid or None,
          **({"videos": len(vids)} if len(vids) > 1 else {})})
+
+
+def fixed_playlist(pid):
+    """Not playlists anyone deletes or renames: Liked Music, the songs on
+    this computer."""
+    return pid in ("LM", OFFLINE_PLAYLIST)
+
+
+def forget_playlist(pid):
+    """A deleted playlist out of what is kept here: its copy, the library's
+    copy, kept-offline (its songs then go as any others)."""
+    try:
+        os.remove(playlist_copy_path(pid))
+    except OSError:
+        pass
+    copy = os.path.join(offline_dir(), "playlists.json")
+    lib = read_json(copy, {}) or {}
+    if lib.get("playlists"):
+        write_private(copy, {**lib, "playlists": [p for p in lib["playlists"] if p.get("id") != pid]})
+    settings = offline_settings()
+    if settings["kept"].pop(pid, None) is not None:
+        save_offline_settings(settings)
+
+
+def cmd_delete(args):
+    """One of your playlists deleted (YouTube Music has no undo)."""
+    if len(args) != 1 or not PLAYLIST_ID.match(args[0]) or fixed_playlist(args[0]):
+        out({"error": "usage: nixbook-ytmusic delete PLAYLIST (one of yours; not Liked Music)"}, 1)
+    pid = args[0]
+    try:
+        ok = edited(signed_in(lambda yt: yt.delete_playlist(pid)))
+    except Error:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        out({"error": f"YouTube Music didn't delete it: {exc}"[:300]}, 1)
+    if not ok:
+        out({"error": "YouTube Music didn't delete it (is the playlist yours?)"}, 1)
+    forget_playlist(pid)
+    out({"ok": True, "playlist": pid, "status": "deleted"})
+
+
+def cmd_rename(args):
+    """One of your playlists given another name."""
+    title = " ".join(args[1:]).strip()[:150]
+    if len(args) < 2 or not PLAYLIST_ID.match(args[0]) or fixed_playlist(args[0]) or not title:
+        out({"error": "usage: nixbook-ytmusic rename PLAYLIST TITLE... (one of yours; not Liked Music)"}, 1)
+    pid = args[0]
+    try:
+        ok = edited(signed_in(lambda yt: yt.edit_playlist(pid, title=title)))
+    except Error:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        out({"error": f"YouTube Music didn't rename it: {exc}"[:300]}, 1)
+    if not ok:
+        out({"error": "YouTube Music didn't rename it (is the playlist yours?)"}, 1)
+    copy = read_json(playlist_copy_path(pid), {}) or {}
+    if copy.get("tracks"):
+        save_playlist_copy(pid, title, copy["tracks"])
+    lib_path = os.path.join(offline_dir(), "playlists.json")
+    lib = read_json(lib_path, {}) or {}
+    if lib.get("playlists"):
+        write_private(lib_path, {**lib, "playlists": [dict(p, title=title) if p.get("id") == pid else p
+                                                      for p in lib["playlists"]]})
+    out({"ok": True, "playlist": pid, "title": title})
 
 
 SEARCH_LIMIT = 20
@@ -2778,7 +2900,7 @@ def serve(_args):
 
 
 COMMANDS = {"browsers": cmd_browsers, "login-from-browser": cmd_login, "forget": cmd_forget, "status": cmd_status,
-            "playlists": cmd_playlists, "playlist": cmd_playlist, "search": cmd_search, "lyrics": cmd_lyrics, "add": cmd_add, "remove": cmd_remove, "create": cmd_create, "play": cmd_play,
+            "playlists": cmd_playlists, "playlist": cmd_playlist, "search": cmd_search, "lyrics": cmd_lyrics, "add": cmd_add, "remove": cmd_remove, "create": cmd_create, "delete": cmd_delete, "rename": cmd_rename, "play": cmd_play,
             "play-tracks": cmd_play_tracks, "play-id": cmd_play_id, "control": cmd_control,
             "lastfm": cmd_lastfm, "offline": cmd_offline, "serve": serve, "videos": cmd_videos,
             "watch": cmd_watch, "video-window": cmd_video_window}

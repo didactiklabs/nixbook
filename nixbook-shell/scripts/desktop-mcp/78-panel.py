@@ -32,7 +32,8 @@ def ytmusic_call(*args, input=None, timeout=60):
     return out
 
 
-YTMP_ACTIONS = ("status", "search", "playlists", "playlist", "play", "control", "add", "create", "offline")
+YTMP_ACTIONS = ("status", "search", "playlists", "playlist", "play", "control", "add", "create", "remove", "delete",
+                "rename", "offline")
 YTMP_CONTROLS = ("play", "pause", "toggle", "next", "previous", "stop", "seek", "shuffle", "repeat", "volume")
 YT_VIDEO = r"[A-Za-z0-9_-]{11}"
 YT_PLAYLIST = r"[A-Za-z0-9_-]{2,64}"
@@ -43,6 +44,9 @@ YTMP_ADD = 200    # songs in one add or create
 # The songs this server gave (search and playlist answers), by videoId: an
 # agent passes ids back, the player still gets titles and pictures.
 YTMP_SEEN = {}
+# The playlists' names (playlists answers), by id: what the user is asked
+# about is named, not an id.
+YTMP_PLAYLISTS = {}
 
 
 def ytmp_slim(tracks, limit=None):
@@ -136,33 +140,39 @@ def ytmp_search(args):
     "seek|shuffle|repeat|volume, value}: seek seconds, shuffle on|off|toggle, repeat none|playlist|track|"
     "cycle, volume 0-100 (this player's own, not the system's). add {playlist, videos: [ids]} (or video: "
     "one): songs into one of the user's playlists, all in one call ({added, already, failed}; `LM` likes "
-    "them; never twice). create {title, videos?}: a new private playlist with those songs. offline {op: "
-    "status|keep|unkeep, playlist}: songs kept on this computer for listening without network.",
+    "them; never twice). create {title, videos?}: a new private playlist with those songs. remove {playlist, "
+    "videos: [ids]}: songs out of one of the user's playlists, all in one call, every copy of each "
+    "({removed, absent, failed}; `LM` takes the likes back). delete {playlist}: one of the user's playlists "
+    "deleted, no undo. rename {playlist, title}. remove and delete ask the user first (a notification). "
+    "Never open YouTube Music in the browser or the app to do these. offline {op: status|keep|unkeep, "
+    "playlist}: songs kept on this computer for listening without network.",
     obj({
         "action": {"type": "string", "enum": list(YTMP_ACTIONS)},
         "query": {"type": "string", "description": "search: the words"},
         "queries": {"type": "array", "items": {"type": "string"}, "description": "search: several searches in one call (up to 25)"},
         "count": {"type": "integer", "description": "search: songs per search (1-20; 5, or 2 with queries)"},
-        "playlist": {"type": "string", "description": "playlist, play, add, offline: a playlist id (LM: Liked Music)"},
+        "playlist": {"type": "string", "description": "playlist, play, add, remove, delete, rename, offline: a playlist id (LM: Liked Music)"},
         "video": {"type": "string", "description": "play, add, create: a song's videoId"},
-        "videos": {"type": "array", "items": {"type": "string"}, "description": "add, create: several songs' videoIds, in one call (up to 200)"},
+        "videos": {"type": "array", "items": {"type": "string"}, "description": "add, create, remove: several songs' videoIds, in one call (up to 200)"},
         "tracks": {"type": "array", "items": {"type": ["string", "object"]}, "description": "play: the songs' videoIds, in order"},
         "index": {"type": "integer", "description": "play: which song to start from (0 = the first)"},
         "shuffle": {"type": "boolean", "description": "play: shuffled"},
         "what": {"type": "string", "enum": list(YTMP_CONTROLS), "description": "control: what to do"},
         "value": {"type": ["string", "number"], "description": "control: seek seconds, volume 0-100, shuffle on|off|toggle, repeat mode"},
-        "title": {"type": "string", "description": "create: the playlist's name"},
+        "title": {"type": "string", "description": "create, rename: the playlist's name"},
         "op": {"type": "string", "enum": ["status", "keep", "unkeep"], "description": "offline: what to do"},
     }, ["action"]),
-    props={"action": "status|search|playlists|playlist|play|control|add|create|offline",
+    props={"action": "status|search|playlists|playlist|play|control|add|create|remove|delete|rename|offline",
            "query": None, "playlist": "a playlist id (LM: Liked Music)", "video": "one videoId",
            "queries": "search: up to 25 searches in one call", "count": None,
-           "videos": "add, create: up to 200 videoIds in one call", "tracks": "play: videoIds, in order",
+           "videos": "add, create, remove: up to 200 videoIds in one call", "tracks": "play: videoIds, in order",
            "index": None, "shuffle": None, "what": None, "value": None, "title": None, "op": None},
     brief="YouTube Music in the background (the right panel's tab, no window). search {query} or {queries: "
           "[…]} (many at once) → songs with videoId; playlists; playlist {playlist}; play {playlist | video | "
           "tracks: [ids]}; control {what, value} (pause, next, seek, volume…); add {playlist, videos: [ids]} "
-          "and create {title, videos} take every song in ONE call; offline {op, playlist}.",
+          "and create {title, videos} take every song in ONE call; remove {playlist, videos: [ids]} (one call), delete "
+          "{playlist}, rename {playlist, title} edit the user's own playlists (remove and delete ask the user); "
+          "offline {op, playlist}.",
 )
 def t_youtube_music_player(ctx, args):
     action = as_str(args, "action", max_len=16)
@@ -177,11 +187,15 @@ def t_youtube_music_player(ctx, args):
         # Their pictures are the panel's (cached files): not the agent's business.
         for p in out.get("playlists") or []:
             p.pop("thumb", None)
+            if p.get("id"):
+                YTMP_PLAYLISTS[p["id"]] = p.get("title") or ""
         return [text(out)]
     if action == "playlist":
         out = ytmusic_call("playlist", as_str(args, "playlist", max_len=64, pattern=YT_PLAYLIST))
         if isinstance(out.get("tracks"), list):
             out["tracks"] = ytmp_slim(out["tracks"])
+        if out.get("id") and out.get("title"):
+            YTMP_PLAYLISTS[out["id"]] = out["title"]
         return [text(out)]
     ctx.guard.check_rate()
     if action == "play":
@@ -220,6 +234,29 @@ def t_youtube_music_player(ctx, args):
         vids = ytmp_videos(args, required=False)
         # One song the way the tab asks; several after `--`.
         return [text(ytmusic_call("create", *title, *(vids if len(vids) == 1 else ["--", *vids]), timeout=180))]
+    if action in ("remove", "delete", "rename"):
+        pid = as_str(args, "playlist", max_len=64, pattern=YT_PLAYLIST)
+        name = YTMP_PLAYLISTS.get(pid) or ("Liked Music" if pid == "LM" else pid)
+        if action == "rename":
+            title = as_str(args, "title", max_len=150).split()
+            out = ytmusic_call("rename", pid, *title)
+            YTMP_PLAYLISTS[pid] = out.get("title") or YTMP_PLAYLISTS.get(pid, "")
+            return [text(out)]
+        if action == "delete":
+            if pid == "LM":
+                raise ToolError("Liked Music can't be deleted: remove its songs (`remove`) instead")
+            ask_user_yes(ctx, f"Let the agent delete your YouTube Music playlist \u201c{name}\u201d?",
+                         "YouTube Music can't bring a deleted playlist back.")
+            out = ytmusic_call("delete", pid)
+            YTMP_PLAYLISTS.pop(pid, None)
+            return [text(out)]
+        vids = ytmp_videos(args)
+        songs = [" \u2013 ".join(x for x in (YTMP_SEEN.get(v, {}).get("artist"), YTMP_SEEN.get(v, {}).get("title")) if x) or v
+                 for v in vids]
+        ask_user_yes(ctx, f"Let the agent remove {len(vids)} song{'s' if len(vids) != 1 else ''} from \u201c{name}\u201d?",
+                     ", ".join(songs[:12]) + (f" and {len(songs) - 12} more" if len(songs) > 12 else ""),
+                     key=f"ytmusic:remove:{pid}", label=f"Remove songs from {name}")
+        return [text(ytmusic_call("remove", pid, "--", *vids, timeout=180))]
     op = args.get("op") or "status"
     if op == "status":
         return [text(ytmusic_call("offline", "status"))]

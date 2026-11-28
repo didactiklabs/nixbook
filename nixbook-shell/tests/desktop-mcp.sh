@@ -3560,6 +3560,26 @@ call youtube_music_player '{"action":"play","tracks":["song1111111","song2222222
 expect_eq "youtube_music_player play: songs by their ids" 'nixbook-ytmusic play-tracks <{"tracks": [{"videoId": "song1111111"}, {"videoId": "song2222222"}], "index": 0, "shuffle": false}' "$(last_call)"
 call youtube_music_player '{"action":"offline","op":"keep","playlist":"LM"}' >/dev/null
 expect_eq "youtube_music_player offline keep" "nixbook-ytmusic offline keep LM" "$(last_call)"
+# Removing songs and deleting a playlist: the user's yes first (a
+# notification), never by driving YouTube Music's page or app.
+echo deny >"$tmp/ask"
+reset_calls
+expect_contains "youtube_music_player remove: refused without the user's yes" \
+  "$(STUB_ASK="$tmp/ask" call youtube_music_player '{"action":"remove","playlist":"PLmine","videos":["song1111111"]}')" "not done"
+expect_eq "youtube_music_player remove: nothing asked of YouTube Music on a no" "" "$(grep '^nixbook-ytmusic remove' "$calls")"
+echo allow >"$tmp/ask"
+reset_calls
+STUB_ASK="$tmp/ask" call youtube_music_player '{"action":"remove","playlist":"PLmine","videos":["song1111111","song2222222","song1111111"]}' >/dev/null
+expect_eq "youtube_music_player remove: several songs in one call, each once" "nixbook-ytmusic remove PLmine -- song1111111 song2222222" "$(last_call)"
+expect_contains "youtube_music_player remove: the user asked, the songs named" "$(grep '^notify-send' "$calls")" "remove 2 songs from"
+expect_contains "youtube_music_player remove: Always allow for that playlist" "$(grep '^notify-send' "$calls")" "always=Always allow"
+STUB_ASK="$tmp/ask" call youtube_music_player '{"action":"delete","playlist":"PLmine"}' >/dev/null
+expect_eq "youtube_music_player delete: after the user's yes" "nixbook-ytmusic delete PLmine" "$(last_call)"
+expect_contains "youtube_music_player delete: never Liked Music" "$(STUB_ASK="$tmp/ask" call youtube_music_player '{"action":"delete","playlist":"LM"}')" "can't be deleted"
+reset_calls
+call youtube_music_player '{"action":"rename","playlist":"PLmine","title":"Night City Drive"}' >/dev/null
+expect_eq "youtube_music_player rename: not asked" "nixbook-ytmusic rename PLmine Night City Drive" "$(cat "$calls")"
+rm -f "$tmp/ask"
 
 expect_eq "youtube_videos home: through nixbook-ytmusic, no picture links" "vid11111111 null" \
   "$(call youtube_videos '{"action":"home"}' | jq -r '.items[0] | "\(.id) \(.thumb)"')"
