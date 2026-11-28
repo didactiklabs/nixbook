@@ -215,7 +215,13 @@ youtube-music`, `-t discord`…), and when the app quits on its own the
   `playlist_create`, `playlist_add` / `playlist_remove`, `playlist_rename`
   (title, description, privacy), `playlist_delete` (asked first), `like` /
   `dislike` / `unlike`, `subscribe` / `unsubscribe`, and `innertube` for any
-  other call of the page's API, never the account's settings.
+  other call of the page's API, never the account's settings. Without the
+  app, the `youtube_music_player` tool (the right panel's YouTube Music tab,
+  your browser's session) does the same for your playlists, each in one call:
+  `add` and `remove` several songs, `create`, `rename`, `delete`; removing
+  songs and deleting a playlist ask you first (a notification; _Always
+  allow_ for removing from that playlist), never by opening YouTube Music in
+  the browser.
 - **Jellyfin**: films, series and music through its own MCP server
   (`jellyfin`), never Moonfin's window: see [Jellyfin](#jellyfin).
 
