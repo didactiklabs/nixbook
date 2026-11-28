@@ -473,7 +473,7 @@ out=$(printf '%s\n' \
 expect_eq "stdio: one reply per request, none for notifications" 7 "$(wc -l <<<"$out" | tr -d ' ')"
 expect_eq "initialize: protocol version echoed" 2025-06-18 "$(jq -r 'select(.id==1).result.protocolVersion' <<<"$out")"
 expect_eq "initialize: tools capability" '{"listChanged":false}' "$(jq -c 'select(.id==1).result.capabilities.tools' <<<"$out")"
-expect_eq "tools/list: 76 tools" 76 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
+expect_eq "tools/list: 77 tools" 77 "$(jq 'select(.id==2).result.tools | length' <<<"$out")"
 expect_eq "tools/list: read-only annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="list_windows").annotations.readOnlyHint' <<<"$out")"
 expect_eq "tools/list: destructive annotation" true "$(jq 'select(.id==2).result.tools[] | select(.name=="close_window").annotations.destructiveHint' <<<"$out")"
 expect_eq "tools/call: focus_window succeeds" false "$(jq 'select(.id==3).result.isError' <<<"$out")"
@@ -3561,6 +3561,88 @@ expect_eq "youtube_music_player play: songs by their ids" 'nixbook-ytmusic play-
 call youtube_music_player '{"action":"offline","op":"keep","playlist":"LM"}' >/dev/null
 expect_eq "youtube_music_player offline keep" "nixbook-ytmusic offline keep LM" "$(last_call)"
 
+# Code mode: run_script calls the tools itself, only what it prints comes
+# back. (Not in bubblewrap here: a CI runner may have no user namespaces.)
+export NIXBOOK_DESKTOP_MCP_SCRIPT_UNSANDBOXED=1
+out=$(call run_script '{"code":"p = tools.youtube_music_player(action=\"playlists\")\nprint([x[\"id\"] for x in p[\"playlists\"]])"}')
+expect_contains "run_script: a tool's answer as Python values" "$out" "['LM']"
+expect_contains "run_script: the calls it made said" "$out" "(1 call: youtube_music_player)"
+out=$(call run_script '{"code":"for q in [\"a\", \"b\", \"c\"]:\n    tools.youtube_music_player(action=\"search\", query=q)\nprint(\"done\")"}')
+expect_contains "run_script: a loop of calls in one step" "$out" "(3 calls: youtube_music_player×3)"
+expect_not_contains "run_script: the answers stay in the script" "$out" "song1111111"
+out=$(call run_script '{"code":"try:\n    tools.youtube_music_player(action=\"add\", playlist=\"PLtheirs\", video=\"song1111111\")\nexcept ToolError as e:\n    print(\"refused:\", e)"}')
+expect_contains "run_script: a refusal raises ToolError" "$out" "refused: YouTube Music didn't add it"
+expect_contains "run_script: never from a script" "$(call run_script '{"code":"tools.run_script(code=\"1\")"}')" "can't be called from a script"
+expect_contains "run_script: an unknown tool said" "$(call run_script '{"code":"tools.nope()"}')" "no tool 'nope'"
+expect_contains "run_script: a script's error said, with its line" "$(call run_script '{"code":"x = 1\nraise ValueError(\"bad\")"}')" "The script failed: ValueError: bad (line 2)"
+expect_contains "run_script: a syntax error said" "$(call run_script '{"code":"def f(:\n pass"}')" "The script failed: SyntaxError"
+expect_contains "run_script: its time limit" "$(call run_script '{"code":"while True: pass","timeout":2}')" "ran out of time"
+expect_contains "run_script: the output capped" "$(call run_script '{"code":"print(\"x\" * 40000)"}')" "more characters cut: print less"
+# Another MCP server: started once for the script, whatever its calls.
+cat >"$tmp/fake-other-mcp.py" <<'PYEOF'
+import json, os, sys
+for line in sys.stdin:
+    msg = json.loads(line)
+    if msg.get("method") == "initialize":
+        with open(os.environ["FAKE_OTHER_LOG"], "a") as f:
+            f.write("init\n")
+        print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": {"protocolVersion": "2025-06-18", "capabilities": {}, "serverInfo": {"name": "fake"}}}), flush=True)
+    elif msg.get("method") == "tools/call":
+        q = msg["params"]["arguments"].get("query", "")
+        print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": {"content": [{"type": "text", "text": json.dumps({"found": q})}]}}), flush=True)
+PYEOF
+export FAKE_OTHER_LOG="$tmp/fake-other.log"
+: >"$FAKE_OTHER_LOG"
+jq -n --arg py "$(command -v python3)" --arg s "$tmp/fake-other-mcp.py" '{mcpServers: {jf: {command: $py, args: [$s]}}}' \
+  >"$XDG_CONFIG_HOME/nixbook-shell/assistant-mcp.json"
+out=$(call run_script '{"code":"print([servers.jf.search(query=q)[\"found\"] for q in [\"dune\", \"alien\"]])"}')
+expect_contains "run_script: another MCP server's tools" "$out" "['dune', 'alien']"
+expect_eq "run_script: that server started once for the script" "1" "$(grep -c init "$FAKE_OTHER_LOG")"
+expect_contains "run_script: a server it doesn't have said" "$(call run_script '{"code":"servers.nope.x()"}')" "no MCP server 'nope' here (there are: jf)"
+rm "$XDG_CONFIG_HOME/nixbook-shell/assistant-mcp.json"
+# The trust ladder (the shell's sessions): each step that isn't a read goes
+# to the helper's /trust as Claude Code's hook would send it; a no stops it.
+cat >"$tmp/fake-trust.py" <<'PYEOF'
+import json, os
+from http.server import BaseHTTPRequestHandler, HTTPServer
+class H(BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+    def do_POST(self):
+        e = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        with open(os.environ["FAKE_TRUST_LOG"], "a") as f:
+            f.write(f"{self.headers.get('Authorization')} {e['tool_name']} {e['tool_input'].get('action')}\n")
+        deny = e["tool_input"].get("action") == "create"
+        out = {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                      "permissionDecisionReason": "Not done: the user said no."}} if deny else {}
+        data = json.dumps(out).encode()
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+s = HTTPServer(("127.0.0.1", 0), H)
+with open(os.environ["FAKE_TRUST_PORT"], "w") as f:
+    f.write(str(s.server_address[1]))
+s.serve_forever()
+PYEOF
+export FAKE_TRUST_LOG="$tmp/fake-trust.log" FAKE_TRUST_PORT="$tmp/fake-trust.port"
+: >"$FAKE_TRUST_LOG"
+python3 "$tmp/fake-trust.py" &
+trust_pid=$!
+for _ in $(seq 50); do
+  [ -s "$FAKE_TRUST_PORT" ] && break
+  sleep 0.1
+done
+out=$(NIXBOOK_DESKTOP_MCP_TRUST_URL="http://127.0.0.1:$(cat "$FAKE_TRUST_PORT")/trust" NIXBOOK_DESKTOP_MCP_TRUST_TOKEN=tok \
+  call run_script '{"code":"tools.youtube_music_player(action=\"playlists\")\ntry:\n    tools.youtube_music_player(action=\"create\", title=\"X\")\nexcept ToolError as e:\n    print(\"no:\", e)\ntools.youtube_music_player(action=\"add\", playlist=\"LM\", video=\"song1111111\")\nprint(\"added\")"}')
+kill "$trust_pid" 2>/dev/null || true
+expect_contains "run_script: a step the user said no to raises" "$out" "no: Not done: the user said no."
+expect_contains "run_script: the steps the user allows go on" "$out" "added"
+expect_eq "run_script: the gate asked for what acts, never reads, with its token" "Bearer tok mcp__desktop__youtube_music_player create
+Bearer tok mcp__desktop__youtube_music_player add" "$(cat "$FAKE_TRUST_LOG")"
+expect_eq "run_script: nothing created after the no" "" "$(grep '^nixbook-ytmusic create X' "$calls")"
+unset NIXBOOK_DESKTOP_MCP_SCRIPT_UNSANDBOXED FAKE_TRUST_LOG FAKE_TRUST_PORT FAKE_OTHER_LOG
+
 expect_eq "youtube_videos home: through nixbook-ytmusic, no picture links" "vid11111111 null" \
   "$(call youtube_videos '{"action":"home"}' | jq -r '.items[0] | "\(.id) \(.thumb)"')"
 expect_eq "youtube_videos home: 20 by default" "nixbook-ytmusic videos home --count 20" "$(last_call)"
@@ -3787,7 +3869,7 @@ out=$(call focus_window '{"id":1}')
 expect_eq "resume" "focused window 1" "$(head -n 1 <<<"$out")"
 
 echo '{"tools":["observe"],"actionsPerMinute":2}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"
-expect_eq "config: disabled groups not listed" 11 "$(python3 "$mcp" tools | jq length)"
+expect_eq "config: disabled groups not listed" 12 "$(python3 "$mcp" tools | jq length)"
 out=$(call type_text '{"text":"x"}')
 expect_contains "config: disabled tool not callable" "$out" "unknown or disabled tool"
 echo '{"actionsPerMinute":2}' >"$XDG_CONFIG_HOME/nixbook-shell/desktop-mcp.json"

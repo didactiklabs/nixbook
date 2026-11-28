@@ -9,6 +9,10 @@ def call_tool(ctx, name, args, session=None):
     the MCP session calling (HTTP: its Mcp-Session-Id). With the privacy
     mask, the tool gets the real values of the placeholders in args and the
     model its reply masked."""
+    if name == "run_script":
+        # Its calls are each masked and unmasked like these: the script
+        # itself lives on the model's (masked) side.
+        return call_script(ctx, args, session)
     if not privacy_on():
         return call_tool_now(ctx, name, args, session)
     vocab = privacy_vocab()
@@ -181,14 +185,16 @@ INSTRUCTIONS = (
     "window tools); (2) the app itself without input: page_* in Zen tabs and "
     "the bridged apps, ui_act through a window's accessibility tree; (3) the "
     "keyboard (shortcuts, a quick switcher or search box); (4) pointer "
-    "clicks, last. The first two work in the background: the user keeps "
-    "their mouse, keyboard and focus. Be quick: every call is a round trip, "
-    "so use few, and give a tool everything in one call when it takes a list. "
+    "clicks, last. The first two leave the user's mouse, keyboard and focus "
+    "alone. Be quick: every call is a round trip "
+    "re-reading the whole conversation: give a tool everything in one call "
+    "when it takes a list, and do work of 3 calls or more (loops, reading "
+    "many things to act on some) in ONE run_script. "
     "launch_app waits for the window and names it; every action reply names "
     "the focused window; action tools take screenshot_after: true; run_steps "
     "does several actions in one call. Look before you screenshot: ui_read "
-    "(with `find`) gives a window's buttons, fields and text for a few "
-    "hundred tokens, ui_act presses or fills them, ui_wait waits for "
+    "(with `find`) gives a window's buttons, fields and text cheaply, "
+    "ui_act presses or fills them, ui_wait waits for "
     "something to show; with no tree (games, canvases), read_screen (with "
     "`find`) still costs far less than a screenshot and gives positions to "
     "click. Screenshot only for layout or pictures; to click in one, give "

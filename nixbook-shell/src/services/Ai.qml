@@ -950,7 +950,14 @@ Singleton {
         const mcpServers = Object.assign({}, extraServers, desktop ? { desktop: {
             command: root.desktopMcpCommand,
             // The personal memory about each message: sent with it (AiChatSession.qml).
-            env: { NIXBOOK_DESKTOP_MCP_QUERY_FILE: chat.desktopTaskFilePath, NIXBOOK_DESKTOP_MCP_PERSONAL: "shell" },
+            env: Object.assign({ NIXBOOK_DESKTOP_MCP_QUERY_FILE: chat.desktopTaskFilePath, NIXBOOK_DESKTOP_MCP_PERSONAL: "shell" },
+                // run_script's calls (code mode) never pass Claude Code's
+                // hook: the server asks the trust ladder's gate itself.
+                Trust.enabled && DesktopHelper.hookUrl.length > 0 ? {
+                    NIXBOOK_DESKTOP_MCP_TRUST_URL: DesktopHelper.hookUrl.replace(/\/hook$/, "/trust"),
+                    NIXBOOK_DESKTOP_MCP_TRUST_TOKEN: DesktopHelper.hookToken,
+                    NIXBOOK_DESKTOP_MCP_SESSION: chat.claudeSessionId ?? "",
+                } : {}),
         } } : {});
         if (Object.keys(mcpServers).length > 0)
             args.push("--mcp-config", JSON.stringify({ mcpServers }));
