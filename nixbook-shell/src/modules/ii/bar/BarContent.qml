@@ -204,6 +204,7 @@ Item {
 
         // Left
         Item {
+            id: leftSection
             anchors.left: parent.left
             anchors.leftMargin: root.isMaterial ? Appearance.sizes.gapsOut : Config.options.bar.cornerStyle === 1 ? 4 : Config.options.bar.cornerStyle === 4 ? 4 : 8
             anchors.top: parent.top
@@ -322,7 +323,15 @@ Item {
         // Center
         Item {
             id: absoluteCenter
-            anchors.centerIn: parent
+            // Centred on the screen while it fits, else kept between the
+            // left and right rows (a narrow screen or a long layout used to
+            // draw it over them); under the left row if even that doesn't fit.
+            readonly property real gap: 8
+            readonly property real centred: (parent.width - width) / 2
+            readonly property real minX: leftSection.x + leftSection.width + gap
+            readonly property real maxX: rightSection.x - width - gap
+            anchors.verticalCenter: parent.verticalCenter
+            x: Math.round(Math.max(minX, Math.min(centred, maxX)))
             width: root.isMaterial ? centerMaterialPill.implicitWidth : middleRow.implicitWidth
             height: parent.height
 
@@ -458,6 +467,7 @@ Item {
 
         // Right
         Item {
+            id: rightSection
             anchors.right: parent.right
             anchors.rightMargin: root.isMaterial ? Appearance.sizes.gapsOut : Config.options.bar.cornerStyle === 1 ? 4 : Config.options.bar.cornerStyle === 4 ? 4 : 8
             anchors.top: parent.top

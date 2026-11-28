@@ -20,6 +20,14 @@ Item {
     readonly property bool isMaterial: Config.options.bar.cornerStyle === 3
     readonly property bool trayHasItems: SystemTray.items.values.length > 0
     readonly property bool isPanel: Config.options.bar.cornerStyle === 4
+    // Space between the widget groups (as BarContent.groupSpacing).
+    readonly property real groupSpacing: {
+        const style = Config.options?.bar.borderless;
+        if (style === "transparent") return -4;
+        if (style === "segmented") return root.isPanel ? 3 : -2;
+        if (style === "separated") return Appearance.glass.enabled ? 4 : (root.isPanel ? 4 : 2);
+        return root.isPanel ? 4 : (Appearance.glass.enabled ? 3 : 2);
+    }
 
     function filterLayout(layout) {
         if (trayHasItems) return layout
@@ -73,6 +81,11 @@ Item {
 
     property var screen: root.QsWindow.window?.screen
 
+    // Float: a floating Liquid Glass slab (soft shadow + GlassRim).
+    StyledRectangularShadow {
+        target: barBackground
+        visible: Config.options.bar.cornerStyle === 1 && barBackground.color.a > 0 && !Cyberpunk.frames
+    }
     Rectangle {
         id: barBackground
         anchors {
@@ -85,7 +98,7 @@ Item {
                 : Appearance.colors.colLayer0)
             : "transparent"
         radius: Config.options.bar.cornerStyle === 1 ? Appearance.rounding.windowRounding : 0
-        border.width: (!root.centerOnly && Config.options.bar.cornerStyle === 1) ? 1 : 0
+        border.width: (!root.centerOnly && Config.options.bar.cornerStyle === 1 && !Appearance.glass.enabled) ? 1 : 0
         border.color: Config.options.bar.showBackground ? Appearance.colors.colLayer0Border : "transparent"
     }
 
@@ -117,6 +130,7 @@ Item {
 
         // Top
         Item {
+            id: topSection
             anchors.top: parent.top
             anchors.topMargin: root.isMaterial ? (Appearance.sizes.gapsOut || 5) : Config.options.bar.cornerStyle === 1 ? 4 : Config.options.bar.cornerStyle === 4 ? 4 : 10
             anchors.left: parent.left
@@ -131,6 +145,8 @@ Item {
                 implicitHeight: topMaterialCol.implicitHeight + 10
                 radius: Appearance.rounding.full
                 color: Appearance.colors.colLayer0
+                // M3 islands float over the wallpaper: Liquid Glass edge.
+                GlassRim { anchors.fill: parent; radius: Math.min(parent.radius, parent.width / 2) }
 
                 ColumnLayout {
                     id: topMaterialCol
@@ -178,10 +194,7 @@ Item {
                 id: topCol
                 anchors.fill: parent
                 visible: !root.isMaterial
-                spacing: Config.options.bar.borderless === "transparent" ? -4
-                    : (Config.options?.bar.borderless === "segmented" && root.isPanel) ? 3
-                    : Config.options?.bar.borderless === "segmented" ? -2
-                    : root.isPanel ? 4 : 2
+                spacing: root.groupSpacing
 
                 Repeater {
                     // Diffing model: a changed layout (e.g. sysTray shown once the tray has
@@ -216,7 +229,17 @@ Item {
         // Center
         Item {
             id: absoluteCenter
-            anchors.centerIn: parent
+            // Centred on the screen while it fits, else kept between the top
+            // and bottom columns: on a short screen (totoro: 1125 logical px)
+            // the centred column used to be drawn over the bottom one (the
+            // tray, util buttons…). If even that doesn't fit, it stays
+            // under the top column.
+            readonly property real gap: 8
+            readonly property real centred: (parent.height - height) / 2
+            readonly property real minY: topSection.y + topSection.height + gap
+            readonly property real maxY: bottomSection.y - height - gap
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: Math.round(Math.max(minY, Math.min(centred, maxY)))
             width: parent.width
             height: root.isMaterial ? centerMaterialPill.implicitHeight : middleCol.implicitHeight
 
@@ -228,6 +251,8 @@ Item {
                 implicitHeight: centerMaterialCol.implicitHeight + 10
                 radius: Appearance.rounding.full
                 color: Appearance.colors.colLayer0
+                // M3 islands float over the wallpaper: Liquid Glass edge.
+                GlassRim { anchors.fill: parent; radius: Math.min(parent.radius, parent.width / 2) }
 
                 ColumnLayout {
                     id: centerMaterialCol
@@ -276,10 +301,7 @@ Item {
                 id: middleCol
                 anchors.fill: parent
                 visible: !root.isMaterial
-                spacing: Config.options.bar.borderless === "transparent" ? -4
-                    : (Config.options?.bar.borderless === "segmented" && root.isPanel) ? 3
-                    : Config.options?.bar.borderless === "segmented" ? -2
-                    : root.isPanel ? 4 : 2
+                spacing: root.groupSpacing
 
                 Repeater {
                     // Diffing model: a changed layout (e.g. sysTray shown once the tray has
@@ -314,6 +336,7 @@ Item {
 
         // Bottom
         Item {
+            id: bottomSection
             anchors.bottom: parent.bottom
             anchors.bottomMargin: root.isMaterial ? (Appearance.sizes.gapsOut || 5) : Config.options.bar.cornerStyle === 1 ? 4 : Config.options.bar.cornerStyle === 4 ? 4 : 10
             anchors.left: parent.left
@@ -328,6 +351,8 @@ Item {
                 implicitHeight: bottomMaterialCol.implicitHeight + 10 
                 radius: Appearance.rounding.full
                 color: Appearance.colors.colLayer0
+                // M3 islands float over the wallpaper: Liquid Glass edge.
+                GlassRim { anchors.fill: parent; radius: Math.min(parent.radius, parent.width / 2) }
 
                 ColumnLayout {
                     id: bottomMaterialCol
@@ -375,10 +400,7 @@ Item {
                 id: bottomCol
                 anchors.fill: parent
                 visible: !root.isMaterial
-                spacing: Config.options.bar.borderless === "transparent" ? -4
-                    : (Config.options?.bar.borderless === "segmented" && root.isPanel) ? 3
-                    : Config.options?.bar.borderless === "segmented" ? -2
-                    : root.isPanel ? 4 : 2
+                spacing: root.groupSpacing
 
                 Repeater {
                     // Diffing model: a changed layout (e.g. sysTray shown once the tray has

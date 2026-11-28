@@ -18,6 +18,13 @@ import Quickshell.Wayland
  * with no exclusive zone, so windows keep the whole screen; only a 3px edge
  * strip (6px at the pill) takes input. Hidden while its sidebar is open, on
  * fullscreen and on the lock screen.
+ *
+ * With the vertical bar on that side (not auto-hiding), the window ignores
+ * the bar's exclusive zone and sits on the Overlay layer: the trigger strip
+ * is the true screen edge again, over the bar's outer padding, so the pointer
+ * thrown at the edge finds it (Fitts); the pill stays visible just outside
+ * the bar's inner edge (`inset`), clickable too. It used to start after the
+ * bar's zone, a 3px target floating in mid-screen.
  */
 Scope {
     id: root
@@ -35,6 +42,19 @@ Scope {
             && !WM.fullscreenOnMonitor(monitor?.name)
         readonly property bool hovered: shown && (edgeArea.containsMouse || pillArea.containsMouse)
 
+        // The vertical bar on this edge of this screen: its width, which the
+        // pill sits beyond (0: no bar here).
+        readonly property var barOpts: Config.options?.bar
+        readonly property bool barHere: (barOpts?.vertical ?? false)
+            && (barOpts?.bottom ?? false) === right
+            && !(barOpts?.autoHide?.enable ?? false)
+            && GlobalStates.barOpen
+            && ((barOpts?.screenList ?? []).length === 0 || barOpts.screenList.includes(screen?.name))
+        readonly property real inset: !barHere ? 0
+            : Appearance.sizes.baseVerticalBarWidth
+                + (barOpts.cornerStyle === 1 ? Appearance.sizes.gapsOut : 0)
+                + (barOpts.cornerStyle === 3 ? (Appearance.sizes.gapsOut || 5) : 0)
+
         function open(peek) {
             if (right) {
                 GlobalStates.sidebarRightPeek = peek;
@@ -47,13 +67,14 @@ Scope {
 
         anchors.left: !right
         anchors.right: right
-        exclusionMode: ExclusionMode.Normal
+        exclusionMode: barHere ? ExclusionMode.Ignore : ExclusionMode.Normal
         exclusiveZone: 0
         WlrLayershell.namespace: "quickshell:sidebarHandle"
-        WlrLayershell.layer: WlrLayer.Top
+        // Above the bar, whose outer edge the trigger strip lies on.
+        WlrLayershell.layer: barHere ? WlrLayer.Overlay : WlrLayer.Top
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         color: "transparent"
-        implicitWidth: pill.implicitWidth + 4
+        implicitWidth: inset + pill.implicitWidth + 4
         implicitHeight: Math.max(pill.implicitHeight + 24, (screen?.height ?? 0) * 0.4)
 
         Region { id: noInput }
@@ -84,8 +105,10 @@ Scope {
             anchors.verticalCenter: parent.verticalCenter
             anchors.left: handleWindow.right ? undefined : parent.left
             anchors.right: handleWindow.right ? parent.right : undefined
+            anchors.leftMargin: handleWindow.inset
+            anchors.rightMargin: handleWindow.inset
             height: pill.implicitHeight + 24
-            width: handleWindow.hovered ? parent.width : 6
+            width: handleWindow.hovered ? parent.width - handleWindow.inset : 6
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: handleWindow.open(false)
@@ -106,8 +129,8 @@ Scope {
             anchors.left: handleWindow.right ? undefined : parent.left
             anchors.right: handleWindow.right ? parent.right : undefined
             // Resting pill 3px off the edge; the hovered tab tucks into it
-            anchors.leftMargin: -2
-            anchors.rightMargin: -2
+            anchors.leftMargin: handleWindow.inset - 2
+            anchors.rightMargin: handleWindow.inset - 2
             shown: handleWindow.shown
             hovered: handleWindow.hovered
             icon: handleWindow.right ? "keyboard_arrow_left" : "keyboard_arrow_right"
