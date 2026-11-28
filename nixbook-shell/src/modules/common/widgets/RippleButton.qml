@@ -6,7 +6,9 @@ import QtQuick
 import QtQuick.Controls
 
 /**
- * A button with ripple effect similar to in Material Design.
+ * A button with ripple effect similar to in Material Design. Under Liquid
+ * Glass (Appearance.glass) it has no ripple, as on macOS: the press darkens
+ * the fill instead (and nothing renders offscreen on a click).
  */
 Button {
     id: root
@@ -17,7 +19,7 @@ Button {
     property real buttonRadiusPressed: buttonRadius
     property real buttonEffectiveRadius: root.down ? root.buttonRadiusPressed : root.buttonRadius
     property int rippleDuration: 1200
-    property bool rippleEnabled: true
+    property bool rippleEnabled: !Appearance.glass.enabled
     property var downAction // When left clicking (down)
     property var releaseAction // When left clicking (release)
     property var altAction // When right clicking
@@ -34,10 +36,12 @@ Button {
     property color colRippleToggled: Appearance?.colors.colPrimaryActive ?? "#D6CEE2"
 
     opacity: root.enabled ? 1 : 0.4
-    property color buttonColor: ColorUtils.transparentize(root.toggled ? 
-        (root.hovered ? colBackgroundToggledHover : 
+    // Without a ripple, the press shows as the ripple's colour.
+    readonly property bool pressTint: root.down && !root.rippleEnabled
+    property color buttonColor: ColorUtils.transparentize(root.toggled ?
+        (root.pressTint ? colRippleToggled : root.hovered ? colBackgroundToggledHover :
             colBackgroundToggled) :
-        (root.hovered ? colBackgroundHover : 
+        (root.pressTint ? colRipple : root.hovered ? colBackgroundHover :
             colBackground), root.enabled ? 0 : 1)
     property color rippleColor: root.toggled ? colRippleToggled : colRipple
 

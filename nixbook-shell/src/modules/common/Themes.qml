@@ -138,6 +138,19 @@ Singleton {
     function rounded(radius) {
         return Math.round(radius * root.roundingScale);
     }
+    //   glass     the Liquid Glass surface of floating panels (Appearance.glass:
+    //             GlassRim + the soft shadow): an object of overrides
+    //             ({ rim, edge, hairline, sheen, shadowAlpha, rimColor,
+    //             shadowColor }; colours are a palette key or "#rrggbb"), a
+    //             variant's merged over its theme's; false: none. Off with
+    //             the theme's shapes.
+    readonly property var glass: {
+        const t = root.currentTheme?.style?.glass;
+        const v = root.currentVariant?.style?.glass;
+        if (t === false || v === false || !root.styleOn("shapes"))
+            return null;
+        return Object.assign({}, t ?? {}, v ?? {});
+    }
 
     // ---------------------------------------------------------- setters
     function setTheme(id) {

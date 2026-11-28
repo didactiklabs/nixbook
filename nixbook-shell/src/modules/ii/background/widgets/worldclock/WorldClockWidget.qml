@@ -343,6 +343,8 @@ AbstractBackgroundWidget {
 
                         StyledRectangularShadow {
                             target: androidClock
+                            // Desktop / grid: the layer redraws often, keep it tonal.
+                            elevated: false
                             z: -2
                             visible: Config.options.background.widgets.shadow
                         }

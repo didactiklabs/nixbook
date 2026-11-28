@@ -11,7 +11,7 @@ The theme is `appearance.theme`. Switch it from:
 
 | Theme       | Variants                                                  | Look                                                                                                                                                                   |
 | ----------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `material`  | —                                                         | The default: colours from the wallpaper, Material 3 tonal elevation (surfaces told apart by tone and a thin outline, no shadows)                                       |
+| `material`  | —                                                         | The default: colours from the wallpaper on Liquid Glass panels (below)                                                                                                 |
 | `persona`   | `p5` (Royal, default), `p3r` (3 Reload), `p4` (4 Revival) | Slanted black panels with bold outlines, hard unblurred offset shadows, accent slashes and halftone art; notifications as the in-game phone chat                       |
 | `chiikawa`  | `chiikawa` (default), `usagi`, `momonga`                  | Pastel light palettes, bubbly corners, bouncy motion and an animated Momonga                                                                                           |
 | `cyberpunk` | `yellow` (default), `red`, `cyan`                         | Cyberpunk 2077, after its UI art: hairline HUD frames with cut corners, notched edges, rulers and caps tags; in-world screen wallpapers, glitch effects, Rajdhani type |
@@ -25,6 +25,12 @@ programs.nixbook-shell.settings.appearance = {
 ```
 
 Each theme keeps its own variant (`appearance.<theme>.variant`), so switching away and back restores it. Themes with variants also have per-part switches — `palette`, `motion`, `shapes`, `fonts`, and theme extras such as Persona's `halftone`, Chiikawa's `mascot`, Cyberpunk's `glitch` and `frames` (the HUD frames behind the panels) or Ghibli's `spirits` — to take only part of a theme.
+
+## Liquid Glass
+
+Every theme but Persona draws its floating surfaces (popups, side panels, dock, launcher, notifications, OSD, menus) and the bar's capsules in a **Liquid Glass** look, after macOS Tahoe: a dark hairline, a light inner edge, a glint along the top and a faint sheen, over a soft shadow. Switches have a white lozenge knob on the accent track, small sliders a thin track and a white knob, buttons darken when pressed instead of rippling, and motion is a calm spring with a slight settle. Each theme tunes the glass in `themes.json` (`style.glass`): Chiikawa's is glossy with a shadow in its line colour, Cyberpunk's a neon rim and glow (seen with its HUD frames off), Ghibli's rim takes the variant's cloud colour. It goes with a theme's `shapes` switch; Persona keeps its comic frames and hard shadows.
+
+The glass is plain static rectangles and a signed-distance shadow drawn only when its surface redraws: no blur pass, no texture, nothing animated, so a still screen costs nothing more. Desktop widgets and the wallpaper grid keep the flat look (their layers redraw often).
 
 ## Wallpapers per theme
 
@@ -42,7 +48,7 @@ Under Niri, window open/close animations follow the theme: the shell fills a Nir
 
 ## Fonts
 
-Google Sans Flex (main text, titles, numbers), Space Grotesk (desktop clock) and Readex Pro (AI chat), plus each theme's faces, are shipped with the shell and on the login screen, so nothing falls back to the system font (`appearance.fonts`).
+Inter (main text, titles, numbers: the closest free face to Apple's SF Pro; a config still on the former default, Google Sans Flex, moves to it once), Google Sans Flex (the digital clock style's default face), Space Grotesk (desktop clock and date) and Readex Pro (AI chat), plus each theme's faces, are shipped with the shell and on the login screen, so nothing falls back to the system font (`appearance.fonts`).
 
 ## App colours
 

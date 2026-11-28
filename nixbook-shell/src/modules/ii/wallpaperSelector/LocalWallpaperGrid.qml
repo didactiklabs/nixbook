@@ -160,6 +160,8 @@ Item {
 
             StyledRectangularShadow {
                 target: parent
+                // Desktop / grid: the layer redraws often, keep it tonal.
+                elevated: false
             }
 
             ColumnLayout {

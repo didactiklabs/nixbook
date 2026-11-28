@@ -108,6 +108,8 @@ AbstractBackgroundWidget {
         implicitWidth: statusTextBg.implicitWidth
         StyledRectangularShadow {
             target: statusTextBg
+            // Desktop / grid: the layer redraws often, keep it tonal.
+            elevated: false
             visible: statusTextBg.visible && root.clockStyle === "cookie"
             opacity: statusTextBg.opacity
         }

@@ -1,4 +1,5 @@
 import qs.modules.common
+import qs.modules.common.widgets
 import QtQuick
 import QtQuick.Layouts
 
@@ -91,6 +92,17 @@ Item {
 
         Behavior on color {
             animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+        }
+
+        // Liquid Glass capsule edge (static: the bar draws nothing more).
+        GlassRim {
+            anchors.fill: parent
+            visible: Appearance.glass.enabled && background.color.a > 0.02 && width > 4 && height > 4
+            topLeftRadius: background.topLeftRadius
+            topRightRadius: background.topRightRadius
+            bottomLeftRadius: background.bottomLeftRadius
+            bottomRightRadius: background.bottomRightRadius
+            radius: background.topLeftRadius
         }
     }
 

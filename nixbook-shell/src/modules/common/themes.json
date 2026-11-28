@@ -5,6 +5,7 @@
     "these ids), the login screen (scripts/theme-palettes.py, greeter.nix) and niri's first frames.",
     "`default` is the theme when none is set; a theme's `defaultVariant` (else its first) is its default variant.",
     "A theme's `style` (a variant's own overriding it) is its look as data: see Themes.qml.",
+    "`style.glass` tunes the Liquid Glass panels (Appearance.glass, GlassRim): a variant's merged over its theme's.",
     "A variant's `palette` (optional) replaces the wallpaper-generated Material palette while the",
     "theme is on (MaterialThemeLoader). A variant's (or theme's) `wallpaper` (optional, a path in the shell tree) is",
     "shown when switching to it until the user picks another (services/ThemeWallpapers.qml).",
@@ -111,6 +112,7 @@
       "defaultVariant": "chiikawa",
       "style": {
         "rounding": 1.45,
+        "glass": { "rim": 1, "edge": 0.8, "sheen": 0.45, "hairline": 0.08, "shadowColor": "line", "shadowAlpha": 0.16 },
         "fonts": { "main": "Nunito", "title": "Nunito", "numbers": "Nunito" },
         "motion": {
           "slam": [0.34, 1.56, 0.64, 1, 1, 1],
@@ -203,6 +205,7 @@
       "style": {
         "rounding": 0.1,
         "pill": 3,
+        "glass": { "rimColor": "primary", "rim": 0.6, "edge": 0.14, "sheen": 0, "hairline": 0.6, "shadowColor": "primary", "shadowAlpha": 0.18 },
         "fonts": { "main": "Rajdhani", "title": "Rajdhani", "numbers": "Rajdhani" },
         "motion": {
           "slam": [0.1, 0.9, 0.2, 1, 1, 1],
@@ -291,6 +294,7 @@
       "defaultVariant": "totoro",
       "style": {
         "rounding": 1.35,
+        "glass": { "rimColor": "cloud", "hairline": 0.22 },
         "fonts": { "main": "Zen Maru Gothic", "title": "Klee One", "numbers": "Zen Maru Gothic" },
         "motion": {
           "slam": [0.12, 0.9, 0.22, 1.02, 1, 1],
@@ -305,6 +309,7 @@
           "name": "My Neighbor Totoro",
           "icon": "park",
           "wallpaper": "assets/ghibli/totoro-wallpaper.png",
+          "style": { "glass": { "shadowColor": "ink", "shadowAlpha": 0.15, "hairline": 0.08 } },
           "sounds": {
             "notification": "assets/ghibli/sounds/totoro-notification.wav",
             "critical": "assets/ghibli/sounds/totoro-critical.wav",
