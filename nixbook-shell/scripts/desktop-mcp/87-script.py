@@ -276,13 +276,17 @@ def call_script(ctx, args, session=None):
         content = t_run_script(ctx, args)
     except ToolError as e:
         audit(ctx.client, "run_script", logged, f"error: {e}")
-        return [text(str(e))], True
+        return [text(mask_text(str(e)) if privacy_on() else str(e))], True
     except Exception as e:  # a bug here must not kill the server
         audit(ctx.client, "run_script", logged, f"crash: {e!r}")
         log(f"run_script: {e!r}")
         return [text(f"internal error: {e}")], True
     audit(ctx.client, "run_script", logged, "ok")
     count_use("tools", "run_script")
+    # The script only ever held masked values; masked again all the same,
+    # as every reply that reaches the model.
+    if privacy_on():
+        content = mask_obj(content, privacy_vocab())
     return content, False
 
 
@@ -326,8 +330,9 @@ def script_step(ctx, msg, others):
         try:
             content, failed = others.call(server, tool_name, real)
         except ToolError as e:
-            audit(ctx.client, f"{server}__{tool_name}", {}, f"error: {e}")
-            return None, str(e)
+            audit(ctx.client, f"{server}__{tool_name}", {}, "error")
+            # A server's refusal may quote what it was given: the real values.
+            return None, mask_text(str(e)) if privacy_on() else str(e)
         audit(ctx.client, f"{server}__{tool_name}", {}, "error" if failed else "ok")
         if privacy_on():
             content = mask_obj(content, privacy_vocab())

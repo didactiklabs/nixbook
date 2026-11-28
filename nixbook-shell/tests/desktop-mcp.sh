@@ -4037,6 +4037,43 @@ expect_not_contains "privacy: no real email in a tool's reply" "$out" "elodie@ex
 reset_calls
 call type_text '{"text":"Hi ⟦Person 2⟧"}' >/dev/null
 expect_eq "privacy: typed with the real values" "wtype - <<Hi Noor Durand" "$(last_call)"
+# Code mode: the script lives on the model's side, with placeholders only;
+# each of its calls gets the real values, every reply comes back masked.
+export NIXBOOK_DESKTOP_MCP_SCRIPT_UNSANDBOXED=1
+out=$(call run_script '{"code":"r = tools.contacts(action=\"list\", query=\"elodie\")\nprint(r)"}')
+expect_contains "privacy: run_script: a tool's reply masked in the script" "$out" "⟦Person 1⟧"
+expect_not_contains "privacy: run_script: no real name" "$out" "Élodie Martin"
+expect_not_contains "privacy: run_script: no real email" "$out" "elodie@example.com"
+reset_calls
+call run_script '{"code":"tools.type_text(text=\"Hi ⟦Person 2⟧\")"}' >/dev/null
+expect_eq "privacy: run_script: a tool gets the real values" "wtype - <<Hi Noor Durand" "$(grep '^wtype' "$calls" | tail -n 1)"
+cat >"$tmp/fake-echo-mcp.py" <<'PYEOF'
+import json, os, sys
+for line in sys.stdin:
+    msg = json.loads(line)
+    if msg.get("method") == "initialize":
+        print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": {"protocolVersion": "2025-06-18", "capabilities": {}, "serverInfo": {"name": "fake"}}}), flush=True)
+    elif msg.get("method") == "tools/call":
+        q = msg["params"]["arguments"].get("query", "")
+        with open(os.environ["FAKE_ECHO_LOG"], "a") as f:
+            f.write(q + "\n")
+        if msg["params"]["name"] == "fail":
+            print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "error": {"code": -1, "message": f"no item named {q}"}}), flush=True)
+        else:
+            print(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": {"content": [{"type": "text", "text": f"found {q} (elodie@example.com)"}]}}), flush=True)
+PYEOF
+export FAKE_ECHO_LOG="$tmp/fake-echo.log"
+: >"$FAKE_ECHO_LOG"
+jq -n --arg py "$(command -v python3)" --arg s "$tmp/fake-echo-mcp.py" '{mcpServers: {echo: {command: $py, args: [$s]}}}' \
+  >"$XDG_CONFIG_HOME/nixbook-shell/assistant-mcp.json"
+out=$(call run_script '{"code":"print(servers.echo.search(query=\"⟦Person 1⟧\"))\ntry:\n    servers.echo.fail(query=\"⟦Person 1⟧\")\nexcept ToolError as e:\n    print(\"refused:\", e)"}')
+expect_eq "privacy: run_script: another server gets the real values" "Élodie Martin
+Élodie Martin" "$(cat "$FAKE_ECHO_LOG")"
+expect_contains "privacy: run_script: its reply masked" "$out" "found ⟦Person 1⟧ (⟦Email 1⟧)"
+expect_contains "privacy: run_script: its refusal masked too" "$out" "refused: echo refused: no item named ⟦Person 1⟧"
+expect_not_contains "privacy: run_script: no real name from another server" "$out" "Élodie"
+rm "$XDG_CONFIG_HOME/nixbook-shell/assistant-mcp.json"
+unset NIXBOOK_DESKTOP_MCP_SCRIPT_UNSANDBOXED FAKE_ECHO_LOG
 
 # Claude Code's hook (the side panel): any tool, both ways.
 hook() { python3 "$mcp" privacy hook <<<"$1"; }
