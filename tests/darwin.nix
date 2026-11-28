@@ -75,8 +75,11 @@ in
     spaces = check "system.defaults.spaces.spans-displays isn't false" (
       config.system.defaults.spaces.spans-displays == false
     );
-    darwinSwitch = check "darwin-switch isn't installed" (
-      lib.any (p: (p.name or "") == "darwin-switch") config.environment.systemPackages
+    darwinSwitch = check "darwin-switch or osupdate isn't installed" (
+      lib.all (name: lib.any (p: (p.name or "") == name) config.environment.systemPackages) [
+        "darwin-switch"
+        "osupdate"
+      ]
     );
   };
 }

@@ -57,6 +57,9 @@ separate_spaces() { [ "$(defaults read com.apple.spaces spans-displays 2>/dev/nu
 
 expect "/run/current-system is the new system" is_current
 expect "darwin-switch installed" test -x /run/current-system/sw/bin/darwin-switch
+# Not run: it applies main from GitHub, not this change.
+expect "osupdate installed" test -x /run/current-system/sw/bin/osupdate
+expect "ginx installed" test -x /run/current-system/sw/bin/ginx
 expect "/etc/nixos/version has the revision" has_rev
 expect "nix.conf is nixbook's" grep -q didactiklabs-nixcache /etc/nix/nix.conf
 expect "Displays have separate Spaces (OmniWM)" separate_spaces
