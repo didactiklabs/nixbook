@@ -23,16 +23,20 @@ Item {
     readonly property color offColor: root.isMaterial ? root.iconColor : Appearance.colors.colSubtext
 
     readonly property bool networkConnected: Network.ethernet || (Network.wifiEnabled && Network.wifiStatus === "connected")
-    readonly property string clickHint: Translation.tr("Click to open quick settings")
+    // Each icon is its own button (no shared pill: that made the whole
+    // group one button opening the right panel): its own hover pill, a
+    // click opening its dialog in the right panel, a right click switching
+    // it (mute, Wi-Fi, Bluetooth). The notifications are the bell
+    // (NotificationButton), which opens the panel.
+    readonly property bool ownHoverFeedback: true
 
-    // Hover popup for one icon: what it shows, and that clicking opens the
-    // right sidebar (quick settings).
+    // Hover popup for one icon: what it shows, and what a click does.
     component IconHint: StyledPopup {
         id: hint
-        hoverTint: false // the group's shared pill lights up already
+        hoverTint: false // the icon's own pill lights up already
         property string title
         property string detail: ""
-        property string action: root.clickHint
+        property string action: ""
         ColumnLayout {
             spacing: 2
             StyledText {
@@ -47,6 +51,7 @@ Item {
                 color: Appearance.colors.colSubtext
             }
             StyledText {
+                visible: hint.action !== ""
                 text: hint.action
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 font.italic: true
@@ -54,15 +59,45 @@ Item {
             }
         }
     }
-    // An icon with its own hover area (for the popup); click opens the sidebar.
-    component HintedIcon: Item {
-        id: hinted
+    // One icon, one button: hover pill, left/right click, wheel.
+    component IconButton: Item {
+        id: btn
         property alias text: icon.text
         property alias color: icon.color
         property alias hintTitle: iconHint.title
         property alias hintDetail: iconHint.detail
-        implicitWidth: icon.implicitWidth
-        implicitHeight: icon.implicitHeight
+        property alias hintAction: iconHint.action
+        // Its dialog is on screen in the right panel.
+        property bool toggled: false
+        signal leftClicked()
+        signal rightClicked()
+        signal scrolled(int delta)
+        readonly property bool hovered: area.containsMouse
+        implicitWidth: root.vertical ? 28 : icon.implicitWidth + 10
+        implicitHeight: root.vertical ? icon.implicitHeight + 8 : 28
+
+        Rectangle {
+            id: pill
+            anchors.fill: parent
+            // Persona style: slanted like the BarGroup background around it.
+            readonly property bool slanted: Persona.shapes && !root.vertical
+            readonly property real skew: slanted ? Math.tan(-15 * Math.PI / 180) : 0
+            transform: Matrix4x4 {
+                matrix: Qt.matrix4x4(1, pill.skew, 0, -pill.skew * pill.height / 2,
+                                     0, 1, 0, 0,
+                                     0, 0, 1, 0,
+                                     0, 0, 0, 1)
+            }
+            radius: slanted ? Persona.corner : Appearance.rounding.full
+            color: root.isMaterial
+                ? ColorUtils.transparentize(Appearance.colors.colOnPrimary, btn.toggled ? 0.75 : btn.hovered ? 0.85 : 1)
+                : btn.toggled
+                    ? (btn.hovered ? Appearance.colors.colSecondaryContainerHover : Appearance.colors.colSecondaryContainer)
+                    : ColorUtils.transparentize(Appearance.colors.colSecondaryContainer, btn.hovered ? 0.6 : 1)
+            Behavior on color {
+                animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+            }
+        }
         MaterialSymbol {
             id: icon
             anchors.centerIn: parent
@@ -72,183 +107,64 @@ Item {
             }
         }
         MouseArea {
-            id: iconArea
+            id: area
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onPressed: GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onPressed: mouse => mouse.button === Qt.RightButton ? btn.rightClicked() : btn.leftClicked()
+            onWheel: wheel => {
+                if (wheel.angleDelta.y !== 0) btn.scrolled(wheel.angleDelta.y > 0 ? 1 : -1);
+            }
         }
         IconHint {
             id: iconHint
-            hoverTarget: iconArea
+            hoverTarget: area
         }
     }
 
-    implicitWidth: root.vertical ? 32 : flow.implicitWidth + 16
-    implicitHeight: root.vertical ? flow.implicitHeight + 16 : 32
-
-    // The whole group is a single button (toggles the right sidebar): one
-    // shared pill lights up when hovering any icon and stays highlighted
-    // while the sidebar is open, like LeftSidebarButton.
-    readonly property bool toggled: GlobalStates.sidebarRightOpen
-    HoverHandler {
-        id: groupHover
-    }
-    Rectangle {
-        id: buttonBackground
-        anchors.fill: parent
-        anchors.topMargin: root.vertical ? 0 : 2
-        anchors.bottomMargin: root.vertical ? 0 : 2
-        anchors.leftMargin: root.vertical ? 2 : 0
-        anchors.rightMargin: root.vertical ? 2 : 0
-        // Persona style: slanted like the BarGroup background around it.
-        readonly property bool slanted: Persona.shapes && !root.vertical
-        readonly property real skew: slanted ? Math.tan(-15 * Math.PI / 180) : 0
-        transform: Matrix4x4 {
-            matrix: Qt.matrix4x4(1, buttonBackground.skew, 0, -buttonBackground.skew * buttonBackground.height / 2,
-                                 0, 1, 0, 0,
-                                 0, 0, 1, 0,
-                                 0, 0, 0, 1)
-        }
-        radius: slanted ? Persona.corner : Appearance.rounding.full
-        color: root.isMaterial
-            ? ColorUtils.transparentize(Appearance.colors.colOnPrimary,
-                root.toggled ? 0.75 : groupHover.hovered ? 0.85 : 1)
-            : root.toggled
-                ? (groupHover.hovered ? Appearance.colors.colSecondaryContainerHover : Appearance.colors.colSecondaryContainer)
-                : ColorUtils.transparentize(Appearance.colors.colSecondaryContainer, groupHover.hovered ? 0.7 : 1)
-        // Accent outline marks the button's extent: faint on hover, solid
-        // while the sidebar is open.
-        border.width: root.isMaterial ? 0 : 2
-        border.color: ColorUtils.transparentize(Appearance.colors.colPrimary,
-            root.toggled ? 0 : groupHover.hovered ? 0.5 : 1)
-        Behavior on color {
-            animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
-        }
-        Behavior on border.color {
-            animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
-        }
-    }
-
-    MouseArea {
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        anchors.fill: parent
-        onPressed: {
-            GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen;
-        }
-    }
+    implicitWidth: root.vertical ? 32 : flow.implicitWidth + 8
+    implicitHeight: root.vertical ? flow.implicitHeight + 8 : 32
 
     Flow {
         id: flow
         anchors.centerIn: parent
         flow: root.vertical ? Flow.TopToBottom : Flow.LeftToRight
-        spacing: isMaterial ? 2 : root.vertical ? 6 : 10
+        spacing: 2
 
-        Revealer {
-            reveal: true
-            Item {
-                id: volumeItem
-                implicitWidth: root.vertical ? volumeColLayout.implicitWidth : volumeRowLayout.implicitWidth
-                implicitHeight: root.vertical ? volumeColLayout.implicitHeight : volumeRowLayout.implicitHeight
-                property bool hovered: false
-
-                RowLayout {
-                    id: volumeRowLayout
-                    visible: !root.vertical
-                    anchors.centerIn: parent
-                    spacing: 3
-
-                    MaterialSymbol {
-                        Layout.alignment: Qt.AlignVCenter
-                        text: {
-                            if (Audio.sink?.audio?.muted) return "volume_off"
-                            return "volume_up";
-                        }
-                        iconSize: Appearance.font.pixelSize.larger
-                        color: root.iconColor
-                    }
-
-                    StyledText {
-                        Layout.alignment: Qt.AlignVCenter
-                        visible: false
-                        font.pixelSize: Appearance.font.pixelSize.small
-                        font.features: { "tnum": 1 }
-                        color: root.iconColor
-                        text: `${Math.round((Audio.sink?.audio?.volume ?? 0) * 100)}`
-                    }
-                }
-
-                ColumnLayout {
-                    id: volumeColLayout
-                    visible: root.vertical
-                    anchors.centerIn: parent
-                    spacing: 1
-
-                    MaterialSymbol {
-                        Layout.alignment: Qt.AlignHCenter
-                        text: {
-                            if (Audio.sink?.audio?.muted) return "volume_off";
-                            return "volume_up";
-                        }
-                        iconSize: Appearance.font.pixelSize.larger
-                        color: root.iconColor
-                    }
-
-                    StyledText {
-                        Layout.alignment: Qt.AlignHCenter
-                        visible: false
-                        font.pixelSize: Appearance.font.pixelSize.smallest
-                        font.features: { "tnum": 1 }
-                        color: root.iconColor
-                        text: `${Math.round((Audio.sink?.audio?.volume ?? 0) * 100)}`
-                    }
-                }
-
-                IconHint {
-                    hoverTarget: volumeArea
-                    title: (Audio.sink?.audio?.muted ?? false)
-                        ? Translation.tr("Volume muted")
-                        : Translation.tr("Volume %1%").arg(Math.round((Audio.sink?.audio?.volume ?? 0) * 100))
-                    detail: Audio.sink ? Audio.friendlyDeviceName(Audio.sink) : ""
-                    action: Translation.tr("Scroll to adjust · click to open quick settings")
-                }
-                MouseArea {
-                    id: volumeArea
-                    cursorShape: Qt.PointingHandCursor
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton
-                    hoverEnabled: true
-                    onEntered: volumeItem.hovered = true
-                    onExited: volumeItem.hovered = false
-                    onWheel: wheel => {
-                        if (wheel.angleDelta.y > 0) {
-                            Audio.incrementVolume();
-                        } else if (wheel.angleDelta.y < 0) {
-                            Audio.decrementVolume();
-                        }
-                    }
-                    onPressed: mouse => {
-                        GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen;
-                    }
-                }
-            }
+        IconButton {
+            text: (Audio.sink?.audio?.muted ?? false) ? "volume_off" : "volume_up"
+            color: root.iconColor
+            toggled: GlobalStates.sidebarRightOpen && GlobalStates.sidebarRightDialogShown === "audioOutput"
+            hintTitle: (Audio.sink?.audio?.muted ?? false)
+                ? Translation.tr("Volume muted")
+                : Translation.tr("Volume %1%").arg(Math.round((Audio.sink?.audio?.volume ?? 0) * 100))
+            hintDetail: Audio.sink ? Audio.friendlyDeviceName(Audio.sink) : ""
+            hintAction: Translation.tr("Click: sound output · right click: mute · scroll: volume")
+            onLeftClicked: GlobalStates.toggleSidebarRightDialog("audioOutput")
+            onRightClicked: Audio.toggleMute()
+            onScrolled: delta => delta > 0 ? Audio.incrementVolume() : Audio.decrementVolume()
         }
         Revealer {
             reveal: Audio.micMuted
-            HintedIcon {
+            IconButton {
                 text: "mic_off"
                 color: root.iconColor
+                toggled: GlobalStates.sidebarRightOpen && GlobalStates.sidebarRightDialogShown === "audioInput"
                 hintTitle: Translation.tr("Microphone muted")
                 hintDetail: Audio.source ? Audio.friendlyDeviceName(Audio.source) : ""
+                hintAction: Translation.tr("Click: microphones · right click: unmute")
+                onLeftClicked: GlobalStates.toggleSidebarRightDialog("audioInput")
+                onRightClicked: Audio.toggleMicMute()
             }
         }
         KeyboardLayoutIndicator {
             color: root.iconColor
         }
-        HintedIcon {
+        IconButton {
             text: Network.materialSymbol
             color: root.networkConnected ? root.activeColor : root.offColor
+            toggled: GlobalStates.sidebarRightOpen && GlobalStates.sidebarRightDialogShown === "wifi"
             hintTitle: Network.ethernet ? Translation.tr("Ethernet connected")
                 : root.networkConnected ? Translation.tr("Wi-Fi: %1").arg(Network.networkName)
                 : Network.wifiEnabled ? Translation.tr("Wi-Fi on, not connected")
@@ -256,11 +172,17 @@ Item {
             hintDetail: !root.networkConnected ? ""
                 : [Network.ethernet ? "" : Translation.tr("%1% signal").arg(Network.active?.strength ?? 0),
                    Network.ipAddress].filter(s => s && s.length > 0).join(" · ")
+            hintAction: Network.wifiEnabled
+                ? Translation.tr("Click: Wi-Fi networks · right click: turn Wi-Fi off")
+                : Translation.tr("Click: Wi-Fi networks · right click: turn Wi-Fi on")
+            onLeftClicked: GlobalStates.toggleSidebarRightDialog("wifi")
+            onRightClicked: Network.toggleWifi()
         }
-        HintedIcon {
+        IconButton {
             visible: BluetoothStatus.available
             text: BluetoothStatus.connected ? "bluetooth_connected" : BluetoothStatus.enabled ? "bluetooth" : "bluetooth_disabled"
             color: BluetoothStatus.connected ? root.activeColor : BluetoothStatus.enabled ? root.iconColor : root.offColor
+            toggled: GlobalStates.sidebarRightOpen && GlobalStates.sidebarRightDialogShown === "bluetooth"
             readonly property var device: BluetoothStatus.primaryConnectedDevice
             hintTitle: BluetoothStatus.connected
                 ? Translation.tr("Bluetooth: %1").arg(device?.name ?? "")
@@ -269,25 +191,11 @@ Item {
                 : Translation.tr("Bluetooth off")
             hintDetail: (device?.batteryAvailable && Number.isFinite(Number(device?.battery)))
                 ? Translation.tr("%1% battery").arg(Math.round(Number(device.battery) * 100)) : ""
-        }
-        Loader {
-            id: notifLoader
-            active: Notifications.silent || Notifications.unread > 0
-            visible: active
-            source: "NotificationUnreadCount.qml"
-            MouseArea {
-                id: notifArea
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onPressed: GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen
-            }
-            IconHint {
-                hoverTarget: notifArea
-                title: Notifications.silent ? Translation.tr("Do not disturb")
-                    : Translation.tr("%1 unread notification(s)").arg(Notifications.unread)
-                action: Translation.tr("Click to open the notification centre")
-            }
+            hintAction: BluetoothStatus.enabled
+                ? Translation.tr("Click: Bluetooth devices · right click: turn Bluetooth off")
+                : Translation.tr("Click: Bluetooth devices · right click: turn Bluetooth on")
+            onLeftClicked: GlobalStates.toggleSidebarRightDialog("bluetooth")
+            onRightClicked: BluetoothStatus.togglePower()
         }
     }
 }

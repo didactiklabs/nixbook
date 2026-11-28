@@ -25,6 +25,24 @@ Singleton {
     // Pinned (the header's pin, Ctrl+P): open beside the windows, its strip
     // reserved, kept across restarts (modules/ii/sidebarRight/SidebarRight).
     property bool sidebarRightPinned: false
+    // A dialog of the right panel asked for from outside it (the bar's
+    // icons): "wifi", "bluetooth", "audioOutput", "audioInput"; the panel
+    // shows it when its content is there (now, or once built) and clears
+    // it. `sidebarRightDialogShown`: the one on screen ("" none), told by
+    // the panel.
+    property string sidebarRightDialog: ""
+    property string sidebarRightDialogShown: ""
+    // Opens the right panel on that dialog; again while it shows closes
+    // the panel (never a pinned one: it stays, the dialog goes).
+    function toggleSidebarRightDialog(name) {
+        if (root.sidebarRightOpen && root.sidebarRightDialogShown === name) {
+            if (root.sidebarRightPinned) root.sidebarRightDialog = "none";
+            else root.sidebarRightOpen = false;
+            return;
+        }
+        root.sidebarRightDialog = name;
+        root.sidebarRightOpen = true;
+    }
     // The strips the pinned side panels reserve, by panel:
     // { screen (its name), width }. What is left of a screen's width is where
     // its windows go (Wallpapers.desktopCovered).

@@ -51,6 +51,24 @@ Item {
                 root.showAudioInputDialog = false;
             }
         }
+        function onSidebarRightDialogChanged() { root.applyRequestedDialog() }
+    }
+    // A dialog asked for from outside (the bar's icons: GlobalStates.toggleSidebarRightDialog).
+    function applyRequestedDialog() {
+        const name = GlobalStates.sidebarRightDialog;
+        if (name === "") return;
+        GlobalStates.sidebarRightDialog = "";
+        root.showWifiDialog = name === "wifi";
+        root.showBluetoothDialog = name === "bluetooth" && BluetoothStatus.available;
+        root.showAudioOutputDialog = name === "audioOutput";
+        root.showAudioInputDialog = name === "audioInput";
+    }
+    Component.onCompleted: root.applyRequestedDialog()
+    Binding {
+        target: GlobalStates
+        property: "sidebarRightDialogShown"
+        value: root.showWifiDialog ? "wifi" : root.showBluetoothDialog ? "bluetooth"
+            : root.showAudioOutputDialog ? "audioOutput" : root.showAudioInputDialog ? "audioInput" : ""
     }
 
     Process {

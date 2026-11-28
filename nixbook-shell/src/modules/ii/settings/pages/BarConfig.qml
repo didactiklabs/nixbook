@@ -42,6 +42,7 @@ ContentPage {
         { id: "media",             name: Translation.tr("Media"),                icon: "music_note" },
         { id: "resources",         name: Translation.tr("Resources"),            icon: "empty_dashboard" },
         { id: "systemIcons",       name: Translation.tr("System Icons"),         icon: "info" },
+        { id: "notificationButton", name: Translation.tr("Notifications"),       icon: "notifications" },
         { id: "networkSpeed",      name: Translation.tr("Network Speed"),        icon: "network_check" },
         { id: "clockWidget",       name: Translation.tr("Clock"),                icon: "schedule" },
         { id: "nextEvent",         name: Translation.tr("Next Event"),           icon: "event_upcoming" },
