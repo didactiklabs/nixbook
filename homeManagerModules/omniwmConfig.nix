@@ -11,7 +11,15 @@
 # as niri's Mod (OmniWM's own default modifier; Command stays the apps').
 #
 # OmniWM asks for Accessibility and Input Monitoring at its first start: that
-# can only be granted in System Settings > Privacy & Security, once.
+# can only be granted in System Settings > Privacy & Security, once (only an
+# MDM server could pre-allow Accessibility, and nothing can pre-allow Input
+# Monitoring).
+#
+# When nixpkgs' omniwm reaches the release after 0.8: its settings move to
+# ~/.config/omniwm/settings.luau, which may hold only the keys that differ
+# from the defaults (and init.luau for shortcuts). Then drop the merge
+# (omniwm/apply-settings.py, the omniwm-nix-settings agent, the activation
+# step, tests/omniwm-settings.sh) and write settings.luau from Nix instead.
 {
   config,
   lib,
