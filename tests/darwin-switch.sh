@@ -72,6 +72,19 @@ for bin in OmniWM omniwmctl nvim kitty kubectl starship zsh; do
 done
 expect "the user's zsh starts" "$hm_path/zsh" -i -c 'exit 0'
 
+# Apps copied where Spotlight finds them (copyApps), Zen known to
+# LaunchServices as a browser (making it the default needs a click in
+# macOS's dialog: not checked).
+apps="$home/Applications/Home Manager Apps"
+# shellcheck disable=SC2329
+has_app() { compgen -G "$apps/$1*.app" >/dev/null; }
+for app in Zen Vesktop kitty; do
+  expect "$app copied into $apps" has_app "$app"
+done
+# shellcheck disable=SC2329
+zen_is_browser() { nix-shell -p defaultbrowser --run defaultbrowser | grep -qiE 'zen|twilight'; }
+expect "Zen is a registered browser" zen_is_browser
+
 # darwin-switch, with no option, builds the same system (this host, this user).
 again=$(/run/current-system/sw/bin/darwin-switch --build --repo "$repo" 2>/dev/null | tail -n 1)
 expect "darwin-switch --build gives the same system ($again)" test "$again" = "$out"
