@@ -35,7 +35,8 @@ in
       settings = {
         inherit (cfg) email;
         base_url = cfg.baseUrl;
-        pinentry = pkgs.pinentry-qt;
+        # macOS: the native dialog (with "Save in Keychain").
+        pinentry = if pkgs.stdenv.hostPlatform.isDarwin then pkgs.pinentry_mac else pkgs.pinentry-qt;
         lock_timeout = 2629746;
       };
     };
